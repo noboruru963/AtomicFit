@@ -22,17 +22,17 @@ export function WorkoutComplete() {
         <h2>{texts.completeTitle}</h2>
         <div className="flex gap-12 text-center">
           <div className="flex flex-col">
-            <span className="muted" style={{ fontSize: 0.85rem }}>{texts.completeTotalTime}</span>
-            <span style={{ fontSize: 1.5rem, fontWeight: 800 }}>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>{texts.completeTotalTime}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800 }}>
               {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
             </span>
           </div>
           <div className="flex flex-col">
-            <span className="muted" style={{ fontSize: 0.85rem }}>{texts.completeTotalSets}</span>
-            <span style={{ fontSize: 1.5rem, fontWeight: 800 }}>{totalSets}</span>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>{texts.completeTotalSets}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800 }}>{totalSets}</span>
           </div>
         </div>
-        <p className="muted" style={{ fontSize: 0.85rem, textAlign: 'center' }}>
+        <p className="muted" style={{ fontSize: '0.85rem', textAlign: 'center' }}>
           Every rep counts. Saved to your history.
         </p>
         <Button variant="primary" onClick={() => navigate('/')}>

@@ -58,7 +58,7 @@ export function Programs() {
                     <span className="pill">{prog.type}</span>
                     {isCurrent && <span className="badge">Current</span>}
                   </div>
-                  <p className="muted" style={{ fontSize: 0.85rem }}>
+                  <p className="muted" style={{ fontSize: '0.85rem' }}>
                     {prog.exercises.join(' · ')}
                   </p>
                 </div>
@@ -73,7 +73,7 @@ export function Programs() {
                   )}
                 </div>
               </div>
-              <div className="muted" style={{ fontSize: 0.85rem }}>
+              <div className="muted" style={{ fontSize: '0.85rem' }}>
                 {prog.sets} sets × {prog.weight} kg · rest {prog.rest}
               </div>
             </div>
@@ -81,7 +81,7 @@ export function Programs() {
         })}
       </div>
 
-      <p className="muted text-center" style={{ fontSize: 0.8rem }}>
+      <p className="muted text-center" style={{ fontSize: '0.8rem' }}>
         Edits require "Confirm edit?" (Yes/Cancel). Programme content TBD-19.
       </p>
     </div>

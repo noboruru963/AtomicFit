@@ -30,9 +30,9 @@ export function Home() {
       {/* Quiz entry control (US-004) — shown when inactive for 7+ days */}
       <section className="card flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 style={{ fontSize: 0.95rem }}>{texts.homeQuizEntry}</h2>
+          <h2 style={{ fontSize: '0.95rem' }}>{texts.homeQuizEntry}</h2>
         </div>
-        <p className="muted" style={{ fontSize: 0.85rem }}>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
           Short non-diagnostic quiz to adjust your program to your pace.
         </p>
         <Button variant="outlined" onClick={() => navigate('/quiz/prompt')}>
@@ -43,17 +43,17 @@ export function Home() {
       {/* Calendar + monthly count */}
       <section className="card flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 style={{ fontSize: 0.95rem }}>{t('homeCalendarMonth')}</h2>
+          <h2 style={{ fontSize: '0.95rem' }}>{t('homeCalendarMonth')}</h2>
           <div className="flex items-center gap-3">
             <span className="badge">{monthlyCount}</span>
-            <span className="muted" style={{ fontSize: 0.85rem }}>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
               {t('homeMonthlyCount')}
             </span>
           </div>
         </div>
         <div className="calendar" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d} className="muted" style={{ fontSize: 0.75rem, textAlign: 'center' }}>
+            <div key={d} className="muted" style={{ fontSize: '0.75rem', textAlign: 'center' }}>
               {d}
             </div>
           ))}
@@ -71,7 +71,7 @@ export function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 0.85rem,
+                  fontSize: '0.85rem',
                   background: today ? 'var(--primary-light)' : 'transparent',
                   color: today ? 'var(--primary-dark)' : 'var(--text)',
                   fontWeight: today ? 800 : 400,
@@ -82,7 +82,7 @@ export function Home() {
             );
           })}
         </div>
-        <p className="muted" style={{ fontSize: 0.8rem }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
           {currentMonth} · days with completed workouts are marked
         </p>
       </section>
@@ -106,7 +106,7 @@ export function Home() {
         </Button>
       </section>
 
-      <p className="muted text-center" style={{ fontSize: 0.8rem }}>
+      <p className="muted text-center" style={{ fontSize: '0.8rem' }}>
         {texts.homeNoWorkoutsYet}
       </p>
     </div>

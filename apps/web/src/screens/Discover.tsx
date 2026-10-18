@@ -40,7 +40,7 @@ export function Discover() {
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3">
-          <label style={{ fontSize: 0.85rem, fontWeight: 700 }}>{texts.discoverSearch ?? texts.discoverExplore}</label>
+          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>{texts.discoverSearch ?? texts.discoverExplore}</label>
           <input
             type="search"
             value={search}
@@ -57,7 +57,7 @@ export function Discover() {
               <div key={ex.id} className="card p-4 flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                   <span style={{ fontWeight: 700 }}>{ex.name}</span>
-                  <span className="muted" style={{ fontSize: 0.85rem }}>{ex.description}</span>
+                  <span className="muted" style={{ fontSize: '0.85rem' }}>{ex.description}</span>
                 </div>
                 <Button
                   variant={isAdded ? 'secondary' : 'outlined'}
@@ -76,7 +76,7 @@ export function Discover() {
         </div>
       </div>
 
-      <p className="muted text-center" style={{ fontSize: 0.8rem }}>
+      <p className="muted text-center" style={{ fontSize: '0.8rem' }}>
         From an active workout, "Add another exercise?" adds to the workout.
         Catalogue content TBD-20.
       </p>

@@ -28,8 +28,8 @@ export function TopBar({ theme }: { theme: string }) {
       <div className="top-bar-left flex items-center gap-12">
         <Logo className="top-logo" />
         <div className="top-bar-title">
-          <div style={{ fontWeight: 800, fontSize: 1.05rem }}>AtomFit</div>
-          <div style={{ fontSize: 0.8rem, opacity: 0.85 }}>{now}</div>
+          <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>AtomFit</div>
+          <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>{now}</div>
         </div>
       </div>
       <div className="top-bar-right flex items-center gap-12">

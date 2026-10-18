@@ -51,7 +51,7 @@ export function History() {
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3">
-          <label style={{ fontSize: 0.85rem, fontWeight: 700 }}>{texts.historySearch}</label>
+          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>{texts.historySearch}</label>
           <input
             type="search"
             value={search}
@@ -89,7 +89,7 @@ export function History() {
                     {s.type === 'stitched' && <span className="pill stitched">{texts.historyStitchedBadge}</span>}
                     {s.children && <span className="badge">{s.children} sessions</span>}
                   </div>
-                  <span className="muted" style={{ fontSize: 0.8rem }}>
+                  <span className="muted" style={{ fontSize: '0.8rem' }}>
                     {s.date} · {s.reps} reps · {s.volumeKg} kg volume
                   </span>
                 </div>

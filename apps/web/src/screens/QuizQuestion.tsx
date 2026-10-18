@@ -48,7 +48,7 @@ export function QuizQuestion() {
   return (
     <section className="page flex flex-col gap-6 pt-12">
       <div className="flex items-center justify-between gap-4">
-        <span className="muted" style={{ fontSize: 0.85rem }}>
+        <span className="muted" style={{ fontSize: '0.85rem' }}>
           {texts.quizProgress.replace('{n}', String(n)).replace('/ 10', `/ ${QUIZ_QUESTION_COUNT}`)}
         </span>
         <button
@@ -63,10 +63,10 @@ export function QuizQuestion() {
 
       <div className="card flex flex-col gap-4">
         {/* Non-diagnostic statement on every quiz screen (Rule I-10, FR-088) */}
-        <p className="muted" style={{ fontSize: 0.8rem }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
           {texts.quizNonDiagnostic}
         </p>
-        <h2 style={{ fontSize: 1rem }}>{q.label}</h2>
+        <h2 style={{ fontSize: '1rem' }}>{q.label}</h2>
         <div className="flex flex-col gap-3" role="radiogroup" aria-label={q.label}>
           {q.options.map((opt) => (
             <button

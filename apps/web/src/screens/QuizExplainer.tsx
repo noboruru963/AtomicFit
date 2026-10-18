@@ -17,7 +17,7 @@ export function QuizExplainer() {
       <div className="card flex flex-col gap-4">
         <h2>{texts.quizExplainerTitle}</h2>
         <p>{texts.quizExplainerBody}</p>
-        <p className="muted" style={{ fontSize: 0.8rem }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
           {texts.quizNonDiagnostic}
         </p>
         <Button variant="primary" onClick={() => navigate('/quiz/adjusted-program')}>

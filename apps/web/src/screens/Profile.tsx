@@ -29,7 +29,7 @@ export function Profile() {
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileUsername}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileUsername}</label>
           <input
             type="text"
             value={form.username}
@@ -38,7 +38,7 @@ export function Profile() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileEmail}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileEmail}</label>
           <input
             type="email"
             value={form.email}
@@ -47,7 +47,7 @@ export function Profile() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileGender}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileGender}</label>
           <select
             value={form.gender}
             onChange={(e) => setForm({ ...form, gender: e.target.value as any })}
@@ -59,15 +59,15 @@ export function Profile() {
           </select>
         </div>
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileDateOfBirth}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileDateOfBirth}</label>
           <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} aria-label={texts.profileDateOfBirth} />
         </div>
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileWeight}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileWeight}</label>
           <input type="number" step="0.1" min="0" max="999.9" value={form.weightKg} onChange={(e) => setForm({ ...form, weightKg: e.target.value })} aria-label="Weight (kg)" />{' kg'}
         </div>
         <div className="flex flex-col gap-2">
-          <label style={{ fontWeight: 700, fontSize: 0.9rem }}>{texts.profileHeight}</label>
+          <label style={{ fontWeight: 700, fontSize: '0.9rem' }}>{texts.profileHeight}</label>
           <input type="number" step="1" min="0" value={form.heightCm} onChange={(e) => setForm({ ...form, heightCm: e.target.value })} aria-label="Height (cm)" />{' cm'}
         </div>
       </form>
@@ -76,11 +76,11 @@ export function Profile() {
         {texts.profileUpdate}
       </Button>
       {saved && (
-        <p className="muted" style={{ color: 'var(--success)', fontSize: 0.9rem, fontWeight: 700 }}>
+        <p className="muted" style={{ color: 'var(--success)', fontSize: '0.9rem', fontWeight: 700 }}>
           {texts.profileUpdated}
         </p>
       )}
-      <p className="muted" style={{ fontSize: 0.8rem }}>
+      <p className="muted" style={{ fontSize: '0.8rem' }}>
         Gender is stored/displayed only (BA-002) — it does not affect quiz rules,
         program adjustments, or analytics.
       </p>

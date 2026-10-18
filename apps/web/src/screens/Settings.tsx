@@ -14,33 +14,33 @@ export function Settings() {
       <h2>{texts.settingsTitle}</h2>
 
       <section className="card flex flex-col gap-4">
-        <h3 style={{ fontSize: 0.95rem }}>{texts.settingsDisplay}</h3>
+        <h3 style={{ fontSize: '0.95rem' }}>{texts.settingsDisplay}</h3>
         <div className="flex items-center justify-between gap-4">
           <span>{texts.settingsTheme}</span>
           <Button variant="outlined" size="small" onClick={toggle!}>
             {theme === 'light' ? texts.settingsThemeDark : texts.settingsThemeLight}
           </Button>
         </div>
-        <p className="muted" style={{ fontSize: 0.85rem }}>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
           Theme preference saved locally (FR-012).
         </p>
       </section>
 
       <section className="card flex flex-col gap-4">
-        <h3 style={{ fontSize: 0.95rem }}>{texts.settingsPersonalization}</h3>
+        <h3 style={{ fontSize: '0.95rem' }}>{texts.settingsPersonalization}</h3>
         <Button variant="secondary" disabled>
           {texts.settingsPersonalizationComingSoon}
         </Button>
-        <p className="muted" style={{ fontSize: 0.85rem }}>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
           Personalization settings are not in the MVP (ASM-22).
         </p>
       </section>
 
       <section className="card flex flex-col gap-4">
-        <h3 style={{ fontSize: 0.95rem }}>{texts.settingsAbout}</h3>
+        <h3 style={{ fontSize: '0.95rem' }}>{texts.settingsAbout}</h3>
         <p>{texts.settingsAboutName}</p>
         <p>{texts.settingsAboutVersion}</p>
-        <p className="muted" style={{ fontSize: 0.85rem }}>{texts.settingsAboutLine}</p>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>{texts.settingsAboutLine}</p>
       </section>
     </div>
   );

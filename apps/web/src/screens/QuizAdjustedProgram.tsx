@@ -92,7 +92,7 @@ export function QuizAdjustedProgram() {
           )}
         </div>
 
-        <p className="muted" style={{ fontSize: 0.85rem }}>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
           {preview.reason}
         </p>
 

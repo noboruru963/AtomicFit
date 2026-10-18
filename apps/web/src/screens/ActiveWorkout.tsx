@@ -199,7 +199,7 @@ export function ActiveWorkout() {
   return (
     <div className="page flex flex-col gap-4 pt-10">
       <header className="flex items-center justify-between gap-4">
-        <h2 style={{ fontSize: 1rem }}>{currentExercise?.name ?? texts.workoutTitle}</h2>
+        <h2 style={{ fontSize: '1rem' }}>{currentExercise?.name ?? texts.workoutTitle}</h2>
         <div className="flex items-center gap-3">
           <Button variant="outlined" size="small" onClick={toggleAutoCount}>
             {autoCounting ? 'Stop count' : texts.workoutAutoCount}
@@ -213,7 +213,7 @@ export function ActiveWorkout() {
       {/* Voice result / retry (Rule I-18: nothing saved on unparseable) */}
       {voiceTranscript && (
         <div className="card p-4 flex flex-col gap-3">
-          <p className="muted" style={{ fontSize: 0.85rem }}>{voiceTranscript}</p>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>{voiceTranscript}</p>
           <Button variant="outlined" size="small" onClick={handleVoice}>
             {texts.genericTryAgain}
           </Button>
@@ -223,7 +223,7 @@ export function ActiveWorkout() {
       {/* Live rep counter (US-001): counter text >= 48px, visible without scroll */}
       {autoCounting || counterValue > 0 ? (
         <div className="card p-6 flex flex-col items-center gap-4">
-          <span className="muted" style={{ fontSize: 0.85rem }}>{texts.workoutRepCounter}</span>
+          <span className="muted" style={{ fontSize: '0.85rem' }}>{texts.workoutRepCounter}</span>
           <span style={{ fontSize: 48, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
             {counterValue}
           </span>
@@ -241,10 +241,10 @@ export function ActiveWorkout() {
       <div className="card flex flex-col gap-3">
         {sets.map((s) => (
           <div key={s.id} className="set-row flex items-center gap-3 p-3" style={{ borderBottom: '1px solid var(--line)' }}>
-            <span className="muted" style={{ fontSize: 0.85rem, minWidth: 26 }}>
+            <span className="muted" style={{ fontSize: '0.85rem', minWidth: 26 }}>
               {s.setNo}
             </span>
-            <span style={{ flex: 1, fontSize: 0.9rem }}>{s.exerciseName}</span>
+            <span style={{ flex: 1, fontSize: '0.9rem' }}>{s.exerciseName}</span>
             <input
               type="number"
               min="0"
@@ -254,7 +254,7 @@ export function ActiveWorkout() {
               aria-label={`${s.exerciseName} set ${s.setNo} reps`}
               style={{ width: 60 }}
             />
-            <span className="muted" style={{ fontSize: 0.8rem, minWidth: 30, textAlign: 'right' }}>
+            <span className="muted" style={{ fontSize: '0.8rem', minWidth: 30, textAlign: 'right' }}>
               {s.weightKg} kg
             </span>
             <button
@@ -268,7 +268,7 @@ export function ActiveWorkout() {
           </div>
         ))}
         {sets.length === 0 && (
-          <p className="muted" style={{ fontSize: 0.85rem, textAlign: 'center', padding: 12 }}>
+          <p className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: 12 }}>
             No sets yet. Add a set to begin.
           </p>
         )}
@@ -288,13 +288,13 @@ export function ActiveWorkout() {
       {/* Quick-add bar (US-003, BA-005) — in-app mandatory path */}
       <div className="card p-4 flex items-center justify-between gap-4" style={{ marginTop: 8 }}>
         <div>
-          <span className="muted" style={{ fontSize: 0.8rem }}>{texts.workoutQuickAddRep}</span>
+          <span className="muted" style={{ fontSize: '0.8rem' }}>{texts.workoutQuickAddRep}</span>
           <div className="flex gap-2">
             <Button variant="primary" size="small" onClick={quickAddRep}>+1 rep</Button>
             <Button variant="primary" size="small" onClick={quickAddSet}>+1 set</Button>
           </div>
         </div>
-        <span className="muted" style={{ fontSize: 0.85rem }}>
+        <span className="muted" style={{ fontSize: '0.85rem' }}>
           {totalSets} set{totalSets !== 1 ? 's' : ''} logged
         </span>
       </div>
@@ -303,7 +303,7 @@ export function ActiveWorkout() {
       <div className="card p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span style={{ fontWeight: 700 }}>{texts.restTimerTitle}</span>
-          <span style={{ fontSize: 1.25rem, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
+          <span style={{ fontSize: '1.25rem', fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
             {Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2, '0')}
           </span>
         </div>
@@ -315,7 +315,7 @@ export function ActiveWorkout() {
           </Button>
           <Button variant="link" size="small" onClick={skipRest}>{texts.restSkip}</Button>
         </div>
-        <p className="muted" style={{ fontSize: 0.8rem }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
           Cancel before start · vibrate 300 ms at 0:00 where supported (Section 8.7)
         </p>
       </div>

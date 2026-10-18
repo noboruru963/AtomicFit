@@ -22,7 +22,7 @@ export function QuizPrompt() {
         <h2>{texts.quizPromptTitle}</h2>
         <p>{texts.quizPromptBody}</p>
         {/* Non-diagnostic statement on every quiz screen (Rule I-10, FR-088) */}
-        <p className="muted" style={{ fontSize: 0.8rem }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
           {texts.quizNonDiagnostic}
         </p>
         <div className="flex flex-col gap-4">
