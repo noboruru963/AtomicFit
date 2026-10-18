@@ -1,0 +1,3 @@
+Fix History.tsx filter map syntax error
+
+Move 'as const' off .map call — it was causing a JSX parse error.

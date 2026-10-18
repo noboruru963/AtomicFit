@@ -62,7 +62,7 @@ export function History() {
         </div>
 
         <div className="flex gap-3">
-          {['All', 'Full', 'Micro'] as const.map((f) => (
+          {['All', 'Full', 'Micro'].map((f) => (
             <button
               key={f}
               type="button"
