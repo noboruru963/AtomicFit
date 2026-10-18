@@ -5,8 +5,9 @@ Project: ATOMFIT
 Document: SRS
 Author: Alexander Marchiano, Jonathan Gouw Alexandrio, Luiesrelio
 Published on: October 14, 2026
-Primary implementation language: TypeScript
-Product type: Local program (local-first web application)
+Primary implementation language: Dart (Flutter)
+Product type: Local-first Flutter mobile prototype (Android)
+Edition note (2026-10-18): Flutter edition. Technology sections (ASM-02, ASM-03, 1.3.1, 1.3.4, 1.6, 2.6.1, NFR-025, NFR-028, NFR-029, NFR-031, NFR-039, NFR-045, NFR-046, DEP-03) were rewritten for a Flutter (Dart) Android prototype with local persistence and a later Firebase backend. Navigation (FR-015, FR-021), gender (FR-001, FR-008) and the exercise name (Lat pulldown) were updated. Other tables (screen list, traceability) may still use earlier wording; AGENTS.md Section 12 holds the approved behavior addenda and takes precedence.
 
 
 
@@ -58,7 +59,7 @@ Product type: Local program (local-first web application)
 2.5 Logical Database Requirements	46
 2.5.1 Logical Data Model (informative)	47
 2.6 Design Constraints	49
-2.6.1 TypeScript Stack Proposal and System Architecture (Assumption)	50
+2.6.1 Flutter Stack Proposal and System Architecture (Assumption)	50
 2.7 Standards Compliance	52
 2.8 Software System Attributes	52
 3. Verification	55
@@ -79,9 +80,9 @@ Appendix D. Reuse of the Template Requirements	70
 
 1. INTRODUCTION
 1.1 Purpose
-This document specifies the software requirements of AtomFit, a workout-tracking application. The MVP text calls the product ‘Atomic Fit’; this document uses ‘AtomFit’, the name in the high-fidelity prototype (CF-01). The product is a local program written in TypeScript.
+This document specifies the software requirements of AtomFit, a workout-tracking application. The MVP text calls the product ‘Atomic Fit’; this document uses ‘AtomFit’, the name in the high-fidelity prototype (CF-01). The product is a local-first Flutter (Dart) mobile prototype for Android phones.
 The intended readers are the developers, designers, testers and the product owner of the project, and the reviewers of the coursework. The document follows the structure and requirement style of the attached example SRS (ReqView, based on ISO/IEC/IEEE 29148:2018). It is a draft: where the sources are silent or in conflict, the text says TBD or Assumption instead of inventing a requirement.
-Four sources were analysed. They are cited by the following codes throughout the document: S1 the SRS template (ReqView example), S2 the medium-fidelity prototype PDF, S3 the epic, user-story and MVP text, and S4 the high-fidelity prototype HTML. The code PC means a constraint from the project brief (TypeScript, local product), and ASM means an assumption made in this draft.
+Four sources were analysed. They are cited by the following codes throughout the document: S1 the SRS template (ReqView example), S2 the medium-fidelity prototype PDF, S3 the epic, user-story and MVP text, and S4 the high-fidelity prototype HTML. The code PC means a constraint from the project brief (Flutter, local product), and ASM means an assumption made in this draft.
 1.2 Scope
 AtomFit helps people record workouts with little effort and return to training without guilt after interruptions. The MVP, defined by epic EP-001 and six user stories, lets the user:
 •	count repetitions automatically with the motion sensors of the device (US-001);
@@ -93,15 +94,15 @@ AtomFit helps people record workouts with little effort and return to training w
 Supporting capabilities shown in the prototypes (registration, login, profile, settings, programs, manual workout logging, rest timer and history) are in epic EP-002 and are treated as part of the MVP foundation (ASM-06). The application stores all data on the device and works without a server.
 Not in the MVP (ASM-22): cloud synchronisation, social features, wearable integration, nutrition tracking, payments, push notifications and an administrator role. Requirements with scope ‘Future’ are listed in Section 4.1.
 1.3 Product Perspective
-AtomFit is a self-contained product. It does not depend on a project-owned server. The TypeScript application runs in a browser on a phone or a desktop and can be installed as a progressive web app (ASM-02). The prototypes use a mobile frame of at most 430 CSS pixels width with a bottom navigation bar and a blue primary colour with a light and a dark theme.
+AtomFit is a self-contained product. It does not depend on a project-owned server. The Flutter application runs on an Android phone and stores its data on the device (ASM-02). A Firebase backend is planned after the prototype and is outside the MVP. The prototypes use a mobile frame of at most 430 CSS pixels width with a bottom navigation bar and a blue primary colour with a light and a dark theme.
 1.3.1 System Interfaces
-The application runs in the latest two stable versions of Chrome and Safari (NFR in 2.8, TBD-04). A Capacitor wrapper is proposed only if native features are required (CF-02).
+The application runs on Android phones (NFR-045, TBD-04).
 1.3.2 User Interfaces
 The graphical interface is touch-operated and follows the 25 screens listed in Section 2.1.1. Seventeen screens exist in the prototypes; eight are required by the MVP text and have no prototype yet.
 1.3.3 Hardware Interfaces
 The application uses the accelerometer and gyroscope (US-001), the microphone (US-002), the vibration motor (rest timer) and the touch screen. A lock-screen control (US-003) needs operating-system support (TBD-05).
 1.3.4 Software Interfaces
-The application uses standard web interfaces: device motion or generic sensor, media capture, speech recognition (engine TBD-06), vibration, IndexedDB and a service worker. It may use a Capacitor plug-in for the lock-screen control. Data is stored in IndexedDB and may be exported as JSON or CSV (Future).
+The application uses Flutter plugins for the motion sensors, microphone and speech recognition (engine TBD-06), vibration and local notifications, and stores data in an on-device document store (sembast). Data may be exported as JSON or CSV (Future).
 1.3.5 Communications Interfaces
 None are required in the MVP. All functions work offline, except speech-to-text if the chosen engine needs a network (TBD-06).
 1.3.6 Memory Constraints
@@ -148,19 +149,19 @@ UC-04	Beginner	Unfamiliar with exercises; the Explore exercise screen warns that
 
 1.6 Limitations
 The following limitations apply to the product and to this draft:
-•	The primary programming language is TypeScript (PC; NFR in 2.6).
+•	The primary programming language is Dart with Flutter (PC; NFR in 2.6).
 •	The product is local: it uses no project-owned server and stores data on the device (PC; S1; S3).
 •	Automatic counting and voice logging need a phone with motion sensors and a microphone and the user’s permission (S3).
-•	A lock-screen control cannot be written in TypeScript alone and may need native code (CF-02, TBD-05).
-•	Operating environment (proposed): the latest two stable versions of Chrome on Android and desktop and of Safari on iOS; screens of 360 to 430 CSS pixels width are the design target (S4, ASM-02).
+•	A true lock-screen control needs native code or an Android notification; the prototype provides an in-app quick-add bar (TBD-05).
+•	Operating environment: Android phones; screens of 360 to 430 dp width are the design target (S4, ASM-02).
 •	The quiz must work without complex artificial intelligence (S3).
 •	Stitching must never double-count progress or corrupt the original session data (S3).
 1.7 Assumptions and Dependencies
 1.7.1 Assumptions
 ID	Assumption
 ASM-01	The product name is ‘AtomFit’ (prototype title); the MVP text uses ‘Atomic Fit’ (CF-01).
-ASM-02	Delivery form: a local-first TypeScript web application that runs in a mobile or desktop browser and can be installed as a progressive web app (PWA); a Capacitor wrapper (TypeScript) is the proposed path if native lock-screen, sensor or microphone features are required (CF-02, TBD-04).
-ASM-03	Proposed technology: React 18, TypeScript 5 (strict), Vite, Dexie over IndexedDB, Zod, Vitest, React Testing Library, Playwright, ESLint (Section 2.6.1).
+ASM-02	Delivery form: a local-first Flutter (Dart) mobile application for Android phones, built as a clickable prototype with real domain logic and simulated hardware by default; data is stored on the device and persists across restarts; a Firebase backend (authentication and database) is planned after the prototype and is outside the MVP (decided 2026-10-18; supersedes the earlier TypeScript web/PWA plan).
+ASM-03	Proposed technology: Flutter stable, Dart 3, flutter_bloc (Bloc and Cubit), equatable, go_router, sembast with path_provider for local storage, uuid, intl, flutter_test, bloc_test, integration_test, flutter_lints (Section 2.6.1).
 ASM-04	‘Backend’ in the MVP text means a local service layer inside the application. No remote server and no cloud synchronisation exist in the MVP; ‘offline synchronisation’ is implemented as durable local persistence plus idempotent writes (CF-03).
 ASM-05	Accounts are local profiles on one device. Several local accounts may exist. No password reset by email is possible (TBD-01, TBD-02).
 ASM-06	Epic EP-002 and stories US-007 to US-018 are derived from the prototypes and the template; they are treated as MVP-supporting and are not part of the MVP text.
@@ -185,7 +186,7 @@ ASM-22	The following are outside the MVP because no source mentions them: cloud 
 ID	Dependency	Needed for
 DEP-01	Browser or platform motion-sensor interface (device motion or generic sensor) on the target phones.	US-001
 DEP-02	A speech-to-text component (browser speech recognition or an on-device model); engine and offline behaviour TBD (TBD-06).	US-002
-DEP-03	A native lock-screen widget or notification mechanism, and a Capacitor plug-in bridge, if the feature is kept in the MVP (TBD-05).	US-003
+DEP-03	An Android notification with actions (via a Flutter plugin), or a native lock-screen mechanism, if the lock-screen feature is kept beyond the in-app quick-add bar (TBD-05).	US-003
 DEP-04	Approved quiz rule table, safety limits and progression policy from the product owner (TBD-11, TBD-18).	US-004, US-006
 DEP-05	Stitching eligibility rules (TBD-17).	US-006
 DEP-06	Exercise catalogue content and program descriptions (TBD-19, TBD-20); the PDF contains placeholder text.	US-012, US-013
@@ -286,7 +287,7 @@ Each functional requirement has an identifier FR-nnn, a priority (Must, Should, 
 2.2.1 Account and Profile
 These requirements are derived from the login, registration, profile and settings screens of the prototypes. Because the product is local, accounts are local profiles (ASM-05). Whether an account is needed at all is open (TBD-01).
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
-FR-001	The system shall allow a new user to create a local account by submitting a username, an email address, a password, a password confirmation and a date of birth.	Should	MVP	S2; S4	AC-001: Given the Register screen, when the user submits valid values in all five fields and selects the terms checkbox, then an account record is stored and the Login screen is displayed.	US-007
+FR-001	The system shall allow a new user to create a local account by submitting a username, an email address, a password, a password confirmation, a date of birth and a gender.	Should	MVP	S2; S4	AC-001: Given the Register screen, when the user submits valid values in all six fields and selects the terms checkbox, then an account record is stored and the Login screen is displayed.	US-007
 FR-002	The system shall reject a registration and display the message ‘Passwords do not match’ when the password and the password confirmation differ.	Should	MVP	S4	AC-002: Given different values in Password and Confirm Password, when Register is selected, then no account is stored and the message is displayed.	US-007
 Dep: FR-001
 FR-003	The system shall reject a registration and display the message ‘Please accept the terms’ when the terms and conditions checkbox is not selected.	Should	MVP	S2; S4	AC-003: Given the checkbox is cleared, when Register is selected, then no account is stored and the message is displayed.	US-007
@@ -297,7 +298,7 @@ FR-005	The system shall authenticate a user by comparing the entered email addre
 Dep: FR-001
 FR-006	The system shall allow a signed-in user to log out from the Profile screen and shall then display the Login screen.	Should	MVP	S2; S4	AC-006: Given a signed-in user on Profile, when Log Out Account is selected, then the Login screen is displayed and Home cannot be reached without logging in again.	US-008
 FR-007	The system shall display a ‘Forgot password?’ link on the Login screen.	Could	Future	S2; S4	AC-007: Given the Login screen, then the link is visible; the behaviour of the link is TBD (TBD-02) because a local product cannot send a reset email.	US-008
-FR-008	The system shall display the username, email address, date of birth, weight in kilograms and height in centimetres of the signed-in user on the Profile screen.	Should	MVP	S2; S4	AC-008: Given a signed-in user with stored values, when Profile is opened, then the five values are displayed.	US-010
+FR-008	The system shall display the username, email address, date of birth, gender, weight in kilograms and height in centimetres of the signed-in user on the Profile screen.	Should	MVP	S2; S4	AC-008: Given a signed-in user with stored values, when Profile is opened, then the six values are displayed.	US-010
 FR-009	The system shall store the edited username, email address, date of birth, weight and height when the user selects Update Profile, and shall display the message ‘Profile updated’.	Should	MVP	S2; S4	AC-009: Given edited values, when Update Profile is selected, then the values are stored, remain after restart and the message is displayed.	US-010
 Dep: FR-008
 FR-010	The system shall allow the user to change the profile picture.	Could	Future	S2; S4	AC-010: Given an image selected by the user, when it is confirmed, then it replaces the default avatar and remains after restart.	US-010
@@ -312,7 +313,7 @@ Dep: FR-011
 2.2.2 Home and Navigation
 These requirements are derived from the Home screen and bottom navigation shown in the prototypes.
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
-FR-015	The system shall display a bottom navigation bar with the destinations History, Home and Start workout on the Home, Quiz, History and Start workout screens and shall highlight the current destination.	Must	MVP	S2; S4	AC-015: Given any of the four screens, then the bar shows three destinations, the current one is highlighted and each destination opens its screen.	US-009
+FR-015	The system shall display a bottom navigation bar with the destinations Home, History, Discover and Profile (Home leftmost) on the main screens and shall highlight the current destination; while Home is the current destination, the Home item shall be unclickable.	Must	MVP	S2; S4; lecturer feedback	AC-015: Given any main screen, then the bar shows four destinations in the order Home, History, Discover, Profile, the current one is highlighted, each other destination opens its screen, and Home does nothing while it is current.	US-009
 FR-016	The system shall display the text ‘Welcome back!’ and the username on the Home screen.	Should	MVP	S2; S4	AC-016: Given a signed-in user ‘Joe123’, when Home is opened, then ‘Welcome back!’ and ‘Joe123’ are displayed.	US-009
 FR-017	The system shall display a calendar of the current month on the Home screen, mark each day on which at least one workout was completed and highlight today.	Should	MVP	S4	AC-017: Given workouts completed on 1, 3 and 5 of the month, when Home is opened, then days 1, 3 and 5 are marked and today is highlighted.	US-009
 Dep: FR-039
@@ -326,8 +327,8 @@ Dep: FR-077
 2.2.3 Programs and Exercise Exploration
 These requirements are derived from the Start workout, All programs, program detail and Explore exercise screens of the prototypes.
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
-FR-021	The system shall provide a Start workout screen offering five actions: Start empty program, Current program, All program, Adjusted program and Explore exercise.	Must	MVP	S2; S4	AC-021: Given the Start workout screen, then all five actions are visible and each opens its target screen.	US-014
-FR-022	The system shall provide three built-in programs at first start: Upper Lower, Push Pull Leg and Gorilla Training, where Push Pull Leg contains Dumbbell curl, Chest press, Tricep raise and Lateral pushdown, each with 3 sets of 10 kg and a 2:00 rest time.	Should	MVP	S2; S4	AC-022: Given a new installation, when programs are listed, then three programs exist and the Push Pull Leg content equals the stated values. The content of the other two programs is TBD (TBD-19).	US-012
+FR-021	The system shall provide, on the Home screen, an Empty workout action and a My programs list (Current program, other programs, Adjusted program), and shall provide Explore exercise on the Discover screen.	Must	MVP	S2; S4	AC-021: Given the Home screen, then Empty workout and My programs are visible and each opens its target screen; given the Discover screen, then exercises can be explored.	US-014
+FR-022	The system shall provide three built-in programs at first start: Upper Lower, Push Pull Leg and Gorilla Training, where Push Pull Leg contains Dumbbell curl, Chest press, Tricep raise and Lat pulldown, each with 3 sets of 10 kg and a 2:00 rest time.	Should	MVP	S2; S4	AC-022: Given a new installation, when programs are listed, then three programs exist and the Push Pull Leg content equals the stated values. The content of the other two programs is TBD (TBD-19).	US-012
 FR-023	The system shall list the available programs, each with its name and a description, on the All programs screen.	Should	MVP	S2; S4	AC-023: Given the three built-in programs, when All programs is opened, then each is listed with a non-empty description.	US-012
 Dep: FR-022
 FR-024	The system shall display, for a selected program, each exercise with its set numbers, planned weight in kilograms and planned rest time.	Should	MVP	S2; S4	AC-024: Given Push Pull Leg, when it is opened, then 4 exercises with 3 sets each are displayed with weight and rest values.	US-012
@@ -337,7 +338,7 @@ Dep: FR-024
 FR-026	The system shall maintain exactly one Current program for each user.	Should	MVP	ASM	AC-026: Given any user account, when the Current program is requested, then exactly one program is returned. How the user selects it is TBD (TBD-19).	US-012
 FR-027	The system shall open the most recent quiz-adjusted program preview from the Adjusted program action, or display the message ‘No adjusted program yet’ when none exists.	Should	MVP	S2; S4; ASM	AC-027: Given no completed quiz, when Adjusted program is selected, then the message is displayed; given a completed quiz, then the preview is displayed.	US-012
 Dep: FR-085
-FR-028	The system shall provide an initial exercise catalogue containing at least Barbell shoulder press, Dumbbell shoulder press, Inverted plank, Dumbbell curl, Chest press, Tricep raise and Lateral pushdown.	Should	MVP	S2; S4	AC-028: Given a new installation, when the exercise catalogue is queried, then the seven named exercises are returned. The full catalogue is TBD (TBD-20).	US-013
+FR-028	The system shall provide an initial exercise catalogue containing at least Barbell shoulder press, Dumbbell shoulder press, Inverted plank, Dumbbell curl, Chest press, Tricep raise and Lat pulldown.	Should	MVP	S2; S4	AC-028: Given a new installation, when the exercise catalogue is queried, then the seven named exercises are returned. The full catalogue is TBD (TBD-20).	US-013
 FR-029	The system shall display on the Explore exercise screen a list of exercises, each with a name, a short description and an add control.	Should	MVP	S2; S4	AC-029: Given the Explore exercise screen, then each exercise shows a name, a description and an add control.	US-013
 Dep: FR-028
 FR-030	When the user selects the add control of an exercise opened from the Start workout screen, the system shall display an ‘Add to which program?’ list and shall add the exercise to the program the user selects.	Should	MVP	S2; S4	AC-030: Given Barbell shoulder press and the program Upper lower selected, then the Upper lower program contains the exercise afterwards.	US-013
@@ -432,7 +433,7 @@ FR-068	The system shall recognise voice commands spoken in English in the MVP.	S
 Dep: FR-064
 
 2.2.8 Lock-Screen Quick Logging (US-003)
-Source: MVP text, Story 3. A lock-screen control depends on operating-system capabilities that a TypeScript-only web application cannot provide; feasibility and platform are open (TBD-05, CF-02).
+Source: MVP text, Story 3. A lock-screen control depends on operating-system capabilities that a Flutter application cannot fully provide; feasibility and platform are open (TBD-05, CF-02).
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
 FR-069	While a workout is active, the system shall provide a persistent lock-screen control with a ‘+1 repetition’ action and a ‘+1 set’ action.	Must	MVP	S3	AC-069: Given an active workout on a supported device, when the device is locked, then the control with both actions is visible. The exact meaning of ‘+1 set’ is TBD (TBD-05).	US-003
 FR-070	The system shall save each lock-screen action immediately through the Save-Set service.	Must	MVP	S3	AC-070: Given one tap on ‘+1 repetition’, then the stored repetition count has increased by one before the next tap is accepted.	US-003
@@ -635,45 +636,39 @@ analytics_event	id, name, timestamp_utc, anon_user_id, session_id, properties (J
 2.6 Design Constraints
 The technology proposal that satisfies these constraints is in Section 2.6.1 and is an assumption (ASM-02, ASM-03).
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
-NFR-025	All application source code shall be written in TypeScript 5.x with the compiler option ‘strict’ enabled; JavaScript shall be used only for generated and configuration files.	Must	MVP	PC	AC-125: The command ‘tsc --noEmit’ succeeds with zero errors, and a repository scan finds no hand-written .js source file outside configuration.	
+NFR-025	All application source code shall be written in Dart (Flutter stable) with strict analysis options (strict-casts, strict-inference, strict-raw-types) enabled; generated code is allowed only where the team approves it.	Must	MVP	PC	AC-125: The command ‘flutter analyze’ reports zero issues, and a repository scan finds no hand-written platform source (Kotlin, Swift, Java) outside generated project files unless an approved record exists.	
 NFR-026	The product shall run on the user’s device without a server operated by the project team.	Must	MVP	PC; S1	AC-126: The product starts and all MVP flows work with no project-owned server reachable.	Rel: FR-116
 NFR-027	The product shall be implemented with the technology proposal in Section 2.6.1 unless the team approves an alternative in writing.	Should	MVP	ASM	AC-127: The dependency manifest matches the proposal or an approved deviation record exists.	
-NFR-028	The build shall fail when ESLint reports an error or when a unit test fails.	Should	MVP	ASM	AC-128: A deliberate lint error and a deliberate failing test each cause the build to fail.	
-NFR-029	Where a required device feature (lock-screen control, reliable sensor or microphone access) cannot be implemented in TypeScript web code, native code shall be limited to a thin plug-in bridged to TypeScript.	Should	MVP	ASM	AC-129: A code review lists every native source file, and each contains no business logic.	Rel: FR-069
+NFR-028	The build shall fail when ‘flutter analyze’ reports an issue or when a unit test fails.	Should	MVP	ASM	AC-128: A deliberate analyzer error and a deliberate failing test each cause the build to fail.	
+NFR-029	The product shall contain no native (Kotlin, Swift or Java) business logic; where a device feature requires native code, it shall be a thin plug-in bridged to Dart.	Should	MVP	ASM	AC-129: A code review lists every native source file, and each contains no business logic.	Rel: FR-069
 
-2.6.1 TypeScript Stack Proposal and System Architecture (Assumption)
-No source names a framework. The proposal below is an assumption (ASM-02, ASM-03). The architecture has a framework-independent core so that the delivery form can change (PWA, Capacitor, desktop shell) without rewriting business logic.
-Layer	Responsibility	Proposed TypeScript technology	Status
-Presentation	Screens, navigation, themes, accessibility, text resources	React 18, React Router, CSS custom properties for light and dark themes, a typed text-resource module	Assumption
-Application and domain core	Framework-independent business logic: session service, Save-Set service, repetition detector, voice parser, quiz rule engine, stitching service, progression policy, inactivity service, analytics service	Plain TypeScript package (‘core’) with no UI or device imports	Assumption
-Device adapters	Access to motion sensors, microphone and speech-to-text, vibration and the lock-screen control behind TypeScript interfaces	Device-motion or Generic Sensor API; MediaDevices and speech recognition (engine TBD-06); Vibration API; Capacitor plug-in for the lock-screen control (TBD-05)	Assumption
-Persistence	Typed tables, transactions, schema versioning, idempotent writes	IndexedDB through Dexie with repository classes	Assumption
-Validation	Shared input and event schemas	Zod	Assumption
-Build and quality	Compilation, linting, formatting, build gates	TypeScript 5 strict, Vite, ESLint with typescript-eslint, Prettier	Assumption
-Testing	Unit, integration, end-to-end and accessibility tests with sensor and voice fixtures	Vitest, React Testing Library, fake-indexeddb, Playwright (mobile viewport emulation), axe-core	Assumption
-Packaging	Installable offline application	PWA with a service worker (vite-plugin-pwa or Workbox); optional Capacitor wrapper	Assumption
+2.6.1 Flutter Stack Proposal and System Architecture (Assumption)
+No source names a framework. The proposal below is an assumption (ASM-02, ASM-03). On 2026-10-18 it replaced the earlier TypeScript web stack with Flutter. The architecture keeps a framework-independent domain layer so that a Firebase-backed data layer can be added later without rewriting business logic.
+Layer	Responsibility	Proposed technology	Status
+Presentation	Screens, navigation, themes, accessibility, text resources	Flutter (Material 3), go_router, ThemeData built from design tokens, a typed strings file	Assumption
+Application state	Screen state and user intents	flutter_bloc (Bloc and Cubit), equatable	Assumption
+Domain core	Framework-independent business logic: session service, Save-Set service, repetition detector, voice parser, quiz rule engine, stitching service, progression policy, inactivity service, analytics service	Pure Dart (lib/domain) with no Flutter or plugin imports	Assumption
+Device adapters	Access to motion sensors, microphone and speech-to-text, vibration and notifications behind Dart interfaces; simulated by default	Flutter plugins (sensors, speech, notifications) behind interfaces; simulated and replay implementations	Assumption
+Persistence	Typed stores, transactions, schema version, idempotent writes	sembast (on-device document store) with path_provider, behind repository interfaces	Assumption
+Backend (future)	Authentication and cloud database	Firebase Authentication and Cloud Firestore; not part of the MVP	Future
+Build and quality	Analysis and formatting	flutter analyze with flutter_lints, dart format	Assumption
+Testing	Unit, bloc, widget and flow tests with sensor and voice fixtures	flutter_test, bloc_test, integration_test	Assumption
+Packaging	Installable Android application	Android app package built with Flutter	Assumption
 
 Options considered for the delivery form:
 Option	Description	Assessment against the sources	Recommendation
-A. Local-first PWA (React + TypeScript)	Runs from a local build in a phone or desktop browser; data in IndexedDB.	Satisfies ‘local’, TypeScript and the prototype (430 px mobile frame). Motion sensors and microphone are available in mobile browsers with permission. A lock-screen control is not possible.	Recommended baseline
-B. PWA wrapped with Capacitor	Same TypeScript code in a native shell with plug-ins.	Adds reliable sensor and microphone access and the only realistic route to a lock-screen control; requires a thin native plug-in in Swift or Kotlin.	Recommended if US-003 stays in the MVP
-C. Electron desktop app	TypeScript renderer and Node.js main process.	Fits ‘local program’ but desktops have no accelerometer or lock screen, so US-001 and US-003 cannot be met.	Not recommended for the MVP
-D. Tauri desktop app	TypeScript front end with a Rust shell.	Same limits as Electron and adds Rust code.	Not recommended for the MVP
-E. Node.js command-line tool	Terminal program.	Does not match any prototype screen.	Rejected
+A. Flutter Android app, local-first	One Dart code base, data on the device, simulated hardware by default	Matches the prototype screens, runs on a real Android phone, real sensors and microphone are reachable through plugins	Recommended
+B. Flutter app with Firebase added later	Same code base with a Firebase data layer behind the repository interfaces	Adds accounts and cloud storage after the prototype	Planned next phase
+C. React and TypeScript web app (PWA)	Earlier plan	Cannot provide a lock-screen control and weak sensor access on some browsers	Superseded
+D. Native Kotlin Android app	Native code for the platform	Longer to build and not needed for a prototype	Not recommended
 
-Proposed repository structure (pnpm workspaces):
-Path	Content	Tests
-packages/core	Domain logic (rep detector, voice parser, rule engine, session, stitching, progression, inactivity, analytics)	Unit tests with fixtures
-packages/storage	Dexie schema, repositories, migrations	Integration tests with fake-indexeddb
-packages/device	Sensor, speech, vibration and lock-screen adapters behind interfaces	Contract tests with fakes
-apps/web	React screens, routing, themes, text resources, PWA configuration	Component and Playwright tests
-tests/fixtures	Recorded sensor signals, voice phrases, time-zone and termination fixtures, rule-table cases	Shared by all packages
+The proposed project structure and package allow-list are defined in AGENTS.md Sections 3 and 6.
 
 2.7 Standards Compliance
 This SRS follows the ISO/IEC/IEEE 29148:2018 structure used by the template. The product-level standards below are proposals unless marked otherwise.
 ID	Requirement	Priority	Scope	Source	Acceptance criterion	Related
 NFR-030	The user interface shall conform to WCAG 2.2 level AA success criteria that apply to mobile web content.	Should	MVP	ASM	AC-130: An accessibility audit against WCAG 2.2 AA finds no unresolved failure for the applicable criteria.	Rel: NFR-004
-NFR-031	Device access shall use standard web platform interfaces (device motion, media capture, vibration) wherever such an interface exists.	Should	MVP	ASM	AC-131: A code review finds no proprietary device interface where a standard one exists.	Rel: FR-051; FR-060
+NFR-031	Device access shall use well-maintained Flutter plugins or standard platform interfaces (motion sensors, microphone, vibration) rather than custom native code where such a plugin exists.	Should	MVP	ASM	AC-131: A code review finds no custom native code where a maintained plugin exists.	Rel: FR-051; FR-060
 NFR-032	The product shall comply with the data-protection regulations that apply to its deployment jurisdictions (TBD-25).	Must	MVP	ASM	AC-132: A privacy review against the regulations named in TBD-25 finds no open non-conformity.	
 
 2.8 Software System Attributes
@@ -685,14 +680,14 @@ NFR-035	The system shall sanitise all data entered by the user before storing or
 NFR-036	The system shall store passwords only as salted hashes produced by a slow key-derivation function and never in plain text.	Must	MVP	ASM	AC-136: Inspection of the stored account record shows a salt and a hash and no plain-text password.	Rel: FR-001
 NFR-037	The system shall not send user data to the Internet in the MVP, except any speech-to-text request permitted by TBD-06.	Must	MVP	S1	AC-137: A network trace of all MVP flows shows no request that contains user data (speech-to-text excepted).	Rel: FR-116
 NFR-038	The system shall encrypt persistent application data at rest.	Could	MVP	S1; ASM	AC-138: Inspection of the stored data shows no readable workout content. Feasibility is TBD (TBD-24).	
-NFR-039	The application shall be served with a content-security policy that blocks inline scripts and requests to origins other than its own.	Should	MVP	ASM	AC-139: The response headers contain the policy and a test injection of an inline script is blocked.	
+NFR-039	Withdrawn in the Flutter edition: a web content-security policy does not apply. The prototype shall make no network requests (see NFR-037).	Won't	MVP	ASM	AC-139: Not applicable.	
 NFR-040	The system shall process raw motion-sensor samples and raw audio in memory only and shall not store them.	Must	MVP	ASM	AC-140: After an automatic-counting set and a voice command, no sensor or audio data exists in storage.	Rel: FR-051; FR-063
 NFR-041	The system shall explain the purpose of the sensor and microphone permissions on screen before the platform permission prompt is shown.	Should	MVP	ASM	AC-141: Given first use of each feature, then an explanatory message is displayed before the platform prompt.	Rel: FR-050; FR-061
 NFR-042	The core domain modules (repetition detector, voice parser, quiz rule engine, session service, stitching service, progression policy) shall have at least 80 % line coverage from automated unit tests.	Should	MVP	ASM	AC-142: The coverage report shows at least 80 % line coverage for each listed module.	
 NFR-043	The core domain modules shall contain no import of user-interface or device-adapter code.	Should	MVP	ASM	AC-143: A dependency-rule check reports zero forbidden imports.	
 NFR-044	The test suite shall reuse shared fixtures for time zones, offline operation and application termination across all features.	Should	MVP	S3	AC-144: The three fixtures exist once and are imported by the tests of at least three features.	
-NFR-045	The product shall run on the latest two stable versions of Chrome (Android and desktop) and Safari (iOS).	Should	MVP	S1; ASM	AC-145: The E2E suite passes on each listed browser version. The supported platforms are TBD (TBD-04).	
-NFR-046	The product shall be installable to the device home screen and shall start from it without a network connection.	Should	MVP	ASM	AC-146: After installation, in flight mode, the application starts from the home-screen icon.	Rel: FR-116
+NFR-045	The product shall run on Android phones running a currently supported Android version; the minimum supported version is TBD (TBD-04).	Should	MVP	S1; ASM	AC-145: The widget and flow tests pass and the demo script completes on a physical Android phone.	
+NFR-046	The product shall be installed as an Android application and shall start and operate without a network connection.	Should	MVP	ASM	AC-146: After installation, in flight mode, the application starts from its launcher icon and all MVP flows (speech-to-text excepted if it needs a network) work.	Rel: FR-116
  
 3. VERIFICATION
 3.1 Verification Approach
@@ -982,7 +977,7 @@ Revision History	Revision History	Columns follow the template: Name, Date, Reaso
 2.3 Usability requirements	2.3	NFR-nnn.
 2.4 Performance requirements	2.4	NFR-nnn.
 2.5 Logical database requirements	2.5, 2.5.1	Data requirements and logical data model.
-2.6 Design constraints	2.6, 2.6.1	Constraints and the TypeScript stack proposal (system architecture).
+2.6 Design constraints	2.6, 2.6.1	Constraints and the Flutter stack proposal (system architecture).
 2.7 Standards compliance	2.7	
 2.8 Software system attributes	2.8	Reliability, security, privacy, maintainability, portability.
 3 Verification	3	Verification approach, acceptance criteria and traceability matrix.
@@ -998,7 +993,7 @@ Functional requirements	2.2
 Non-functional requirements	2.3, 2.4, 2.6 to 2.8
 External interface requirements	2.1
 Data requirements	2.5 and 2.5.1
-System architecture / TypeScript stack proposal	2.6.1
+System architecture / Flutter stack proposal	2.6.1
 MVP scope and future scope	4.1
 Assumptions and dependencies	1.7
 Acceptance criteria	2.2 to 2.8 (inline) and 3.2
