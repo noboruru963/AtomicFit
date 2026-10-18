@@ -1,0 +1,15 @@
+<!-- @atomfit/web/public/logo.svg — placeholder logo (panda-like round badge).
+     Replaceable via a single asset path (BA-006). Team to provide final logo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#g)" />
+  <circle cx="22" cy="24" r="6" fill="#0f172a" opacity="0.85" />
+  <circle cx="42" cy="24" r="6" fill="#0f172a" opacity="0.85" />
+  <ellipse cx="32" cy="36" rx="7" ry="5" fill="#0f172a" opacity="0.9" />
+  <path d="M30 42 Q32 46 34 42" stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8" />
+</svg>

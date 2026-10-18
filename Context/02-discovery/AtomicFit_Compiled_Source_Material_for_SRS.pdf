@@ -1,0 +1,527 @@
+AtomicFit: Compiled Source Materialfor SRS
+Team: Alexander Marchiano, Jonathan Gouw, Luiesrelio (Luwi)
+This document merges all AtomicFit related material (problem background, interviews,
+personas, ideation, value proposition, core features, flow, MVP breakdown, and the low
+fidelity wireframes) into one place. It is organized so each section can feed a matching
+SRS section.
+1. Product Overview
+Product name: AtomicFit (team name: The Gym Bros)
+Origin problem (Alex's problem): People who exercise alone must pay attention to their
+exercise program, form, running distance, and repetitions, and also remember to record all
+of it. Tiredness and shortness of breath make them forget to log, so workout records
+become inaccurate, progress slows, and motivation drops. A personal trainer solves this
+by tracking progress and correcting form, but most people cannot easily access one.
+Guiding question: Wouldn't it be nice if everyone had easy access to a personal trainer
+that tracks their exercise, adjusts their workouts, and plans accordingly?
+Redefined problem statement (Persona 2.0 version): Can we give people affordable, low
+effort access to expert level guidance that automatically tracks their progress, adapts
+their program to real life disruptions, and designs a plan suited to their individual needs
+without requiring the time, money, or specialized knowledge a personal trainer normally
+demands?
+Redefined problem statement (SRE version): Can we have easy access to a personal
+trainer who can reduce the cognitive load of exercise, track progress automatically, and
+accurately design our fitness program according to our own specific needs?
+Core insight: The pain is not forgetting numbers. The pain is that a lost count makes the
+session feel like it "didn't count." Demotivation hits hardest for people whose only reward
+is visible progress.
+Two root causes the product targets:
+1. In-workout friction (typing, losing count, losing position mid-set).
+2. Post-lapse guilt (broken streaks, "it didn't count" mindset, restarting after a break).
+AtomicFit: Compiled Source Material for SRS
+Page 1 of 16
+
+2. Research Findings
+2.1 Survey and Interview Demographics (15 responses)
+Age: mostly 18 to 20, with outliers at 16, 17, 25, 42, 43.
+Gender: 10 male, 4 female, 1 prefer not to say.
+Occupations: mostly students (Software Engineering, Psychology, etc.), plus a Senior
+Software Engineer, a business owner, and a housewife.
+Exercise frequency: 0 to 2 times a week (10 users), 3 to 4 times a week (4 users), more
+than 5 times a week (1 user).
+Lost track of progress: Yes (12), No (2).
+Would pay for an automated solution: Maybe (10), No (4), Yes (1).
+Reasons for losing track: managing family or company business mid workout; forgetting
+to count reps or losing focus; distraction by music, videos, or sudden thoughts; cutting
+workouts short due to errands or childcare.
+2.2 Persona 2.0 Interviews (18 September 2026)
+Interview structure: (1) motivation and obstacles, (2) current tracking methods and why,
+(3) inconveniences of current solutions, (4) experiences losing track of progress, (5)
+impact on motivation, (6) ideal solutions.
+High Schooler Newbie (4 interviews)
+Motivations: gain weight, aesthetics, peer confidence, sports prep.
+Obstacles: low energy after school, procrastination loops, gym intimidation, no budget.
+Tracking: memory, cousins, YouTube (no counting).
+Wants: free "coach in pocket", automatic rep counting, visual progress ("you did more
+than last week"), calorie calculators.
+Fit Undergraduate (3 interviews)
+Motivations: weight management, stress relief, budget constraints.
+Obstacles: shifting class schedules, rhythm broken by manual typing in notes apps.
+Tracking: free notes apps with tally marks, physical notebooks (often forgotten).
+Wants: flexible and adaptive plans, visual tracking, zero subscription auto counters
+(camera or wearable), simple weekly logs.
+Corporate Lifter (2 interviews)
+AtomicFit: Compiled Source Material for SRS
+Page 2 of 16
+
+Motivations: longevity, energy for family, doctor recommendations.
+Obstacles: sudden meetings or on call work cut sessions short and make them feel
+unproductive.
+Tracking: smartwatches (passive metrics like heart rate, no manual reps), mental notes.
+Wants: adaptive system that detects pauses, resumes seamlessly, and gives low effort
+weekly summaries.
+On-the-Go Mom (3 interviews)
+Motivations: functional strength for childcare, claiming time for herself.
+Obstacles: unpredictable childcare demands, chores, errands. Apps expecting 45
+uninterrupted minutes fail her.
+Tracking: physical planners or notebooks (often rushed, forgets to log).
+Wants: fully automatic background tracker that handles fragmented sessions and
+remembers exact stoppage points.
+9-to-5 Gym Bros (2 interviews)
+Motivations: aesthetics, longevity, confidence.
+Obstacles: dislike of the "chore" of lifting, traffic, the start, chore, stop, guilt cycle.
+Tracking: free apps (Caliber), Garmin watches. Breaks cause total loss of routine.
+Wants: highly automated, low friction dynamic planner that adjusts to readiness and
+energy after a break, peer support features.
+2.3 Synthesis
+Universal problems: no real or accurate tracking system; tracking methods constantly
+break down; data loss leads to motivation loss.
+Common problems: busy schedules, losing count due to interruptions, financial
+constraints, motivation decay.
+What users are looking for: automatic tracking (no manual input), free or low cost,
+dynamic adaptation to schedule, progress visualization.
+AtomicFit: Compiled Source Material for SRS
+Page 3 of 16
+
+2.4 Named Personas (SREpresentation)
+2.5Target Audience
+1. Students: exercise for health and aesthetics; highly budget restricted.
+2. Young working people: maximize sessions around routines; receptive to digital tools.
+3. Middle aged working people: job and family first; exercise for longevity.
+4. Stay at home parents: errands and housework first; highly fragmented time.
+2.6 Competitor Analysis
+Hevy: experienced lifters, manual input, serious design, social motivation.
+Fitbod: beginners, instant generation, expensive subscription, gamification.
+Persona Goals Frictions
+Kevin, 20, university
+student
+Cost efficiency, optimized
+workouts and diets, automated
+routines
+Manual tracking, subscription
+paywalls, heavy coursework and
+internships
+Joshua, 25, graphic
+designer
+Career and health balance,
+flexible gym schedule
+(weekend heavy)
+Inefficient workouts, rigid apps
+that lack advanced protocols,
+shifting availability
+Cindy, 26, part-time
+accountant
+Gamified experience (level
+ups), social sharing and
+milestones
+Overhead of manual tracking
+and timers, social pressure to
+stay consistent
+Jamie, 17, high school
+student
+Confidence and aesthetics, low
+barrier entry, approachable
+habit building
+Gym intimidation, zero budget
+and transportation, busy
+academic and social life
+Tony, 50, senior
+software engineer
+Longevity and health, flexible
+routine around unpredictable
+meetings, family and work
+balance
+Constant interruptions, family
+and business take priority,
+static programs fail
+Sarah, 43, housewife Functional wellness, seamless
+progress tracking, integration
+into daily life
+Interruptions break tracking,
+rigid 45 minute plans fail when
+she has 15 minutes, high mental
+friction to start
+AtomicFit: Compiled Source Material for SRS
+Page 4 of 16
+
+Strava: competitive athletes, passive background tracking, social pressure, toxic "all or
+nothing" mindset.
+3. Problem Framing and Ideation
+3.1 Levers
+Mechanical: typing effort, forgetting notebooks, lost position mid set, unpredictable
+session length, no knowledge of form.
+Psychological: "it didn't count" mentality, start, chore, stop, guilt cycle, intimidation, no
+benchmark.
+3.2The 17 How MightWe Questions
+1. Let someone record a set without stopping, typing, or remembering?
+2. Keep the record with the person so nothing gets left at home?
+3. Keep someone's exact place when life pulls them away?
+4. Make tracking cost less effort than the workout?
+5. Get a useful count from someone who never counts live?
+6. Make a 15 minute session as valid as a 45 minute one?
+7. Make a broken session still feel like it counted?
+8. Show "you did more than last time" without math?
+9. Turn a long break into a fresh start instead of a failure?
+10. Cut the guilt out of the start, chore, stop cycle?
+11. Tie every logged rep back to personal reasons for training?
+12. Tell a beginner what to do next without a trainer?
+13. Build confidence for someone scared of gyms?
+14. Restart at the right weights after weeks away?
+15. Keep all of this free for notebook users?
+16. Adjust today's plan to today's energy without user input?
+17. Make working out a relief for a parent?
+AtomicFit: Compiled Source Material for SRS
+Page 5 of 16
+
+3.3Three Chosen HMWQuestions and Crazy 8's Ideas
+HMW 1: Record a set without stopping, typing, or remembering. Ideas: voice recording,
+one tap log, auto detection (sensors), smartwatch tracking, camera recognition (AI
+estimation), quick gesture (shake or tap), preset sets (auto prepare next set), automatic
+workout timeline (background tracking).
+HMW 2: Turn a long break into a fresh start. Ideas: "Welcome Back" stat reset choice,
+Auto-Ramp-Down weights (Smart Ease-In), 3 minute re-ignition workout, Seasons episode
+framing, Memory Lane wins recap, No-Judgment Diagnostic Quiz (energy check in),
+"Pause" history log (retroactive rest blocks), fresh start theme or skin unlock.
+HMW 3: Make a broken session still feel like it counted. Ideas: "Save Point" Resume Card,
+weekly rep bucket visualizer, Micro-Session Auto-Classifier ("Power Blast"), lock screen
+quick add counter, end of day rep collector notification, voice drop quick log, Flexi-Goal
+adjuster, asynchronous set stitching (merges sets at midnight).
+4. Value Proposition
+4.1Three Core Categories
+Category 1: Zero Friction Logging. Goal: quick, easy logging with little to no typing.
+1. Smartwatch tracking and auto detection (phone or watch sensors detect reps).
+2. Voice Quick Log (dictate "3 sets of 10 squats").
+3. Lock Screen Quick Add (add reps without unlocking).
+4. Preset Sets and One Tap Log (app remembers past metrics; user presses "Done").
+Category 2: Asynchronous and Fragmented Workouts. Goal: make short or interrupted
+workouts feel successful.
+1. "Save Point" Resume Card (remembers exact stoppage point, e.g. Set 3, Rep 6).
+2. Weekly Rep Bucket (aggregates all reps across the week; progress over perfection).
+3. Asynchronous Set Stitching (combines morning and afternoon sets).
+4. Micro-Session Auto-Classifier (adjusts goals for short workouts to validate effort).
+Category 3: Psychological Reboot and Guilt Reduction. Goal: easier returns after a break.
+1. Smart Ease-In / Auto-Ramp-Down (safely reduces weights by 15 to 20 percent after
+weeks away).
+2. "Pause" History Log (marks missed days as intentional "Recovery Phases").
+AtomicFit: Compiled Source Material for SRS
+Page 6 of 16
+
+3. No-Judgment Diagnostic Quiz (short 3 minute reboot workouts based on current
+energy).
+4. Seasons / "Welcome Back" Reset (reframes long breaks as a new "Season").
+4.2 Value Proposition Diagram
+Customer jobs: log and track volume, measure progress, restart routine after a hiatus.
+Pains: "failed session" feeling, logging friction, all or nothing mindset, guilt cycle.
+Gains: cost efficiency, graceful adjustments, seamless continuation, every rep counts.
+Pain relievers: Smart Ease-In Auto-Ramp-Down, "Recovery Phase" history converter.
+Gain creators: weekly volume bucket, "Save Point" Resume Card, Zero Friction Logging
+suite.
+4.3 Convergence: Adaptive FlexEngine
+Phase 1, Zero Guilt Check-In: a 14 plus day break triggers the No-Judgment Diagnostic
+Quiz ("How is your energy today?"), intercepting guilt immediately.
+Phase 2, Silent Calibration: based on inputs, Smart Ease-In dials back target weights
+by 15 to 20 percent to prevent DOMS and build confidence.
+Phase 3, Safety Net Validation: if a session is stopped early (e.g. 12 minutes in), the
+Micro-Session Auto-Classifier retitles it "Power Blast", marks it "Achieved", and adds
+the reps to the weekly bucket.
+5. Core Features (detailed)
+5.1 RepTracker
+Why essential: users who hate typing mid set lose rhythm with text inputs. This feature
+removes typing overhead while keeping logging instant and dependable.
+User value: rhythm preservation (no sub menus or keyboards while out of breath); instant
+validation (single tap gives visual feedback); low cognitive load (app anticipates actions
+from past data).
+Concept:
+Pre-populated fields: weight and rep inputs auto filled in gray text with values from the
+last session (or Diagnostic Quiz calibrations).
+One tap log: a large green [DONE] button logs the set instantly.
+AtomicFit: Compiled Source Material for SRS
+Page 7 of 16
+
+Quick adjustment: [+] and [-] steppers adjust counts with single taps instead of a
+keypad.
+5.2 Save Feature
+Why essential: life is unpredictable (children, classes, lack of time). Traditional apps mark
+interrupted workouts "Incomplete", triggering a "didn't count" mindset.
+User value: asynchronous workout support (workouts in pieces across a day); guilt
+elimination (progress stored like a video game save state); frictionless re entry (opening
+the app returns the user to where they stopped).
+Concept:
+1. Background cache: active state (Exercise ID, Set Number, Reps, Timestamp) cached
+locally in real time.
+2. Auto pause detection: transitions into a Save Point if backgrounded or idle for more
+than 15 minutes.
+3. Resume widget: prominent home screen widget, "Paused at Set 3, Rep 6. [Resume] or
+[Bank Completed Reps]."
+5.3 Diagnostic Quiz
+Why essential: returning after a multi week break brings guilt (broken streaks) and
+physical failure (lost conditioning). The quiz intercepts these barriers before the user
+reaches the gym floor.
+User value: psychological clean slate (no shaming notifications or missed badges on
+return); personalized expectation setting; preventative safety (scales volume and
+intensity down to prevent severe DOMS).
+Concept:
+1. Hiatus trigger: fires automatically if days_since_last_workout is greater than or
+equal to 14 days.
+2. 2 tap assessment: "Welcome back! How is your energy level today?" Options: [Low]
+[Medium] [Ready to Push].
+3. Smart Calibration (Auto-Ramp-Down): scales target weights down 15 to 20 percent and
+reduces sets for Low or Medium inputs, framed as "Optimal Re-Entry Load".
+4. Immediate action: transitions to a short, manageable workout plan built on the input.
+AtomicFit: Compiled Source Material for SRS
+Page 8 of 16
+
+5.4 Prototype Links
+Low fidelity prototype: https://canva.link/d9iu24e0001errr
+Medium fidelity prototype: https://canva.link/tv7pm54ruo6r7oq
+6. Feature Inventory (from the Flow deck)
+Core flow:
+1. Check In: no judgment diagnostic question after a long break; gives users control over
+expectations.
+2. Calibration: prevents DOMS; triggers Smart Ease-In to prevent injuries.
+3. Instant Stop / Validation Net: Micro-Session Auto Classifier logs short sessions as
+"power blasts" and adds completed reps to the weekly volume bucket.
+Fundamental features:
+Manual logging of exercises, sets, reps, and weight.
+Activity recording for cardio (distance, pace, elevation).
+Charts and graphs (strength gains, volume trends, body weight changes).
+Exercise database with demonstration videos or animations for correct form.
+Adaptive programming that adjusts future workouts based on logged performance and
+recovery.
+Core unique features:
+Auto-Ramp-Down: reduces target weight after a long break.
+No-Judgment Diagnostic Quiz: quick energy question to create a short workout based
+on condition.
+Micro-Session Auto-Classifier: adjusts goals when a workout is cut short so it can still
+be marked successful.
+Extra features:
+Voice Quick Log ("3 sets of 10 squats").
+Lock Screen Quick Add (add reps or sets without unlocking).
+"Save Point" Resume Card (e.g. "Set 3, stopped at rep 6", continue with one tap).
+Weekly Rep and Distance Bucket.
+Asynchronous Set Stitching (combines sets completed at different times into one
+workout).
+AtomicFit: Compiled Source Material for SRS
+Page 9 of 16
+
+7. User Journeys
+1. On-the-Go Mom. Need: keep her place when pulled away mid set, because a paused set
+feels like failing. Flow: open app, check for a saved workout (yes: start saved plan; no: start
+quick default plan), log sets. If interrupted mid set, the pause point is auto saved. If she
+resumes the same day, she continues the workout. If not, the session counts as achieved
+through the auto classifier. If not interrupted, the workout finishes and saves.
+2. The Fit Undergrad. Need: log reps without touching anything, because typing breaks
+rhythm and one lost count makes the session feel wasted. Flow: start workout, set phone
+down. With a smartwatch: hands free logging by voice or tap. Without: manual phone
+logging. If he loses count, he taps the smartwatch to log reps or sets. Session finishes and
+auto saves.
+3. The 9-5 Gym Bro. Need: restart after a break without feeling like he is starting over.
+Flow: open app after hiatus. If the hiatus is under 14 days, skip the quiz and use regular
+weight. If over 14 days, show the No-Judgment Quiz. High energy gives regular weight;
+Low or Medium gives a light ramp down. Complete the session and finish feeling content.
+4. High Schooler Newbie. Need: know what to do next without a trainer, because YouTube
+gives no structure or count. Flow: open app unsure what to do. First workout: onboarding
+tour explaining the sections. Otherwise: suggest the next exercise. If he does not know
+the exercise, he checks the GIF demo, mimics the move, and logs reps; if he knows it, he
+performs and logs directly. If the session is cut short, the auto classifier caches the partial
+session. Otherwise it is fully completed. Saved to history.
+8. MVP Scope
+8.1TaskBreakdown Approach
+Components assigned: Design, Frontend, Sensor and Voice logic, Backend, Data,
+Analytics, QA.
+Workflow:
+Design comes first.
+Sensor logic and backend run in parallel (no inter dependencies).
+Frontend and backend run in parallel, sharing only the API contract.
+Data modeling happens alongside the backend.
+Analytics is layered on once the core flow exists.
+AtomicFit: Compiled Source Material for SRS
+Page 10 of 16
+
+QA comes last, but test cases are written early.
+Reuse to avoid duplication:
+1. One "save a set" API for rep counting, voice logging, and lock screen add.
+2. One session data model for Micro Sessions and Set Stitching.
+3. One preview and confirm UI pattern for Quiz and Stitch.
+4. One analytics event schema and shared QA cases.
+8.2Epic:EasyExerciseTracking and Re-engagement
+Goal: track via hands free, voice, and lock screen controls to preserve rhythm; re engage
+through non diagnostic quizzes, micro sessions, and set stitching to prevent guilt.
+Story 1: Automatic Rep Counting. As a lifter, I want the app to count my reps
+automatically so I don't have to touch my phone mid set.
+Design: workout screen, live counter, start and stop states, error states.
+Frontend: live counter component, manual +/- buttons.
+Sensors: accelerometer and gyroscope data, smoothing filter, peak counting.
+Backend: save a set API, offline save and sync.
+QA: compare auto count with real count across 5 exercises.
+Story 2: Voice Logging. As a lifter, I want to log reps by voice so I can record a set while my
+hands are busy.
+Design: mic button, listening indicator, confirm card.
+Frontend: permission request, confirm and edit card.
+Voice logic: speech to text, phrase parsing (e.g. "10 reps squat"), retry handling.
+Backend: reuse the save set API.
+QA: test in a noisy gym with different accents.
+Story 3: Lock Screen Quick Add. As a lifter, I want to add a rep or set from my lock screen
+so I never need to unlock my phone.
+Design: lock screen widget layout.
+Frontend: widget with +1 rep and +1 set, live count sync.
+Backend: immediate save to prevent data loss.
+QA: close the app mid set and verify the count survives.
+AtomicFit: Compiled Source Material for SRS
+Page 11 of 16
+
+Story 4: Non-Diagnostic Quiz. As a busy lifter, I can take a short non diagnostic quiz about
+my target, energy, and motivation so the app can adjust my program.
+Design: prompt, question screens, preview screen.
+Frontend: modal or banner, quiz flow, program preview UI.
+Backend: 7 day inactivity trigger, rule engine for adjustment.
+Data and analytics: quiz attempt tracking, funnel dashboards.
+QA: rule matrix logic, accessibility testing.
+Story 5: Micro-Sessions. As a lifter who needs to leave mid workout, I want the completed
+portion saved as a micro session.
+Design: bottom sheet exit intercept, micro session badge.
+Frontend: exit interception, history UI update, resume UI.
+Backend: session state tracking, micro session save and resume APIs.
+Data and analytics: session type enum, save and discard rates.
+QA: background app kill, offline sync, streak edge cases.
+Story 6: Set Stitching. As a lifter, I want to combine multiple sessions into one stitched
+session.
+Design: selection mode, preview card, stitched card.
+Frontend: multi select history, preview and unstitch UI.
+Backend: eligibility service, stitch preview, stitch service, unstitch APIs.
+Data and analytics: stitched_session table, parent and child IDs.
+QA: cross midnight tests, prevent stats double counting.
+Why these stories: the MVP tackles the two main reasons users drop out: in workout
+friction (auto rep counting, voice logging, lock screen quick add) and post lapse guilt (non
+judgment quiz, micro sessions, set stitching).
+9. UIWireframes (Low Fidelity, 19 screens)
+The sketches below are described from the wireframe image so they can be turned into
+functional requirements.
+Global navigation (bottom bar on main screens): History, Home Page, Start Workout. Top
+bar on the home and quiz screens: clock, notification bell, settings gear, profile icon.
+AtomicFit: Compiled Source Material for SRS
+Page 12 of 16
+
+# Screen Elements
+1 Homepage (Login) Logo, email field, password field, "Don't have an
+account? register" link. Annotation: "Create an
+account, saved into database."
+2 RegisterAccount Back control, username, email, password,
+birthday (Y, M, D), terms and conditions
+checkbox, register button. Annotation: "create
+new record."
+3 Home "Welcome back, username...", calendar with
+marked workout days, "continue last workout"
+button, "Diagnostic Quiz" button, bottom nav.
+4 Profile Close button, change photo, username field,
+date of birth fields.
+5 Settings Close button, menu items: Display,
+Personalization, About app.
+6 Diagnostic Quiz, question 1 of 10 "What is your fitness target?" Radio options:
+muscle gain, staying healthy, basic fit, none.
+"Next question" button.
+7 Diagnostic Quiz, follow up
+question
+"Do you still want to push?" Options: Yes,
+progress the weight; No, some programs too
+hard; No, reduced intensity. Submit button.
+8 Adjusted program result "This is your adjusted program": table with
+exercise, set, reps, rest (e.g. DB curl, sets 1 to 3,
+10 reps, 2:00 rest). "Accept" button.
+9 Start Workout "Start empty program" button; Programs list:
+current program, all program, adjusted program;
+explore exercise (with search).
+10 Explore Exercise List of exercises with image thumbnail, short
+text, and an add (+) button; prompt "add to
+which program?" with options Upper Lower,
+Push Pull, Full Body.
+11 All Programs List of saved programs (e.g. Upper Lower, Push
+Pull, and a third program) each with a menu icon.
+AtomicFit: Compiled Source Material for SRS
+Page 13 of 16
+
+Wireframe coverage note: the sketches cover account creation, home, profile, settings,
+the diagnostic quiz and adjusted program, program management, exercise exploration,
+active workout logging, rest timer, completion summary, and history. They do not yet show
+Voice Quick Log, Lock Screen Quick Add, automatic rep counting, Save Point Resume
+Card, Micro-Session classification, Weekly Rep Bucket, or Set Stitching, which appear in
+the MVP stories.
+10.Items to ReconcileBeforeWriting the SRS
+1. Quiz trigger: the Core Features, Flow, and Value Proposition material says 14 or more
+days of inactivity; the MVP breakdown (Story 4) says 7 day inactivity. Pick one value or
+make it configurable.
+# Screen Elements
+12 All Programs (detail) Program table (exercise, set, reps, rest) with an
+Edit button.
+13 Current Program (active
+workout)
+Table (exercise, set, reps, rest) with a Finish
+button.
+14 Empty Program Finish button, table row with add set (+), add
+exercise button.
+15 Rest Time Rest timer with clock icon, digital countdown
+display, "set timer" button.
+16 Empty Program (filled) Rows such as DB curl and bench press with set,
+reps, rest values; add set (+); add exercise
+button; Finish button.
+17 Workout Completed "Workout Completed!" celebration illustration,
+total time, total sets.
+18 History Search field; entries listed by date and time (e.g.
+2026-10-10 19:35 Empty Program; 2026-10-02
+08:20 Upper Lower Split).
+19 History Detail Dated session with table of exercises (e.g.
+dumbbell curl, chest press), sets, reps, and rest;
+close button.
+AtomicFit: Compiled Source Material for SRS
+Page 14 of 16
+
+2. Quiz naming and content: called "Diagnostic Quiz" and "No-Judgment Diagnostic
+Quiz" in most sources, but "Non-Diagnostic Quiz" in the MVP. The concept describes a
+2 tap energy check (Low, Medium, Ready to Push), while the wireframe shows a 10
+question flow starting with fitness target. Decide which is the intended behavior.
+3. Persona naming: research uses "Corporate Lifter" and "9-to-5 Gym Bros"; the journeys
+use "9-5 Gym Bro"; the SRE deck uses six named personas (Kevin, Joshua, Cindy,
+Jamie, Tony, Sarah). Choose one set for the SRS stakeholder section.
+4. Ramp down values: all sources say 15 to 20 percent reduction in target weight; confirm
+whether sets are also reduced and by how much.
+5. Auto pause threshold: Save Feature specifies 15 minutes of idle or background time;
+confirm this against the Micro-Session exit intercept in MVP Story 5.
+6. Platform and sensors: MVP assumes phone sensors (accelerometer and gyroscope),
+voice input, and a lock screen widget; smartwatch support appears in the journeys and
+ideation. Confirm target platforms (iOS, Android) and whether smartwatch is in or out
+of MVP scope.
+7. Cost: research shows users want free or low cost; only 1 of 15 would definitely pay. The
+pricing or monetization model is not defined in any source.
+11. Suggested Mapping to SRS Sections
+SRS section Use from this document
+1. Introduction (purpose, scope, definitions) Sections 1 and 2.3
+2. Overall description (perspective, users,
+constraints, assumptions)
+Sections 2.4, 2.5, 2.6, 4.3, 10
+3. Functional requirements Sections 5, 6, 8.2, 9
+4. User interface requirements Section 9 and prototype links in 5.4
+5. Non functional requirements Offline save and sync, immediate save,
+background caching, accessibility testing,
+noisy environment and accent testing
+(Section 8.2); free or low cost goal (Section
+2.3)
+6. Use cases and user journeys Section 7
+AtomicFit: Compiled Source Material for SRS
+Page 15 of 16
+
+SRS section Use from this document
+7. Data requirements Session state, set record, stitched_session
+table, session type enum, quiz attempts
+(Section 8.2)
+8. Verification and QA QA lines in Section 8.2
+AtomicFit: Compiled Source Material for SRS
+Page 16 of 16

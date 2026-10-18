@@ -1,0 +1,24 @@
+{
+  "name": "@atomfit/device",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AtomFit device adapters — sensor / speech / vibration / lock-screen interfaces + fakes.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./interfaces": "./src/interfaces.ts",
+    "./fakes": "./src/fakes.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@atomfit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "typescript": "^5.5.0"
+  }
+}
