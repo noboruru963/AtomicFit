@@ -1,7 +1,7 @@
-<!-- @atomfit/web/public/sw.js
-     Service worker for offline + installable PWA (Rule I-09).
-     Standard web APIs only. Provides best-effort lock-screen quick-add notification
-     where supported (BA-005); otherwise in-app quick-add bar is the mandatory path. -->
+// @atomfit/web/public/sw.js
+// Service worker for offline + installable PWA (Rule I-09).
+// Standard web APIs only. Provides best-effort lock-screen quick-add notification
+// where supported (BA-005); otherwise in-app quick-add bar is the mandatory path.
 const CACHE_NAME = 'atomfit-v1';
 const ASSETS = ['/', '/index.html', '/manifest.json', '/logo.svg'];
 
