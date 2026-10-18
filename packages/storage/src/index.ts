@@ -9,7 +9,7 @@ export {
   ProgramVersionRepository,
   ProgramSetRepository,
   WorkoutSessionRepository,
-  SetLogRepository,
+  SetLogRepositoryDexie as SetLogRepository,
   StitchedSessionRepository,
   QuizAttemptRepository,
   QuizAnswerRepository,

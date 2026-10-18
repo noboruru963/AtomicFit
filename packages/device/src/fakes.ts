@@ -54,10 +54,13 @@ export function smooth(samples: number[], window = 5): number[] {
     let sum = 0;
     let count = 0;
     for (let j = Math.max(0, i - half); j <= Math.min(samples.length - 1, i + half); j++) {
-      sum += samples[j];
-      count++;
+      const val = samples[j];
+      if (val !== undefined) {
+        sum += val;
+        count++;
+      }
     }
-    out[i] = sum / count;
+    out[i] = count > 0 ? sum / count : 0;
   }
   return out;
 }
@@ -72,10 +75,16 @@ export function countPeaks(
   let lastPeakIndex = -Infinity;
   const minIntervalSamples = Math.ceil(minIntervalMs / sampleIntervalMs);
   for (let i = 1; i < signal.length - 1; i++) {
+    const cur = signal[i];
+    const prev = signal[i - 1];
+    const next = signal[i + 1];
     if (
-      signal[i] > threshold &&
-      signal[i] > signal[i - 1] &&
-      signal[i] > signal[i + 1] &&
+      cur !== undefined &&
+      prev !== undefined &&
+      next !== undefined &&
+      cur > threshold &&
+      cur > prev &&
+      cur > next &&
       i - lastPeakIndex >= minIntervalSamples
     ) {
       count++;

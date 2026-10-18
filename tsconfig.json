@@ -17,11 +17,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "exclude": ["node_modules", "dist", "build"],
-  "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/storage" },
-    { "path": "./packages/device" },
-    { "path": "./apps/web" }
-  ]
+  "include": ["packages/**/*.ts", "apps/**/*.ts"],
+  "exclude": ["node_modules", "dist", "build", "*.tsbuildinfo"]
 }

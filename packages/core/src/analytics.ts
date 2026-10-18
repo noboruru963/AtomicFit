@@ -2,7 +2,8 @@
 // Local-only analytics event schema (Section 8.7, Rule I-3: no transmission).
 // Common schema reused across features (Rule I-13 / NFR-044).
 
-import type { Id, UtcMillis, AnalyticEventName } from './config';
+import type { Id, UtcMillis } from './types';
+import type { AnalyticEventName } from './config';
 import type { AnalyticsEvent } from './types';
 import { newId } from './id';
 

@@ -4,14 +4,19 @@
 import { describe, it, expect } from 'vitest';
 import { QuizEngineImpl } from '../src/quiz.engine';
 import { QUIZ_RULE_TABLE, type RuleRow } from '../src/config';
-import type { QuizAttempt, QuizAnswer } from '../src/types';
+import type { QuizAttempt, QuizAnswer, Id } from '../src/types';
+
+// Helper for tests: plain string -> branded Id
+function tid(s: string): Id {
+  return s as unknown as Id;
+}
 
 function attempt(): QuizAttempt {
-  return { id: 'a1', userId: 'u1', startedAtUtc: 1000, status: 'complete' };
+  return { id: tid('a1'), userId: tid('u1'), startedAtUtc: 1000, status: 'complete' };
 }
 
 function answer(q: string, k: string): QuizAnswer {
-  return { id: 'x', quizAttemptId: 'a1', questionKey: q, answerKey: k };
+  return { id: tid('x'), quizAttemptId: tid('a1'), questionKey: q, answerKey: k };
 }
 
 describe('QuizEngine', () => {

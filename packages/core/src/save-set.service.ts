@@ -6,13 +6,8 @@
 // Rule I-8: durability — persist within 1 second; restored after force-close
 // (durability is the storage layer's job; this service is the transaction boundary).
 
-import type {
-  Id,
-  SetLog,
-  InputMethod,
-  isValidWeightKg,
-  isValidReps,
-} from './types';
+import type { Id, SetLog, InputMethod } from './types';
+import { isValidWeightKg, isValidReps } from './types';
 import { newId } from './id';
 
 export interface SaveSetInput {

@@ -64,10 +64,13 @@ export class AtomFitDb extends Dexie {
 export const db = new AtomFitDb();
 
 // Type-safe atomic transaction helper (Rule I-7).
+// Dexie's transaction() accepts tables as variadic arguments, so we spread the
+// array and cast to satisfy TypeScript's rest/tuple checking.
 export function atomically<R>(
   tables: Array<Table<any, any>>,
   mode: 'r' | 'rw' | 'rw!',
   work: (tx: Transaction) => Promise<R>,
 ): Promise<R> {
-  return db.transaction(mode, ...tables, work);
+  const args: unknown[] = [mode, ...tables, work];
+  return (db.transaction as (...a: unknown[]) => Promise<R>)(...args);
 }

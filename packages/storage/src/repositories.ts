@@ -24,19 +24,21 @@ import type {
   UserProgramAdjustment,
   AnalyticsEvent,
 } from '@atomfit/core';
+import type { Table } from 'dexie';
 import type {
-  SetLogRepository,
-  SessionRepository,
-  StitchRepository,
+  SetLogRepository as SetLogRepositoryPort,
+  SessionRepository as SessionRepositoryPort,
+  StitchRepository as StitchRepositoryPort,
 } from '@atomfit/core';
 
 // ---------------------------------------------------------------------------
 // Generic CRUD repository
 // ---------------------------------------------------------------------------
 class CrudRepo<T extends { id: Id }> {
-  constructor(public readonly table: ReturnType<AtomFitDb['table']> & Table<T, Id>) {}
+  constructor(public readonly table: Table<T, Id>) {}
   async findById(id: Id): Promise<T | null> {
-    return this.table.get(id) ?? null;
+    const entity = await this.table.get(id);
+    return entity ?? null;
   }
   async insert(entity: T): Promise<void> {
     await this.table.add(entity); // add throws if key exists (idempotency guard)
@@ -58,7 +60,8 @@ export class UserAccountRepository {
     return this.repo.findById(id);
   }
   async findByEmail(email: string) {
-    return db.userAccounts.where('email').equals(email).first() ?? null;
+    const entity = await db.userAccounts.where('email').equals(email).first();
+    return entity ?? null;
   }
   async insert(entity: UserAccount) {
     return this.repo.insert(entity);
@@ -73,7 +76,8 @@ export class UserAccountRepository {
 // ---------------------------------------------------------------------------
 export class AppSettingRepository {
   async findByUser(userId: Id) {
-    return db.appSettings.where('userId').equals(userId).first() ?? null;
+    const entity = await db.appSettings.where('userId').equals(userId).first();
+    return entity ?? null;
   }
   async upsert(entity: AppSetting) {
     await db.appSettings.put(entity);
@@ -88,7 +92,8 @@ export class ExerciseRepository {
     return db.exercises.toArray();
   }
   async findById(id: Id) {
-    return db.exercises.get(id) ?? null;
+    const entity = await db.exercises.get(id);
+    return entity ?? null;
   }
   async insert(entity: Exercise) {
     await db.exercises.add(entity);
@@ -100,10 +105,16 @@ export class ExerciseRepository {
 // ---------------------------------------------------------------------------
 export class ProgramRepository {
   async findById(id: Id) {
-    return db.programs.get(id) ?? null;
+    const entity = await db.programs.get(id);
+    return entity ?? null;
   }
   async findCurrentByUser(userId: Id) {
-    return db.programs.where('userId').equals(userId).filter((p) => p.isCurrent).first() ?? null;
+    const entity = await db.programs
+      .where('userId')
+      .equals(userId)
+      .filter((p) => p.isCurrent)
+      .first();
+    return entity ?? null;
   }
   async insert(entity: Program) {
     await db.programs.add(entity);
@@ -150,19 +161,21 @@ export class ProgramSetRepository {
 // ---------------------------------------------------------------------------
 // WorkoutSession (SessionRepository port)
 // ---------------------------------------------------------------------------
-export class WorkoutSessionRepository implements SessionRepository {
+export class WorkoutSessionRepository implements SessionRepositoryPort {
   async findById(id: Id) {
-    return db.workoutSessions.get(id) ?? null;
+    const entity = await db.workoutSessions.get(id);
+    return entity ?? null;
   }
   async findUnfinishedByUser(userId: Id) {
-    return db.workoutSessions
+    const rows = await db.workoutSessions
       .where('userId')
       .equals(userId)
       .filter((s) => s.completionStatus === 'incomplete')
-      .toArray()
-      .then((rows) =>
-        rows.sort((a, b) => (b.startedAtUtc ?? 0) - (a.startedAtUtc ?? 0))[0] ?? null,
-      );
+      .toArray();
+    return (
+      rows.sort((a, b) => (b.startedAtUtc ?? 0) - (a.startedAtUtc ?? 0))[0] ??
+      null
+    );
   }
   async insert(entity: WorkoutSession) {
     await db.workoutSessions.add(entity);
@@ -175,9 +188,10 @@ export class WorkoutSessionRepository implements SessionRepository {
 // ---------------------------------------------------------------------------
 // SetLog (SetLogRepository port — Rule I-5: written only via Save-Set service)
 // ---------------------------------------------------------------------------
-export class SetLogRepository implements SetLogRepository {
+export class SetLogRepositoryDexie implements SetLogRepositoryPort {
   async findById(id: Id) {
-    return db.setLogs.get(id) ?? null;
+    const entity = await db.setLogs.get(id);
+    return entity ?? null;
   }
   async findBySession(sessionId: Id) {
     return db.setLogs.where('sessionId').equals(sessionId).toArray();
@@ -193,9 +207,13 @@ export class SetLogRepository implements SetLogRepository {
 // ---------------------------------------------------------------------------
 // StitchedSession (StitchRepository port)
 // ---------------------------------------------------------------------------
-export class StitchedSessionRepository implements StitchRepository {
+export class StitchedSessionRepository implements StitchRepositoryPort {
   async findStitchByParent(parentSessionId: Id) {
-    return db.stitchedSessions.where('parentSessionId').equals(parentSessionId).first() ?? null;
+    const entity = await db.stitchedSessions
+      .where('parentSessionId')
+      .equals(parentSessionId)
+      .first();
+    return entity ?? null;
   }
   async insert(entity: StitchedSession) {
     await db.stitchedSessions.add(entity);
@@ -213,7 +231,8 @@ export class QuizAttemptRepository {
     await db.quizAttempts.add(entity);
   }
   async findById(id: Id) {
-    return db.quizAttempts.get(id) ?? null;
+    const entity = await db.quizAttempts.get(id);
+    return entity ?? null;
   }
   async update(entity: QuizAttempt) {
     await db.quizAttempts.put(entity);

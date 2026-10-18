@@ -11,3 +11,8 @@ export * from './inactivity.service';
 export * from './stitching.service';
 export * from './progression';
 export * from './analytics';
+// Re-export repository interfaces explicitly to avoid ambiguity with storage package.
+// These are port interfaces; storage package provides the Dexie implementations.
+export type { SetLogRepository } from './save-set.service';
+export type { SessionRepository } from './session.service';
+export type { StitchRepository } from './stitching.service';
