@@ -1,5 +1,0 @@
-Fix JSX inline style CSS unit values
-
-Quote all CSS values with units (rem) in inline style objects so esbuild
-can parse JSX correctly. Bare numbers (px) remain unquoted as they are
-valid in React.
