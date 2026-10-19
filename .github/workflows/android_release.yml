@@ -24,18 +24,39 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 4. Configure Release Signing Keystore
-        working-directory: apps/mobile_flutter/android
+      - name: 4. Auto-Detect Flutter Folder & Configure Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          # 1. Automatically find where pubspec.yaml and android folder are located
+          if [ -f "pubspec.yaml" ]; then
+            FLUTTER_DIR="."
+          elif [ -f "apps/mobile_flutter/pubspec.yaml" ]; then
+            FLUTTER_DIR="apps/mobile_flutter"
+          else
+            FOUND=$(find . -maxdepth 3 -name "pubspec.yaml" | head -n 1)
+            if [ -n "$FOUND" ]; then
+              FLUTTER_DIR=$(dirname "$FOUND")
+            else
+              FLUTTER_DIR="."
+            fi
+          fi
+
+          echo "Detected Flutter project directory: $FLUTTER_DIR"
+          echo "FLUTTER_DIR=$FLUTTER_DIR" >> $GITHUB_ENV
+
+          ANDROID_DIR="$FLUTTER_DIR/android"
+          echo "ANDROID_DIR=$ANDROID_DIR" >> $GITHUB_ENV
+          mkdir -p "$ANDROID_DIR/app"
+
+          # 2. Configure signing keystore
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "Using saved KEYSTORE_BASE64 from GitHub Secrets..."
-            echo "$KEYSTORE_BASE64" | base64 --decode > app/upload-keystore.jks
-            cat <<EOP > key.properties
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_DIR/app/upload-keystore.jks"
+            cat <<EOP > "$ANDROID_DIR/key.properties"
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
           keyAlias=${KEY_ALIAS:-upload}
@@ -43,13 +64,13 @@ jobs:
           EOP
           else
             echo "No KEYSTORE_BASE64 secret found yet — generating a fresh upload-keystore.jks in the cloud..."
-            keytool -genkey -v -keystore app/upload-keystore.jks \
+            keytool -genkey -v -keystore "$ANDROID_DIR/app/upload-keystore.jks" \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -alias upload \
               -storepass atomfit2026 -keypass atomfit2026 \
               -dname "CN=AtomFit, OU=Mobile, O=AtomFit, L=Jakarta, S=DKI, C=ID"
-            base64 -w 0 app/upload-keystore.jks > app/upload-keystore-base64.txt
-            cat <<EOP > key.properties
+            base64 -w 0 "$ANDROID_DIR/app/upload-keystore.jks" > "$ANDROID_DIR/app/upload-keystore-base64.txt"
+            cat <<EOP > "$ANDROID_DIR/key.properties"
           storePassword=atomfit2026
           keyPassword=atomfit2026
           keyAlias=upload
@@ -58,8 +79,8 @@ jobs:
           fi
 
       - name: 5. Install Flutter Packages & Build Signed .aab and .apk
-        working-directory: apps/mobile_flutter
         run: |
+          cd "$FLUTTER_DIR"
           flutter pub get
           flutter build appbundle --release
           flutter build apk --release
@@ -69,7 +90,8 @@ jobs:
         with:
           name: AtomFit-GooglePlay-Release-Bundle
           path: |
-            apps/mobile_flutter/build/app/outputs/bundle/release/app-release.aab
-            apps/mobile_flutter/build/app/outputs/flutter-apk/app-release.apk
-            apps/mobile_flutter/android/app/upload-keystore.jks
-            apps/mobile_flutter/android/app/upload-keystore-base64.txt
+            **/build/app/outputs/bundle/release/app-release.aab
+            **/build/app/outputs/flutter-apk/app-release.apk
+            **/upload-keystore.jks
+            **/upload-keystore-base64.txt
+          if-no-files-found: warn
