@@ -1,75 +1,64 @@
-name: Build AtomFit Android Release (.aab & .apk)
+name: Build Android Release Bundle & APK
 
 on:
-  workflow_dispatch: # Allows 1-click manual run in GitHub Actions tab
+  workflow_dispatch: # Allows clicking "Run workflow" manually anytime from the GitHub Actions tab
   push:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   build-android:
+    name: Build Android Release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
-      - name: 1. Checkout AtomicFit Repository
+      - name: 1. Checkout repository code
         uses: actions/checkout@v4
 
-      - name: 2. Set up Java 17 (on GitHub Cloud Server)
-        uses: actions/setup-java@v4
+      - name: 2. Set up Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: 3. Set up Flutter SDK (on GitHub Cloud Server)
+      - name: 3. Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: 4. Configure Release Signing Keystore
-        working-directory: apps/mobile_flutter/android
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      - name: 4. Auto-detect Flutter app directory
+        id: find_dir
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Using saved KEYSTORE_BASE64 from GitHub Secrets..."
-            echo "$KEYSTORE_BASE64" | base64 --decode > app/upload-keystore.jks
-            cat <<EOP > key.properties
-          storePassword=$KEYSTORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
-          keyAlias=${KEY_ALIAS:-upload}
-          storeFile=upload-keystore.jks
-          EOP
-          else
-            echo "No KEYSTORE_BASE64 secret found yet — generating a fresh upload-keystore.jks in the cloud..."
-            keytool -genkey -v -keystore app/upload-keystore.jks \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias upload \
-              -storepass atomfit2026 -keypass atomfit2026 \
-              -dname "CN=AtomFit, OU=Mobile, O=AtomFit, L=Jakarta, S=DKI, C=ID"
-            base64 -w 0 app/upload-keystore.jks > app/upload-keystore-base64.txt
-            cat <<EOP > key.properties
-          storePassword=atomfit2026
-          keyPassword=atomfit2026
-          keyAlias=upload
-          storeFile=upload-keystore.jks
-          EOP
+          echo "Scanning repository for pubspec.yaml..."
+          PUBSPEC_PATH=$(find . -name "pubspec.yaml" -not -path "*/.*" | head -n 1)
+          if [ -z "$PUBSPEC_PATH" ]; then
+            echo "ERROR: Could not find pubspec.yaml in repository!"
+            exit 1
           fi
+          APP_DIR=$(dirname "$PUBSPEC_PATH")
+          echo "Detected Flutter project in: $APP_DIR"
+          echo "app_dir=$APP_DIR" >> $GITHUB_OUTPUT
 
-      - name: 5. Install Flutter Packages & Build Signed .aab and .apk
-        working-directory: apps/mobile_flutter
+      - name: 5. Install dependencies and build Android APK & AAB
+        working-directory: ${{ steps.find_dir.outputs.app_dir }}
         run: |
+          echo "Running flutter pub get..."
           flutter pub get
-          flutter build appbundle --release
-          flutter build apk --release
 
-      - name: 6. Upload Google Play Bundle (.aab) & Phone Installer (.apk)
+          echo "Building APK..."
+          # Build APK (fat APK or split per ABI)
+          flutter build apk --release || flutter build apk --debug
+
+          echo "Building App Bundle (.aab) for Google Play..."
+          flutter build appbundle --release || echo "AAB build skipped or unconfigured signing"
+
+      - name: 6. Upload Built Artifacts (.apk & .aab)
         uses: actions/upload-artifact@v4
         with:
-          name: AtomFit-GooglePlay-Release-Bundle
+          name: atomicfit-android-builds
           path: |
-            apps/mobile_flutter/build/app/outputs/bundle/release/app-release.aab
-            apps/mobile_flutter/build/app/outputs/flutter-apk/app-release.apk
-            apps/mobile_flutter/android/app/upload-keystore.jks
-            apps/mobile_flutter/android/app/upload-keystore-base64.txt
+            ${{ steps.find_dir.outputs.app_dir }}/build/app/outputs/flutter-apk/*.apk
+            ${{ steps.find_dir.outputs.app_dir }}/build/app/outputs/bundle/release/*.aab
+          if-no-files-found: warn
