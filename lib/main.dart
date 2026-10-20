@@ -1,54 +1,88 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/quiz_prompt_screen.dart';
-import 'screens/quiz_question_screen.dart';
-import 'screens/quiz_explainer_screen.dart';
-import 'screens/quiz_adjusted_program_screen.dart';
-import 'screens/programs_screen.dart';
-import 'screens/active_workout_screen.dart';
-import 'screens/workout_complete_screen.dart';
-import 'screens/history_screen.dart';
-import 'screens/discover_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/settings_screen.dart';
-import 'theme/app_theme.dart';
-import 'texts/app_texts.dart';
+import 'package:flutter/services.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
-  runApp(const AtomFitApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
+  runApp(const AtomicFitApp());
 }
 
-class AtomFitApp extends StatelessWidget {
-  const AtomFitApp({super.key});
+class AtomicFitApp extends StatelessWidget {
+  const AtomicFitApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: AppTexts.appName,
+      title: 'AtomicFit',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      initialRoute: '/login',
-      routes: {
-        '/': (context) => const LoginScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/quiz/prompt': (context) => const QuizPromptScreen(),
-        '/quiz/question': (context) => const QuizQuestionScreen(),
-        '/quiz/explainer': (context) => const QuizExplainerScreen(),
-        '/quiz/adjusted-program': (context) => const QuizAdjustedProgramScreen(),
-        '/programs': (context) => const ProgramsScreen(),
-        '/workout/active': (context) => const ActiveWorkoutScreen(),
-        '/workout/complete': (context) => const WorkoutCompleteScreen(),
-        '/history': (context) => const HistoryScreen(),
-        '/discover': (context) => const DiscoverScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/settings': (context) => const SettingsScreen(),
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+      ),
+      home: const HtmlPrototypeScreen(),
+    );
+  }
+}
+
+class HtmlPrototypeScreen extends StatefulWidget {
+  const HtmlPrototypeScreen({super.key});
+
+  @override
+  State<HtmlPrototypeScreen> createState() => _HtmlPrototypeScreenState();
+}
+
+class _HtmlPrototypeScreenState extends State<HtmlPrototypeScreen> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0F172A))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) {
+              setState(() => _isLoading = false);
+            }
+          },
+        ),
+      )
+      ..loadFlutterAsset('index.html');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _controller.canGoBack()) {
+          await _controller.goBack();
+        } else if (context.mounted) {
+          SystemNavigator.pop();
+        }
       },
+      child: Scaffold(
+        body: SafeArea(
+          child: Stack(
+            children: [
+              WebViewWidget(controller: _controller),
+              if (_isLoading)
+                const Center(
+                  child: CircularProgressIndicator(),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
