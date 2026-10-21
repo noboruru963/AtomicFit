@@ -1,79 +1,144 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderQuizExplainerScreen()` (`index.html` lines 1897-1931).
 class QuizExplainerScreen extends StatelessWidget {
   const QuizExplainerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final QuizAdjustment adjustment = state.computedQuizAdjustment();
+
+    return AfScaffold(
+      screenId: AfScreen.quizExplainer,
+      child: AfCard(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(width: 64, height: 64, decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(32)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)))),
-                      const SizedBox(height: 24),
-                      Text(AppTexts.appName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(color: AppTheme.cardLight, borderRadius: BorderRadius.circular(AppTheme.radiusCard), border: Border.all(color: AppTheme.lineLight)),
-                        child: Column(
-                          children: [
-                            Text(AppTexts.explainerTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                            const SizedBox(height: 16),
-                            Text(AppTexts.explainerBody, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight), textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                              child: Text(AppTexts.nonDiagnostic, style: const TextStyle(fontSize: 10, color: AppTheme.mutedLight), textAlign: TextAlign.center),
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              width: 250,
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pushReplacementNamed(context, '/quiz/adjusted-program'),
-                                child: const Text(AppTexts.nextButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: t.accentTint,
+                borderRadius: BorderRadius.circular(16),
               ),
+              alignment: Alignment.center,
+              child: const Text('📊', style: TextStyle(fontSize: 20)),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              AfStrings.quizWhyTitle,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AfStrings.quizWhyBody,
+              style: AfText.muted(t).copyWith(height: 1.625),
+            ),
+            const SizedBox(height: 16),
+            _AdjustmentRow(
+              label: AfStrings.quizSessionLength,
+              value: adjustment.sessionLength,
+              accent: true,
+            ),
+            const SizedBox(height: 10),
+            _AdjustmentRow(
+              label: AfStrings.quizIntensity,
+              value: adjustment.intensityLabel,
+              accent: true,
+            ),
+            const SizedBox(height: 10),
+            _AdjustmentRow(
+              label: AfStrings.quizFrequency,
+              value: adjustment.frequency,
+              accent: false,
+            ),
+            const SizedBox(height: 10),
+            AfSubtle(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: <Widget>[
+                  Flexible(
+                    child: Text(
+                      AfStrings.quizWeightAdjustment,
+                      style: AfText.muted(t, size: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AfBadge(
+                    label: '${adjustment.pctText} across exercises',
+                    tone: AfBadgeTone.green,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            AfButton(
+              label: AfStrings.quizSeeAdjustedPlan,
+              expand: true,
+              fontSize: 14,
+              onPressed: () => Navigator.of(context)
+                  .pushReplacementNamed(AfScreen.quizAdjusted),
+            ),
+            const SizedBox(height: 10),
+            AfButton(
+              label: AfStrings.quizBackToQuiz,
+              variant: AfButtonVariant.secondary,
+              expand: true,
+              size: AfButtonSize.compact,
+              onPressed: () => Navigator.of(context)
+                  .pushReplacementNamed(AfScreen.quizQuestion),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
+class _AdjustmentRow extends StatelessWidget {
+  const _AdjustmentRow({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return AfSubtle(
+      padding: const EdgeInsets.all(14),
       child: Row(
-        children: [
-          Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)))),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.notifications_none, color: Colors.white), onPressed: null),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Flexible(
+            child: Text(label, style: AfText.muted(t, size: 12)),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: accent ? t.accent : t.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -7,6 +7,11 @@ dist/
 build/
 *.tsbuildinfo
 
+# Flutter build artifacts
+.dart_tool/flutter_build/
+.dart_tool/hooks_runner/objective_c/
+android/.kotlin/
+
 # IDE
 .vscode/
 .idea/

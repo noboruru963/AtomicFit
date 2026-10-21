@@ -1,88 +1,151 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderQuizPromptScreen()` (`index.html` lines 1758-1781).
 class QuizPromptScreen extends StatelessWidget {
   const QuizPromptScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+
+    void start({required bool short}) {
+      state.quizShortMode = short;
+      state.setQuizStep(0);
+      Navigator.of(context).pushNamed(AfScreen.quizQuestion);
+    }
+
+    return AfScaffold(
+      screenId: AfScreen.quizPrompt,
+      child: AfCard(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(width: 64, height: 64, decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(32)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)))),
-                      const SizedBox(height: 24),
-                      Text(AppTexts.appName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(color: AppTheme.cardLight, borderRadius: BorderRadius.circular(AppTheme.radiusCard), border: Border.all(color: AppTheme.lineLight)),
-                        child: Column(
-                          children: [
-                            Text(AppTexts.promptTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                            const SizedBox(height: 12),
-                            Text(AppTexts.promptBody, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight), textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                              child: Text(AppTexts.nonDiagnostic, style: const TextStyle(fontSize: 10, color: AppTheme.mutedLight), textAlign: TextAlign.center),
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              width: 250,
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pushNamed(context, '/quiz/question'),
-                                child: const Text(AppTexts.startButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: 250,
-                              height: 52,
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text(AppTexts.notNowButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: t.accentTint,
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                alignment: Alignment.center,
+                child: const Text('⚡', style: TextStyle(fontSize: 24)),
               ),
+            ),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: const AfBadge(label: AfStrings.quizNonDiagnostic),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                AfStrings.quizPromptTitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AfStrings.quizPromptBody,
+              textAlign: TextAlign.center,
+              style: AfText.muted(t).copyWith(height: 1.625),
+            ),
+            const SizedBox(height: 16),
+            AfSubtle(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    AfStrings.quizTuningHeader,
+                    style: AfText.strong(t, size: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  const _TuningRow(
+                    label: AfStrings.quizTuningVolume,
+                    value: AfStrings.quizTuningVolumeValue,
+                  ),
+                  const _TuningRow(
+                    label: AfStrings.quizTuningDuration,
+                    value: AfStrings.quizTuningDurationValue,
+                  ),
+                  const _TuningRow(
+                    label: AfStrings.quizTuningRest,
+                    value: AfStrings.quizTuningRestValue,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            AfButton(
+              label: AfStrings.quizStartFull,
+              expand: true,
+              fontSize: 14,
+              onPressed: () => start(short: false),
+            ),
+            const SizedBox(height: 10),
+            AfButton(
+              label: AfStrings.quizStartQuick,
+              variant: AfButtonVariant.tint,
+              expand: true,
+              size: AfButtonSize.compact,
+              onPressed: () => start(short: true),
+            ),
+            const SizedBox(height: 10),
+            AfButton(
+              label: AfStrings.quizNotNow,
+              variant: AfButtonVariant.secondary,
+              expand: true,
+              size: AfButtonSize.compact,
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
+class _TuningRow extends StatelessWidget {
+  const _TuningRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        children: [
-          Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)))),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.notifications_none, color: Colors.white), onPressed: null),
+        children: <Widget>[
+          Flexible(
+            child: Text(
+              '• $label',
+              style: AfText.muted(t, size: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: AfText.strong(t, size: 12, weight: FontWeight.w600),
+          ),
         ],
       ),
     );

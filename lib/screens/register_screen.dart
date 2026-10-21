@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
-import '../services/local_storage_service.dart';
 
+import '../app/shell.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderRegisterScreen()` (`index.html` lines 1525-1581).
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -11,568 +15,267 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
-
-  final _usernameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final TextEditingController _username = TextEditingController(text: 'Alex');
+  final TextEditingController _email =
+      TextEditingController(text: 'alex@example.com');
+  final TextEditingController _password =
+      TextEditingController(text: 'atomfit2026');
+  final TextEditingController _confirm =
+      TextEditingController(text: 'atomfit2026');
+  final TextEditingController _dob = TextEditingController(text: '1998-05-14');
 
   String _gender = 'Prefer not to say';
-
-  // DOB fields
-  final _dayController = TextEditingController();
-  String? _month;
-  final _yearController = TextEditingController();
-
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  bool _agreedToTerms = false;
-  bool _isLoading = false;
-
-  final List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
+  bool _terms = true;
+  String? _error;
 
   @override
   void dispose() {
-    _usernameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    _dayController.dispose();
-    _yearController.dispose();
+    _username.dispose();
+    _email.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    _dob.dispose();
     super.dispose();
   }
 
-  // --- Validators ---
-
-  String? _validateUsername(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Username is required';
-    }
-    if (value.trim().length < 3) {
-      return 'Username must be at least 3 characters';
-    }
-    return null;
-  }
-
-  String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Email is required';
-    }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value.trim())) {
-      return 'Enter a valid email address';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
-  }
-
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please confirm your password';
-    }
-    if (value != _passwordController.text) {
-      return AppTexts.errPasswordsDoNotMatch;
-    }
-    return null;
-  }
-
-  Future<void> _handleRegister() async {
-    // 1. Run all field validations
-    if (!_formKey.currentState!.validate()) {
+  void _submit() {
+    final AppState state = AfAppScope.of(context);
+    if (_password.text != _confirm.text) {
+      setState(() => _error = AfStrings.registerPasswordMismatch);
       return;
     }
-
-    // 2. Validate Terms agreement
-    if (!_agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You must accept the terms and conditions to register.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+    if (!_terms) {
+      setState(() => _error = AfStrings.registerTermsMissing);
       return;
     }
-
-    setState(() => _isLoading = true);
-
-    // Format DOB string
-    final dob = (_dayController.text.isNotEmpty && _month != null && _yearController.text.isNotEmpty)
-        ? '${_dayController.text.trim()} $_month ${_yearController.text.trim()}'
-        : '';
-
-    // 3. Register user with LocalStorageService
-    final error = await LocalStorageService.registerAccount(
-      username: _usernameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
+    setState(() => _error = null);
+    state.saveProfile(
+      username: _username.text,
+      email: _email.text,
       gender: _gender,
-      dateOfBirth: dob,
+      dobMonth: _dob.text,
+      weightKg: state.user.weightKg,
+      heightCm: state.user.heightCm,
     );
-
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
-    if (error == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration successful! Welcome to AtomicFit.'),
-          backgroundColor: AppTheme.primary,
-        ),
-      );
-      // Navigate to Home dashboard
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      // Show error message (e.g., account with this email already exists)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
+    state.showToast(
+      AfStrings.fill(AfStrings.registerCreatedToast, <String, Object?>{
+        'name': _username.text.trim().isEmpty ? 'Alex' : _username.text.trim(),
+      }),
+    );
+    Navigator.of(context).pushReplacementNamed(AfScreen.home);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(24),
+    final AfTokens t = context.af;
+
+    return AfScaffold(
+      screenId: AfScreen.register,
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const Center(child: AfEyebrow(AfStrings.registerEyebrow)),
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              AfStrings.registerTitle,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Center(child: Text(AfStrings.tagline, style: AfText.muted(t))),
+          const SizedBox(height: 18),
+          AfCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (_error != null) ...<Widget>[
+                  AfErrorBanner(message: _error!),
+                  const SizedBox(height: 12),
+                ],
+                Text(
+                  AfStrings.registerUsername,
+                  style: AfText.muted(t, weight: FontWeight.w600),
                 ),
-                child: const Center(
-                  child: Text(
-                    'AF',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                const SizedBox(height: 4),
+                AfTextField(
+                  controller: _username,
+                  hint: AfStrings.registerUsernamePlaceholder,
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppTexts.appName,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textLight,
+                const SizedBox(height: 14),
+                Text(
+                  AfStrings.registerEmailLabel,
+                  style: AfText.muted(t, weight: FontWeight.w600),
                 ),
-              ),
-              Text(
-                AppTexts.tagline,
-                style: TextStyle(fontSize: 14, color: AppTheme.mutedLight),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                AppTexts.registerTitle,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textLight,
+                const SizedBox(height: 4),
+                AfTextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  hint: AfStrings.registerEmailPlaceholder,
                 ),
-              ),
-              const SizedBox(height: 20),
-              Form(
-                key: _formKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  children: [
-                    _buildField(
-                      label: AppTexts.usernameLabel,
-                      icon: Icons.person_outline,
-                      controller: _usernameController,
-                      validator: _validateUsername,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildField(
-                      label: AppTexts.emailLabel,
-                      icon: Icons.email_outlined,
-                      controller: _emailController,
-                      validator: _validateEmail,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildField(
-                      label: AppTexts.passwordLabel,
-                      icon: Icons.lock_outline,
-                      controller: _passwordController,
-                      validator: _validatePassword,
-                      obscureText: _obscurePassword,
-                      isPassword: true,
-                      onToggleVisibility: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildField(
-                      label: 'Confirm password',
-                      icon: Icons.lock_outline,
-                      controller: _confirmPasswordController,
-                      validator: _validateConfirmPassword,
-                      obscureText: _obscureConfirmPassword,
-                      isPassword: true,
-                      onToggleVisibility: () {
-                        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDobField(),
-                    const SizedBox(height: 16),
-                    _buildGenderField(),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _agreedToTerms,
-                          activeColor: AppTheme.primary,
-                          onChanged: (val) {
-                            setState(() => _agreedToTerms = val ?? false);
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _agreedToTerms = !_agreedToTerms);
-                            },
-                            child: Text.rich(
-                              TextSpan(
-                                text: '${AppTexts.termsLabel} ',
-                                style: const TextStyle(fontSize: 14, color: AppTheme.textLight),
-                                children: [
-                                  TextSpan(
-                                    text: '(Required)',
-                                    style: TextStyle(fontSize: 12, color: AppTheme.mutedLight),
-                                  ),
-                                ],
-                              ),
-                            ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.registerPassword,
+                            style: AfText.muted(t, weight: FontWeight.w600),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleRegister,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                AppTexts.registerButton,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                          const SizedBox(height: 4),
+                          AfTextField(controller: _password, obscureText: true),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          AppTexts.haveAccount,
-                          style: TextStyle(fontSize: 14, color: AppTheme.mutedLight),
-                        ),
-                        const SizedBox(width: 4),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(
-                            AppTexts.loginButton,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.primary,
-                            ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.registerConfirmPassword,
+                            style: AfText.muted(t, weight: FontWeight.w600),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          AfTextField(controller: _confirm, obscureText: true),
+                        ],
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.registerDob,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          AfTextField(controller: _dob),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.registerGender,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          DropdownButtonFormField<String>(
+                            initialValue: _gender,
+                            isExpanded: true,
+                            decoration: const InputDecoration(),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            items: const <DropdownMenuItem<String>>[
+                              DropdownMenuItem<String>(
+                                value: AfStrings.registerSelectOption,
+                                child: Text(
+                                  AfStrings.registerSelectOption,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderMale,
+                                child: Text(AfStrings.genderMale),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderFemale,
+                                child: Text(AfStrings.genderFemale),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderPreferNot,
+                                child: Text(
+                                  AfStrings.genderPreferNot,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                            onChanged: (String? value) {
+                              if (value == null ||
+                                  value == AfStrings.registerSelectOption) {
+                                return;
+                              }
+                              setState(() => _gender = value);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Checkbox(
+                        value: _terms,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        activeColor: t.accent,
+                        onChanged: (bool? value) =>
+                            setState(() => _terms = value ?? false),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      AfStrings.registerTerms,
+                      style: TextStyle(
+                        color: t.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                AfButton(
+                  label: AfStrings.registerButton,
+                  expand: true,
+                  onPressed: _submit,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                AfStrings.registerHasAccount,
+                style: AfText.muted(t),
+              ),
+              GestureDetector(
+                onTap: () =>
+                    Navigator.of(context).pushReplacementNamed(AfScreen.login),
+                child: Text(
+                  AfStrings.registerLogin,
+                  style: TextStyle(
+                    color: t.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildField({
-    required String label,
-    required IconData icon,
-    required TextEditingController controller,
-    required String? Function(String?) validator,
-    bool obscureText = false,
-    bool isPassword = false,
-    VoidCallback? onToggleVisibility,
-    TextInputType? keyboardType,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textLight,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          validator: validator,
-          style: const TextStyle(color: AppTheme.textLight),
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppTheme.mutedLight),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      obscureText ? Icons.visibility_off : Icons.visibility,
-                      color: AppTheme.mutedLight,
-                    ),
-                    onPressed: onToggleVisibility,
-                  )
-                : null,
-            filled: true,
-            fillColor: AppTheme.cardLight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: const BorderSide(color: AppTheme.primary),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: const BorderSide(color: Colors.redAccent),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: const BorderSide(color: Colors.redAccent),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDobField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppTexts.profileDateOfBirth,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textLight,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Day
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Day', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _dayController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 2,
-                    decoration: InputDecoration(
-                      counterText: '',
-                      hintText: 'DD',
-                      filled: true,
-                      fillColor: AppTheme.cardLight,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: const BorderSide(color: AppTheme.primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Month
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Month', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppTheme.cardLight,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: const BorderSide(color: AppTheme.primary),
-                      ),
-                    ),
-                    value: _month,
-                    hint: const Text('Month', style: TextStyle(fontSize: 13, color: AppTheme.mutedLight)),
-                    items: _months
-                        .map((m) => DropdownMenuItem(
-                              value: m,
-                              child: Text(m, style: const TextStyle(fontSize: 13)),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _month = v),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Year
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Year', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _yearController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    decoration: InputDecoration(
-                      counterText: '',
-                      hintText: 'YYYY',
-                      filled: true,
-                      fillColor: AppTheme.cardLight,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: BorderSide(color: AppTheme.lineLight),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                        borderSide: const BorderSide(color: AppTheme.primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGenderField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppTexts.profileGender,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textLight,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.cardLight,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: const BorderSide(color: AppTheme.primary),
-            ),
-          ),
-          value: _gender,
-          items: [
-            AppTexts.genderMale,
-            AppTexts.genderFemale,
-            AppTexts.genderPreferNotToSay,
-          ].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-          onChanged: (v) => setState(() => _gender = v ?? 'Prefer not to say'),
-        ),
-      ],
     );
   }
 }

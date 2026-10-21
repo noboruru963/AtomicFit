@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderDiscoverScreen()` (`index.html` lines 3874-3941).
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
 
@@ -10,171 +16,277 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  String _search = '';
-  final Set<String> _added = {};
+  final TextEditingController _customName = TextEditingController();
+  final TextEditingController _customWeight = TextEditingController(text: '15');
+  final TextEditingController _customReps = TextEditingController(text: '10');
+  final TextEditingController _search = TextEditingController();
+  String _customCategory = 'Custom';
+  String? _error;
 
-  final List<Map<String, String>> _catalogue = [
-    {'id': 'e1', 'name': 'Barbell shoulder press', 'desc': 'Overhead press with a barbell.'},
-    {'id': 'e2', 'name': 'Dumbbell shoulder press', 'desc': 'Seated or standing dumbbell press.'},
-    {'id': 'e3', 'name': 'Inverted plank', 'desc': 'Reverse plank targeting posterior chain.'},
-    {'id': 'e4', 'name': 'Dumbbell curl', 'desc': 'Bicep curl with dumbbells.'},
-    {'id': 'e5', 'name': 'Chest press', 'desc': 'Bench or floor chest press.'},
-    {'id': 'e6', 'name': 'Tricep raise', 'desc': 'Triceps extension.'},
-    {'id': 'e7', 'name': 'Lateral pushdown', 'desc': 'Cable or band lateral pushdown.'},
+  static const List<String> _categories = <String>[
+    'All',
+    'Chest',
+    'Shoulders',
+    'Back',
+    'Core',
+    'Arms',
+    'Legs',
+    'Custom',
   ];
 
-  // Programs available for adding exercises
-  final List<Map<String, dynamic>> _programs = [
-    {'id': 'p1', 'name': 'Upper Lower'},
-    {'id': 'p2', 'name': 'Push Pull Leg'},
-    {'id': 'p3', 'name': 'Gorilla Training'},
-  ];
-
-  Widget _buildExerciseCard(Map<String, String> ex) {
-    final isAdded = _added.contains(ex['id']);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardLight,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.lineLight),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(ex['name']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-                const SizedBox(height: 4),
-                Text(ex['desc']!, style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 36,
-            child: ElevatedButton(
-              onPressed: isAdded ? null : () => _showAddToProgramDialog(ex['id']!, ex['name']!),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isAdded ? AppTheme.mutedLight : AppTheme.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(isAdded ? 'Added' : AppTexts.addButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddToProgramDialog(String exerciseId, String exerciseName) {
-    String? selectedProgramId;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add to Program'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Which program would you like to add this exercise to?', style: TextStyle(fontSize: 13)),
-            const SizedBox(height: 16),
-            ..._programs.map((prog) => RadioListTile<String>(
-              title: Text(prog['name'], style: const TextStyle(fontSize: 14)),
-              value: prog['id'],
-              groupValue: selectedProgramId,
-              onChanged: (val) => setState(() => selectedProgramId = val),
-              dense: true,
-            )),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (selectedProgramId == null) return;
-              setState(() => _added.add(exerciseId));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$exerciseName added to ${_programs.firstWhere((p) => p['id'] == selectedProgramId)['name']}')),
-              );
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _customName.dispose();
+    _customWeight.dispose();
+    _customReps.dispose();
+    _search.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _catalogue.where((e) => e['name']!.toLowerCase().contains(_search.toLowerCase())).toList();
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final String query = state.catalogueSearch.trim().toLowerCase();
 
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppTexts.discoverTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      decoration: InputDecoration(
-                        labelText: AppTexts.search,
-                        prefixIcon: const Icon(Icons.search),
-                      ),
-                      onChanged: (v) => setState(() => _search = v),
+    final List<Exercise> items = state.catalogue.where((Exercise exercise) {
+      final bool categoryMatch = state.catalogueFilter == 'All' ||
+          exercise.category == state.catalogueFilter;
+      final bool searchMatch = query.isEmpty ||
+          exercise.name.toLowerCase().contains(query) ||
+          exercise.description.toLowerCase().contains(query);
+      return categoryMatch && searchMatch;
+    }).toList();
+
+    void submitCustom() {
+      final String name = _customName.text.trim();
+      if (name.isEmpty) {
+        setState(() => _error = AfStrings.discoverNameRequired);
+        state.showToast(
+          AfStrings.discoverNameRequiredToast,
+          kind: ToastKind.danger,
+        );
+        return;
+      }
+      setState(() => _error = null);
+      state.addExerciseToWorkoutAndProgram(
+        name: name,
+        sets: 3,
+        reps: int.tryParse(_customReps.text) ?? 10,
+        weightKg: double.tryParse(_customWeight.text) ?? 15,
+        category: _customCategory,
+      );
+      _customName.clear();
+      state.showToast(
+        AfStrings.fill(AfStrings.discoverCustomAddedToast, <String, Object?>{
+          'name': name,
+        }),
+      );
+    }
+
+    return AfScaffold(
+      screenId: AfScreen.discover,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // --------------------------------------------- custom exercise entry
+          AfCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Text(
+                      AfStrings.discoverCustomTitle,
+                      style: AfText.strong(t, size: 14),
                     ),
-                    const SizedBox(height: 16),
-                    ...filtered.map((ex) => _buildExerciseCard(ex)).toList(),
-                    if (filtered.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(48),
-                          child: Text('No exercises match.', style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
-                        ),
+                    const Spacer(),
+                    const AfBadge(
+                      label: AfStrings.discoverManualEntry,
+                      fontSize: 10,
+                    ),
+                  ],
+                ),
+                if (_error != null) ...<Widget>[
+                  const SizedBox(height: 10),
+                  AfErrorBanner(message: _error!),
+                ],
+                const SizedBox(height: 10),
+                AfTextField(
+                  controller: _customName,
+                  style: AfText.muted(t, size: 12),
+                  hint: AfStrings.discoverCustomNamePlaceholder,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _customCategory,
+                        isExpanded: true,
+                        style: AfText.muted(t, size: 12),
+                        items: <DropdownMenuItem<String>>[
+                          for (final String category in _categories.skip(1))
+                            DropdownMenuItem<String>(
+                              value: category,
+                              child: Text(category),
+                            ),
+                        ],
+                        onChanged: (String? value) {
+                          if (value == null) return;
+                          setState(() => _customCategory = value);
+                        },
                       ),
-                    const SizedBox(height: 24),
-                    Text('Catalogue content coming soon.', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AfTextField(
+                        controller: _customWeight,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        style: AfText.muted(t, size: 12),
+                        hint: AfStrings.discoverWeightPlaceholder,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AfTextField(
+                        controller: _customReps,
+                        keyboardType: TextInputType.number,
+                        style: AfText.muted(t, size: 12),
+                        hint: AfStrings.discoverRepsPlaceholder,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                AfButton(
+                  label: AfStrings.discoverAddCustom,
+                  size: AfButtonSize.medium,
+                  expand: true,
+                  onPressed: submitCustom,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ------------------------------------------------ search and filters
+          AfTextField(
+            controller: _search,
+            style: AfText.muted(t, size: 12),
+            hint: AfStrings.discoverSearchPlaceholder,
+            onChanged: state.setCatalogueSearch,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: <Widget>[
+              for (final String category in _categories)
+                AfButton(
+                  label: category,
+                  variant: state.catalogueFilter == category
+                      ? AfButtonVariant.primary
+                      : AfButtonVariant.secondary,
+                  size: AfButtonSize.compact,
+                  onPressed: () => state.setCatalogueFilter(category),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ---------------------------------------------------------- catalogue
+          if (items.isEmpty)
+            AfCard(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                AfStrings.discoverEmpty,
+                textAlign: TextAlign.center,
+                style: AfText.muted(t),
+              ),
+            )
+          else
+            for (final Exercise exercise in items) ...<Widget>[
+              AfCard(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: <Widget>[
+                              Text(
+                                exercise.name,
+                                style: AfText.strong(t, size: 14),
+                              ),
+                              AfBadge(
+                                label: exercise.category,
+                                fontSize: 10,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            exercise.description,
+                            style: AfText.muted(t),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AfStrings.fill(
+                                AfStrings.discoverTarget, <String, Object?>{
+                              'kg': _trim(exercise.defaultKg),
+                              'reps': exercise.defaultReps,
+                            }),
+                            style: TextStyle(
+                              color: t.accent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AfButton(
+                      label: AfStrings.discoverAdd,
+                      variant: AfButtonVariant.tint,
+                      size: AfButtonSize.compact,
+                      onPressed: () {
+                        state.addExerciseToWorkoutAndProgram(
+                          name: exercise.name,
+                          sets: exercise.defaultSets,
+                          reps: exercise.defaultReps,
+                          weightKg: exercise.defaultKg,
+                          category: exercise.category,
+                        );
+                        state.showToast(
+                          AfStrings.fill(
+                            AfStrings.discoverAddedToast,
+                            <String, Object?>{'name': exercise.name},
+                          ),
+                        );
+                        Navigator.of(context).pushNamed(AfScreen.activeWorkout);
+                      },
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
-            child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800))),
-          ),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+              const SizedBox(height: 10),
+            ],
         ],
       ),
     );
   }
+}
+
+String _trim(double value) {
+  final String text = value.toStringAsFixed(1);
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
 }
