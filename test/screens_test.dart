@@ -82,4 +82,42 @@ void main() {
       }
     });
   }
+
+  testWidgets('starting a program opens the workout and logs a set',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+
+    // "Start Push Day" on the home card.
+    await tester.tap(find.text('Start Push Day'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Current Exercise'), findsOneWidget);
+
+    // "+1 reps" bumps the rep counter (Push Day starts at 8 reps).
+    await tester.tap(find.text('+1 reps'));
+    await tester.pump();
+    expect(state.activeWorkout.repsInput, 9);
+
+    // "Add Set" stores the set and opens the rest timer.
+    await tester.tap(find.text('Add Set'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(state.activeWorkout.sets, hasLength(1));
+    // The prototype upper-cases the rest timer heading.
+    expect(find.text('REST COUNTDOWN'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Let the toast auto-dismiss timer run out before the tree is torn down.
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
 }
