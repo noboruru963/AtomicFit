@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -5,6 +6,13 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// inside the app so the native port can be compared with the reference.
 class HtmlReferenceScreen extends StatefulWidget {
   const HtmlReferenceScreen({super.key});
+
+  /// The WebView plugin only ships Android, iOS and macOS implementations.
+  static bool get isSupported {
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+  }
 
   @override
   State<HtmlReferenceScreen> createState() => _HtmlReferenceScreenState();
@@ -31,6 +39,21 @@ class _HtmlReferenceScreenState extends State<HtmlReferenceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!HtmlReferenceScreen.isSupported) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('HTML reference (debug)')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'The HTML reference viewer needs Android, iOS or macOS.\n'
+              'Open index.html in a browser instead.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('HTML reference (debug)'),
