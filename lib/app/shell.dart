@@ -36,6 +36,7 @@ class AfScreen {
 
   static const String login = 'login';
   static const String register = 'register';
+  static const String personalDetails = 'personal-details';
   static const String home = 'home';
   static const String programs = 'programs';
   static const String activeWorkout = 'active-workout';
@@ -43,6 +44,7 @@ class AfScreen {
   static const String workoutComplete = 'workout-complete';
   static const String history = 'history';
   static const String discover = 'discover';
+  static const String discoverDetail = 'discover-detail';
   static const String profile = 'profile';
   static const String settings = 'settings';
   static const String quizPrompt = 'quiz-prompt';
@@ -65,10 +67,14 @@ class AfScreen {
         return AfStrings.titleHistory;
       case discover:
         return AfStrings.titleDiscover;
+      case discoverDetail:
+        return AfStrings.titleExerciseGuide;
       case profile:
         return AfStrings.titleProfile;
       case settings:
         return AfStrings.titleSettings;
+      case personalDetails:
+        return AfStrings.titlePersonalDetails;
       case quizPrompt:
         return AfStrings.titleQuizPrompt;
       case quizQuestion:
@@ -83,11 +89,20 @@ class AfScreen {
     }
   }
 
-  static bool showsTopBar(String screenId) =>
-      screenId != login && screenId != register;
+  /// The auth screens hide the app chrome, like the prototype's
+  /// `updateChromeBars()`.
+  static bool showsTopBar(String screenId, {bool isLoggedIn = true}) =>
+      isLoggedIn &&
+      screenId != login &&
+      screenId != register &&
+      screenId != personalDetails;
 
-  static bool showsBottomNav(String screenId) =>
-      screenId != login && screenId != register && screenId != timer;
+  static bool showsBottomNav(String screenId, {bool isLoggedIn = true}) =>
+      isLoggedIn &&
+      screenId != login &&
+      screenId != register &&
+      screenId != personalDetails &&
+      screenId != timer;
 }
 
 /// The persistent app header (`#app-top-bar`).
@@ -384,6 +399,7 @@ class AfScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final bool loggedIn = AfAppScope.of(context).isLoggedIn;
 
     return Scaffold(
       backgroundColor: t.bgPage,
@@ -391,7 +407,8 @@ class AfScaffold extends StatelessWidget {
         children: <Widget>[
           Column(
             children: <Widget>[
-              if (AfScreen.showsTopBar(screenId)) AfTopBar(screenId: screenId),
+              if (AfScreen.showsTopBar(screenId, isLoggedIn: loggedIn))
+                AfTopBar(screenId: screenId),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
@@ -403,7 +420,7 @@ class AfScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              if (AfScreen.showsBottomNav(screenId))
+              if (AfScreen.showsBottomNav(screenId, isLoggedIn: loggedIn))
                 AfBottomNav(current: screenId),
             ],
           ),

@@ -24,6 +24,7 @@ void main() {
     await loadAppFonts();
     final AppState state = AppState(store: _MemoryStore());
     await state.load();
+    state.isLoggedIn = true;
 
     await tester.pumpWidget(AtomFitApp(state: state));
     await tester.pump();
@@ -32,5 +33,19 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text(AfStrings.appName), findsOneWidget);
     expect(find.text(AfStrings.homeMyPrograms), findsOneWidget);
+  });
+
+  testWidgets('opens on the login screen when nobody is signed in',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text(AfStrings.loginTitle), findsOneWidget);
   });
 }

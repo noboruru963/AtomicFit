@@ -13,6 +13,11 @@ dependencies:
   # Local persistence — mirrors the web prototype's single `atomfit_app_v23` blob.
   # Swap point for a future Firebase implementation (see lib/data/README.md).
   shared_preferences: ^2.2.3
+  # Relational local database (accounts, catalogue, programs, sessions, sets).
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  # Salted password hashing for the local accounts table.
+  crypto: ^3.0.3
   # Date formatting ("Oct 18, 17:30").
   intl: ^0.18.1
   # Rest-timer completion bell (assets/bell.mp3).
@@ -26,12 +31,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # In-memory SQLite for the database tests (desktop/test only).
+  sqflite_common_ffi: ^2.3.3
 
 flutter:
   uses-material-design: true
   assets:
     - assets/bell.mp3
     - assets/images/logo.jpg
+    - assets/data/exercise_catalogue.json
     - index.html
   fonts:
     - family: Inter

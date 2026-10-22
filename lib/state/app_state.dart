@@ -3,9 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../data/db/catalogue.dart';
+import '../data/db/exercise_repository.dart';
+import '../data/db/password_hasher.dart';
 import '../data/seed_data.dart';
 import '../data/store.dart';
+import '../models/app_account.dart';
 import '../models/app_models.dart';
+import '../services/personal_details_validation.dart';
 
 enum ToastKind { success, info, danger }
 
@@ -15,9 +20,20 @@ enum ToastKind { success, info, danger }
 /// Screens read from this object and call the methods below; nothing else
 /// mutates application data.
 class AppState extends ChangeNotifier {
-  AppState({required this.store, DateTime? now}) : _now = now ?? DateTime.now();
+  AppState({
+    required this.store,
+    ExerciseRepository? exercises,
+    DateTime? now,
+  })  : _exercises = exercises,
+        _now = now ?? DateTime.now();
 
   final AtomFitStore store;
+
+  /// The exercise catalogue backed by the database. When it is `null` the
+  /// state falls back to the seeded catalogue (used by the widget tests).
+  final ExerciseRepository? _exercises;
+
+  final PasswordHasher _hasher = const PasswordHasher();
   final DateTime _now;
 
   // ------------------------------------------------------------- persisted
@@ -42,6 +58,22 @@ class AppState extends ChangeNotifier {
   );
   bool isProgramAdjusted = false;
   double adjustmentFactor = 0.9;
+
+  // --------------------------------------------------------------- accounts
+  /// The local accounts (`appState.accounts[]` in the prototype).
+  List<AppAccount> accounts = <AppAccount>[];
+
+  /// Whether a user is signed in (`appState.isLoggedIn`).
+  bool isLoggedIn = false;
+
+  /// Whether the signed-in account finished the personal-details step.
+  bool personalDetailsComplete = true;
+
+  /// The exercise the Discover detail screen is showing.
+  String? selectedExerciseId;
+
+  /// How many Discover results are currently rendered (`discoverVisibleLimit`).
+  int discoverVisibleLimit = 60;
 
   // ------------------------------------------------------------- ui state
   bool showQuizBannerOnHome = true;
@@ -81,12 +113,26 @@ class AppState extends ChangeNotifier {
     final Map<String, dynamic>? document = await store.read();
     if (document == null) {
       _seed();
+      await _loadCatalogue();
       await persist();
     } else {
       _restore(document);
+      await _loadCatalogue();
     }
     _loaded = true;
     notifyListeners();
+  }
+
+  /// Reads the exercise catalogue from the database.
+  ///
+  /// Custom exercises come first, mirroring the prototype's
+  /// `customExercises.concat(DEFAULT_CATALOGUE)`.
+  Future<void> _loadCatalogue() async {
+    final ExerciseRepository? repository = _exercises;
+    if (repository == null) return;
+    final List<Exercise> stored = await repository.loadAll();
+    if (stored.isEmpty) return;
+    catalogue = stored;
   }
 
   void _seed() {
@@ -100,8 +146,46 @@ class AppState extends ChangeNotifier {
     isProgramAdjusted = false;
     adjustmentFactor = 0.9;
     showQuizBannerOnHome = true;
+    isLoggedIn = false;
+    personalDetailsComplete = true;
+    accounts = _demoAccounts();
     final Program active = programs.first;
     activeWorkout = _workoutFor(active, 'full', clearSets: true);
+  }
+
+  /// The demo accounts the prototype seeds (`index.html` lines 735-766).
+  ///
+  /// The passwords are stored as salted hashes — never in clear text.
+  List<AppAccount> _demoAccounts() {
+    final String now = _now.toUtc().toIso8601String();
+    final String createdAt = DateFormat('MMMM yyyy').format(_now);
+
+    AppAccount make(String id, String username, String email) {
+      final String salt = _hasher.newSalt();
+      return AppAccount(
+        id: id,
+        userId: id,
+        email: email,
+        username: username,
+        passwordHash: _hasher.hash('password123', salt),
+        passwordSalt: salt,
+        gender: 'Prefer not to say',
+        dobDay: '14',
+        dobMonth: 'May',
+        dobYear: '1998',
+        weightKg: '74',
+        heightCm: '178',
+        personalDetailsComplete: true,
+        createdAt: createdAt,
+        createdAtUtc: now,
+        updatedAtUtc: now,
+      );
+    }
+
+    return <AppAccount>[
+      make('u_joe_01', 'Joe123', 'joe@example.com'),
+      make('u_alex_01', 'Alex', 'alex@example.com'),
+    ];
   }
 
   void _restore(Map<String, dynamic> document) {
@@ -117,6 +201,14 @@ class AppState extends ChangeNotifier {
     isProgramAdjusted = document['isProgramAdjusted'] == true;
     adjustmentFactor =
         (document['adjustmentFactor'] as num?)?.toDouble() ?? 0.9;
+    isLoggedIn = document['isLoggedIn'] == true;
+
+    accounts = _mapList(document['accounts'])
+        .map(AppAccount.fromJson)
+        .where((AppAccount a) => a.email.isNotEmpty)
+        .toList();
+    personalDetailsComplete = _accountFor(user.id)?.personalDetailsComplete ??
+        (document['personalDetailsComplete'] == true);
 
     final List<Exercise> restoredCatalogue = _mapList(document['catalogue'])
         .map(Exercise.fromJson)
@@ -189,15 +281,224 @@ class AppState extends ChangeNotifier {
       'schemaVersion': 1,
       'seedVersion': 1,
       'user': user.toJson(),
+      'accounts': accounts.map((AppAccount a) => a.toJson()).toList(),
+      'isLoggedIn': isLoggedIn,
+      'personalDetailsComplete': personalDetailsComplete,
       'settings': settings.toJson(),
       'isDarkMode': isDarkMode,
       'isProgramAdjusted': isProgramAdjusted,
       'adjustmentFactor': adjustmentFactor,
-      'catalogue': catalogue.map((Exercise e) => e.toJson()).toList(),
       'programs': programs.map((Program p) => p.toJson()).toList(),
       'history': history.map((WorkoutSession s) => s.toJson()).toList(),
       'activeWorkout': activeWorkout.toJson(),
+      'quizAnswers': Map<String, dynamic>.from(quizAnswers),
+      'showQuizBannerOnHome': showQuizBannerOnHome,
+      'quizShortMode': quizShortMode,
+      'quizStepIndex': quizStepIndex,
     });
+  }
+
+  /// The account record matching [userId], if any.
+  AppAccount? _accountFor(String userId) {
+    for (final AppAccount account in accounts) {
+      if (account.id == userId || account.userId == userId) return account;
+    }
+    return null;
+  }
+
+  // --------------------------------------------------------------- accounts
+
+  /// Registers a local account.
+  ///
+  /// Returns an error message, or `null` when the account was created. The
+  /// new account starts with `personalDetailsComplete = false`, so the flow
+  /// continues on the personal-details screen.
+  String? registerAccount({required String email, required String password}) {
+    final String cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+      return 'Please enter a valid email address';
+    }
+    if (password.isEmpty) {
+      return 'Please enter a password';
+    }
+    for (final AppAccount account in accounts) {
+      if (account.email.toLowerCase() == cleanEmail) {
+        return 'An account with this email already exists';
+      }
+    }
+
+    final String now = DateTime.now().toUtc().toIso8601String();
+    final String id = 'u_${DateTime.now().millisecondsSinceEpoch}';
+    final String salt = _hasher.newSalt();
+    final AppAccount account = AppAccount(
+      id: id,
+      userId: id,
+      email: cleanEmail,
+      username: '',
+      passwordHash: _hasher.hash(password, salt),
+      passwordSalt: salt,
+      gender: 'Prefer not to say',
+      dobDay: '',
+      dobMonth: '',
+      dobYear: '',
+      weightKg: '',
+      heightCm: '',
+      personalDetailsComplete: false,
+      createdAt: DateFormat('MMMM yyyy').format(DateTime.now()),
+      createdAtUtc: now,
+      updatedAtUtc: now,
+    );
+    accounts = <AppAccount>[...accounts, account];
+    user = _profileFor(account);
+    isLoggedIn = true;
+    personalDetailsComplete = false;
+    history = <WorkoutSession>[];
+    unawaited(persist());
+    notifyListeners();
+    return null;
+  }
+
+  /// Signs an account in.
+  ///
+  /// The identifier may be the e-mail address or the username. Returns an
+  /// error message, or `null` on success.
+  String? login({required String identifier, required String password}) {
+    final String key = identifier.trim().toLowerCase();
+    if (key.isEmpty || password.isEmpty) {
+      return 'Incorrect email or password';
+    }
+
+    AppAccount? match;
+    for (final AppAccount account in accounts) {
+      if (account.email.toLowerCase() == key ||
+          account.username.toLowerCase() == key) {
+        match = account;
+        break;
+      }
+    }
+
+    if (match == null) {
+      // The prototype signs unknown e-mails up on the fly.
+      final String? error = registerAccount(
+        email: identifier,
+        password: password,
+      );
+      if (error != null) return error;
+      final AppAccount created = accounts.last;
+      accounts = <AppAccount>[
+        ...accounts.take(accounts.length - 1),
+        created.copyWith(personalDetailsComplete: true),
+      ];
+      personalDetailsComplete = true;
+      user = _profileFor(accounts.last);
+      unawaited(persist());
+      notifyListeners();
+      return null;
+    }
+
+    if (!_hasher.verify(
+      password: password,
+      salt: match.passwordSalt,
+      expectedHash: match.passwordHash,
+    )) {
+      return 'Incorrect email or password';
+    }
+
+    isLoggedIn = true;
+    personalDetailsComplete = match.personalDetailsComplete;
+    user = _profileFor(match);
+    unawaited(persist());
+    notifyListeners();
+    return null;
+  }
+
+  /// Signs the current user out.
+  void logout() {
+    isLoggedIn = false;
+    unawaited(persist());
+    notifyListeners();
+    showToast('Logged out', kind: ToastKind.info);
+  }
+
+  /// Saves the personal details of the signed-in account.
+  ///
+  /// Returns the validation result; when it is valid the account is updated
+  /// and `personalDetailsComplete` becomes `true`.
+  PersonalDetailsCheck savePersonalDetails({
+    required String username,
+    required String dobDay,
+    required String dobMonth,
+    required String dobYear,
+    required String gender,
+    required String weightRaw,
+    required String heightRaw,
+  }) {
+    final PersonalDetailsCheck check = validatePersonalDetails(
+      username: username,
+      dobDay: dobDay,
+      dobMonth: dobMonth,
+      dobYear: dobYear,
+      gender: gender,
+      weightRaw: weightRaw,
+      heightRaw: heightRaw,
+      now: DateTime.now(),
+    );
+    if (!check.isValid) return check;
+
+    user = user.copyWith(
+      username: check.username,
+      gender: check.gender,
+      dobDay: check.dobDay,
+      dobMonth: check.dobMonth,
+      dobYear: check.dobYear,
+      weightKg: check.weightKg,
+      heightCm: check.heightCm,
+    );
+    personalDetailsComplete = true;
+
+    final AppAccount? account = _accountFor(user.id);
+    if (account != null) {
+      accounts = accounts
+          .map(
+            (AppAccount a) => a.id == account.id
+                ? a.copyWith(
+                    username: check.username,
+                    gender: check.gender,
+                    dobDay: check.dobDay,
+                    dobMonth: check.dobMonth,
+                    dobYear: check.dobYear,
+                    weightKg: check.weightKg,
+                    heightCm: check.heightCm,
+                    personalDetailsComplete: true,
+                  )
+                : a,
+          )
+          .toList();
+    }
+
+    unawaited(persist());
+    notifyListeners();
+    return check;
+  }
+
+  /// The profile shown in the UI for an account record.
+  AppUser _profileFor(AppAccount account) {
+    final String now = DateTime.now().toUtc().toIso8601String();
+    return AppUser(
+      id: account.id,
+      userId: account.userId,
+      username: account.username,
+      email: account.email,
+      gender: account.gender,
+      dobDay: account.dobDay,
+      dobMonth: account.dobMonth,
+      dobYear: account.dobYear,
+      weightKg: account.weightKg,
+      heightCm: account.heightCm,
+      createdAt: account.createdAt,
+      createdAtUtc: account.createdAtUtc.isEmpty ? now : account.createdAtUtc,
+      updatedAtUtc: now,
+    );
   }
 
   // ----------------------------------------------------------------- toast
@@ -872,6 +1173,129 @@ class AppState extends ChangeNotifier {
 
   // -------------------------------------------------------------- catalogue
 
+  /// The body-part filter pills offered by the Discover screen.
+  ///
+  /// "Other" is only offered when at least one exercise uses it — the same
+  /// rule as the prototype's `getAvailableDiscoverFilters`.
+  List<String> get availableCatalogueFilters {
+    final bool hasOther = catalogue.any(
+      (Exercise e) => _bodyPartLabel(e) == 'Other',
+    );
+    return discoverBodyPartFilters
+        .where((String filter) => filter != 'Other' || hasOther)
+        .toList(growable: false);
+  }
+
+  /// The display label of an exercise's body part.
+  String _bodyPartLabel(Exercise exercise) {
+    if (exercise.bodyPartLabel.isNotEmpty) return exercise.bodyPartLabel;
+    return normalizeExerciseBodyPart(
+      exercise.bodyPart.isEmpty ? exercise.category : exercise.bodyPart,
+      primaryMuscles: exercise.primaryMuscles,
+    );
+  }
+
+  /// The lower-cased search haystack of an exercise.
+  String _searchIndexFor(Exercise exercise) {
+    if (exercise.searchIndex.isNotEmpty) return exercise.searchIndex;
+    return buildSearchIndex(
+      id: exercise.id,
+      name: exercise.nameEn.isEmpty ? exercise.name : exercise.nameEn,
+      description: exercise.descriptionEn.isEmpty
+          ? exercise.description
+          : exercise.descriptionEn,
+      bodyPart: exercise.bodyPart,
+      bodyPartLabel: _bodyPartLabel(exercise),
+      exerciseCategory: exercise.exerciseCategory,
+      difficulty: exercise.difficulty,
+      equipment: exercise.equipment,
+      equipmentLabel: exercise.equipment,
+      isBodyweight: exercise.isBodyweight,
+      isUnilateral: exercise.isUnilateral,
+      primaryMuscles: exercise.primaryMuscles,
+      secondaryMuscles: exercise.secondaryMuscles,
+      goals: exercise.goals,
+      tags: exercise.tags,
+    );
+  }
+
+  /// Whether an exercise passes the current Discover filter and search.
+  bool matchesCatalogueFilters(Exercise exercise) {
+    final bool filterMatches = matchesBodyPartFilter(
+      bodyPartLabel: _bodyPartLabel(exercise),
+      exerciseCategory: exercise.exerciseCategory,
+      goals: exercise.goals,
+      tags: exercise.tags,
+      filter: catalogueFilter,
+    );
+    final bool searchMatches =
+        matchesSearchIndex(_searchIndexFor(exercise), catalogueSearch);
+    return filterMatches && searchMatches;
+  }
+
+  /// The Discover results for the current filter and search.
+  ///
+  /// The database answers the query; without a repository the state falls
+  /// back to filtering the in-memory catalogue.
+  Future<List<Exercise>> searchCatalogue(
+      {int limit = 60, int offset = 0}) async {
+    final ExerciseRepository? repository = _exercises;
+    if (repository != null) {
+      return repository.search(
+        query: catalogueSearch,
+        bodyPartFilter: catalogueFilter,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final List<Exercise> filtered =
+        catalogue.where(matchesCatalogueFilters).toList(growable: false);
+    if (limit <= 0) return filtered;
+    return filtered.skip(offset).take(limit).toList(growable: false);
+  }
+
+  /// How many exercises match the current filter and search.
+  Future<int> countCatalogue() async {
+    final ExerciseRepository? repository = _exercises;
+    if (repository != null) {
+      return repository.count(
+        query: catalogueSearch,
+        bodyPartFilter: catalogueFilter,
+      );
+    }
+    return catalogue.where(matchesCatalogueFilters).length;
+  }
+
+  /// The exercise the Discover detail screen is showing.
+  Exercise? get selectedExercise {
+    final String? id = selectedExerciseId;
+    if (id == null) return null;
+    for (final Exercise exercise in catalogue) {
+      if (exercise.id == id) return exercise;
+    }
+    return null;
+  }
+
+  /// Opens the detail screen of an exercise.
+  void openExerciseDetail(String exerciseId) {
+    selectedExerciseId = exerciseId;
+    notifyListeners();
+  }
+
+  /// Clears the Discover search and body-part filter.
+  void resetCatalogueFilters() {
+    catalogueFilter = 'All';
+    catalogueSearch = '';
+    discoverVisibleLimit = 60;
+    notifyListeners();
+  }
+
+  /// Reveals the next batch of Discover results.
+  void showMoreCatalogue() {
+    discoverVisibleLimit += 120;
+    notifyListeners();
+  }
+
   Exercise? findExercise(String name) {
     for (final Exercise exercise in catalogue) {
       if (exercise.name.toLowerCase() == name.toLowerCase()) return exercise;
@@ -890,20 +1314,53 @@ class AppState extends ChangeNotifier {
     Exercise? exercise = findExercise(name);
     if (exercise == null) {
       final String now = _now.toUtc().toIso8601String();
+      final String bodyPartLabel =
+          normalizeExerciseBodyPart(category, primaryMuscles: const <String>[]);
       exercise = Exercise(
         id: 'cat_custom_${DateTime.now().millisecondsSinceEpoch}',
         userId: SeedData.userId,
         name: name,
-        category: category,
+        nameEn: name,
+        category: bodyPartLabel,
+        bodyPart: category,
+        bodyPartLabel: bodyPartLabel,
+        exerciseCategory: 'strength',
+        difficulty: 'beginner',
+        equipment: weightKg > 0 ? 'dumbbell' : 'none',
+        isBodyweight: weightKg <= 0,
         defaultKg: weightKg,
         defaultReps: reps,
         defaultSets: sets,
         description: 'Custom exercise added manually.',
+        descriptionEn: 'Custom exercise added manually.',
         isCustom: true,
         createdAtUtc: now,
         updatedAtUtc: now,
       );
+      exercise = exercise.copyWith(
+        searchIndex: buildSearchIndex(
+          id: exercise.id,
+          name: name,
+          description: exercise.description,
+          bodyPart: exercise.bodyPart,
+          bodyPartLabel: bodyPartLabel,
+          exerciseCategory: exercise.exerciseCategory,
+          difficulty: exercise.difficulty,
+          equipment: exercise.equipment,
+          equipmentLabel: formatExerciseIdentifier(exercise.equipment),
+          isBodyweight: exercise.isBodyweight,
+          isUnilateral: exercise.isUnilateral,
+          primaryMuscles: exercise.primaryMuscles,
+          secondaryMuscles: exercise.secondaryMuscles,
+          goals: exercise.goals,
+          tags: exercise.tags,
+        ),
+      );
       catalogue = <Exercise>[exercise, ...catalogue];
+      final ExerciseRepository? repository = _exercises;
+      if (repository != null) {
+        unawaited(repository.upsert(exercise));
+      }
     } else {
       catalogue = catalogue.map((Exercise e) {
         if (e.id != exercise!.id) return e;
@@ -974,6 +1431,23 @@ class AppState extends ChangeNotifier {
       weightKg: weightKg,
       heightCm: heightCm,
     );
+    final AppAccount? account = _accountFor(user.id);
+    if (account != null) {
+      accounts = accounts
+          .map(
+            (AppAccount a) => a.id == account.id
+                ? a.copyWith(
+                    username: user.username,
+                    email: user.email,
+                    gender: user.gender,
+                    dobMonth: user.dobMonth,
+                    weightKg: user.weightKg,
+                    heightCm: user.heightCm,
+                  )
+                : a,
+          )
+          .toList();
+    }
     unawaited(persist());
     notifyListeners();
     showToast('Profile updated!');
@@ -988,11 +1462,13 @@ class AppState extends ChangeNotifier {
 
   void setCatalogueFilter(String filter) {
     catalogueFilter = filter;
+    discoverVisibleLimit = 60;
     notifyListeners();
   }
 
   void setCatalogueSearch(String value) {
     catalogueSearch = value;
+    discoverVisibleLimit = 60;
     notifyListeners();
   }
 
@@ -1017,6 +1493,7 @@ class AppState extends ChangeNotifier {
     final Program active = programs.first;
     activeWorkout = _workoutFor(active, 'full', clearSets: true);
     unawaited(persist());
+    unawaited(_loadCatalogue());
     notifyListeners();
     showToast('Seeded data restored.', kind: ToastKind.info);
   }

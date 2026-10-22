@@ -6,7 +6,11 @@ import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
-/// Port of `renderRegisterScreen()` (`index.html` lines 1525-1581).
+/// Port of `renderRegisterScreen()` (`index.html` lines 1694-1731).
+///
+/// The new prototype asks for credentials only — the username, date of birth,
+/// gender, weight and height are collected on the personal-details screen
+/// that follows.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -15,32 +19,35 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _username = TextEditingController(text: 'Alex');
-  final TextEditingController _email =
-      TextEditingController(text: 'alex@example.com');
-  final TextEditingController _password =
-      TextEditingController(text: 'atomfit2026');
-  final TextEditingController _confirm =
-      TextEditingController(text: 'atomfit2026');
-  final TextEditingController _dob = TextEditingController(text: '1998-05-14');
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  final TextEditingController _confirm = TextEditingController();
 
-  String _gender = 'Prefer not to say';
-  bool _terms = true;
+  bool _terms = false;
   String? _error;
 
   @override
   void dispose() {
-    _username.dispose();
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
-    _dob.dispose();
     super.dispose();
   }
 
   void _submit() {
     final AppState state = AfAppScope.of(context);
-    if (_password.text != _confirm.text) {
+    final String email = _email.text.trim();
+    final String password = _password.text;
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = AfStrings.registerInvalidEmail);
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _error = AfStrings.registerPasswordRequired);
+      return;
+    }
+    if (password != _confirm.text) {
       setState(() => _error = AfStrings.registerPasswordMismatch);
       return;
     }
@@ -48,21 +55,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = AfStrings.registerTermsMissing);
       return;
     }
+
+    final String? error = state.registerAccount(
+      email: email,
+      password: password,
+    );
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+
     setState(() => _error = null);
-    state.saveProfile(
-      username: _username.text,
-      email: _email.text,
-      gender: _gender,
-      dobMonth: _dob.text,
-      weightKg: state.user.weightKg,
-      heightCm: state.user.heightCm,
-    );
-    state.showToast(
-      AfStrings.fill(AfStrings.registerCreatedToast, <String, Object?>{
-        'name': _username.text.trim().isEmpty ? 'Alex' : _username.text.trim(),
-      }),
-    );
-    Navigator.of(context).pushReplacementNamed(AfScreen.home);
+    Navigator.of(context).pushReplacementNamed(AfScreen.personalDetails);
   }
 
   @override
@@ -71,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return AfScaffold(
       screenId: AfScreen.register,
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 24),
+      padding: const EdgeInsets.fromLTRB(8, 16, 8, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -96,16 +100,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 12),
                 ],
                 Text(
-                  AfStrings.registerUsername,
-                  style: AfText.muted(t, weight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                AfTextField(
-                  controller: _username,
-                  hint: AfStrings.registerUsernamePlaceholder,
-                ),
-                const SizedBox(height: 14),
-                Text(
                   AfStrings.registerEmailLabel,
                   style: AfText.muted(t, weight: FontWeight.w600),
                 ),
@@ -116,107 +110,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   hint: AfStrings.registerEmailPlaceholder,
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.registerPassword,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          AfTextField(controller: _password, obscureText: true),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.registerConfirmPassword,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          AfTextField(controller: _confirm, obscureText: true),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  AfStrings.registerPassword,
+                  style: AfText.muted(t, weight: FontWeight.w600),
                 ),
+                const SizedBox(height: 4),
+                AfTextField(controller: _password, obscureText: true),
                 const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.registerDob,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          AfTextField(controller: _dob),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.registerGender,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          DropdownButtonFormField<String>(
-                            initialValue: _gender,
-                            isExpanded: true,
-                            decoration: const InputDecoration(),
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            items: const <DropdownMenuItem<String>>[
-                              DropdownMenuItem<String>(
-                                value: AfStrings.registerSelectOption,
-                                child: Text(
-                                  AfStrings.registerSelectOption,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderMale,
-                                child: Text(AfStrings.genderMale),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderFemale,
-                                child: Text(AfStrings.genderFemale),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderPreferNot,
-                                child: Text(
-                                  AfStrings.genderPreferNot,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                            onChanged: (String? value) {
-                              if (value == null ||
-                                  value == AfStrings.registerSelectOption) {
-                                return;
-                              }
-                              setState(() => _gender = value);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  AfStrings.registerConfirmPassword,
+                  style: AfText.muted(t, weight: FontWeight.w600),
                 ),
+                const SizedBox(height: 4),
+                AfTextField(controller: _confirm, obscureText: true),
                 const SizedBox(height: 14),
                 Row(
                   children: <Widget>[
@@ -245,7 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 AfButton(
-                  label: AfStrings.registerButton,
+                  label: AfStrings.registerSubmit,
                   expand: true,
                   onPressed: _submit,
                 ),

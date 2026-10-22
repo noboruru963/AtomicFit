@@ -27,6 +27,7 @@ void main() {
   const List<String> routes = <String>[
     AfScreen.login,
     AfScreen.register,
+    AfScreen.personalDetails,
     AfScreen.home,
     AfScreen.programs,
     AfScreen.activeWorkout,
@@ -34,6 +35,7 @@ void main() {
     AfScreen.workoutComplete,
     AfScreen.history,
     AfScreen.discover,
+    AfScreen.discoverDetail,
     AfScreen.profile,
     AfScreen.settings,
     AfScreen.quizPrompt,
@@ -73,6 +75,8 @@ void main() {
         final AppState state = AppState(store: _MemoryStore());
         await state.load();
         state.isDarkMode = dark;
+        // The app opens on the login screen until a user is signed in.
+        state.isLoggedIn = true;
         await pumpRoute(tester, state, route);
         expect(
           tester.takeException(),
@@ -93,6 +97,7 @@ void main() {
 
     final AppState state = AppState(store: _MemoryStore());
     await state.load();
+    state.isLoggedIn = true;
     await tester.pumpWidget(AtomFitApp(state: state));
     await tester.pump();
 

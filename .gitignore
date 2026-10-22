@@ -34,3 +34,4 @@ coverage/
 .env
 .env.local
 .env.*.local
+.dart_tool/hooks_runner/ 

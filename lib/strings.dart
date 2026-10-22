@@ -61,6 +61,12 @@ class AfStrings {
   static const String genderPreferNot = 'Prefer not to say';
   static const String registerTerms = 'I accept the terms';
   static const String registerButton = 'Create account';
+  static const String registerSubmit = 'Register';
+  static const String registerInvalidEmail =
+      'Please enter a valid email address';
+  static const String registerPasswordRequired = 'Please enter a password';
+  static const String registerEmailTaken =
+      'An account with this email already exists';
   static const String registerHasAccount = 'Already have an account?';
   static const String registerLogin = 'Log in';
   static const String registerPasswordMismatch = 'Passwords do not match';
@@ -307,8 +313,6 @@ class AfStrings {
   static const String discoverWeightPlaceholder = 'Weight kg';
   static const String discoverRepsPlaceholder = 'Reps';
   static const String discoverAddCustom = 'Add Custom Exercise';
-  static const String discoverSearchPlaceholder =
-      'Search exercise catalogue...';
   static const String discoverTarget = 'Target: {kg} kg × {reps} reps';
   static const String discoverAdd = 'Add';
   static const String discoverEmpty =
@@ -384,6 +388,70 @@ class AfStrings {
   static const String settingsNotificationsDenied =
       'Notification permission was denied. Enable notifications in system '
       'settings to receive rest timer alerts.';
+
+  // --------------------------------------------------------- personal details
+  static const String titlePersonalDetails = 'Personal details';
+  static const String personalDetailsTitle = 'Personal details';
+  static const String personalDetailsSubtitle =
+      'Tell us a bit about yourself before heading to Home.';
+  static const String personalDetailsUsername = 'Username';
+  static const String personalDetailsUsernamePlaceholder =
+      'Enter your username';
+  static const String personalDetailsDob = 'Date of birth';
+  static const String personalDetailsGender = 'Gender';
+  static const String personalDetailsWeight = 'Weight (kg)';
+  static const String personalDetailsWeightPlaceholder = 'e.g. 74.5';
+  static const String personalDetailsHeight = 'Height (cm)';
+  static const String personalDetailsHeightPlaceholder = 'e.g. 178';
+  static const String personalDetailsContinue = 'Continue';
+  static const String personalDetailsDay = 'Day';
+  static const String personalDetailsMonth = 'Month';
+  static const String personalDetailsYear = 'Year';
+  static const String personalDetailsSavedToast =
+      'Personal details saved! Welcome, {name}!';
+
+  // ------------------------------------------------------ discover (new UI)
+  static const String discoverTitle = 'Discover Exercises';
+  static const String discoverSubtitle =
+      'Browse all {count} exercises by body part and learn step-by-step form.';
+  static const String discoverCustom = '+ Custom';
+  static const String discoverSearchPlaceholder =
+      'Search exercise, muscle, body part, or equipment...';
+  static const String discoverClear = 'All / Clear';
+  static const String discoverResultCount = '{count} exercises';
+  static const String discoverResultCountOne = '1 exercise';
+  static const String discoverShowAll = 'Show All ({count})';
+  static const String discoverEmptyTitle =
+      'No exercises found. Try another name or body part.';
+  static const String discoverResetFilters = 'Reset filters to All';
+  static const String discoverShowMore =
+      'Show more exercises ({count} remaining)';
+  static const String discoverViewInstructions = 'View instructions';
+  static const String discoverAddToWorkout = '+ Add to Workout';
+  static const String discoverTargetMuscles = 'Target: {muscles}';
+  static const String discoverRepDbFooter = 'Exercise data by';
+  static const String discoverRepDbLink = 'RepDB (repdb.co)';
+
+  // ------------------------------------------------- exercise detail (new)
+  static const String titleExerciseGuide = 'Exercise Guide';
+  static const String detailBackToDiscover = '← Back to Discover';
+  static const String detailTargetMuscles = 'Target muscles';
+  static const String detailPrimaryMuscles = 'Primary muscles';
+  static const String detailSecondaryMuscles = 'Secondary muscles';
+  static const String detailNone = 'None';
+  static const String detailDescription = 'Description & Movement Purpose';
+  static const String detailGoals = 'Goals:';
+  static const String detailFormTips = 'Form tips';
+  static const String detailNoInstructions =
+      'Instructions are not available for this exercise yet';
+  static const String detailNoTips = 'Form tips are not available yet.';
+  static const String detailIllustrationPlaceholder =
+      'Illustration placeholder';
+  static const String detailStartPosition = 'Start position';
+  static const String detailPeakPosition = 'Peak position';
+  static const String detailExercisePosition = 'Exercise position';
+  static const String detailUnilateral = 'Unilateral';
+  static const String detailMet = '{value} MET';
 
   // ------------------------------------------------------------------ shared
   static const String delete = 'Delete';

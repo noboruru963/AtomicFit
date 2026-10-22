@@ -248,6 +248,27 @@ class Exercise with RecordEnvelope {
     required this.isCustom,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.nameEn = '',
+    this.descriptionEn = '',
+    this.bodyPart = '',
+    this.bodyPartLabel = '',
+    this.exerciseCategory = '',
+    this.mechanic = '',
+    this.forceType = '',
+    this.difficulty = '',
+    this.equipment = '',
+    this.primaryMuscles = const <String>[],
+    this.secondaryMuscles = const <String>[],
+    this.goals = const <String>[],
+    this.tags = const <String>[],
+    this.instructions = const <String>[],
+    this.tips = const <String>[],
+    this.images = const <String, dynamic>{},
+    this.isBodyweight = false,
+    this.isUnilateral = false,
+    this.met,
+    this.variationGroup = '',
+    this.searchIndex = '',
     this.deletedAtUtc,
   });
 
@@ -262,6 +283,68 @@ class Exercise with RecordEnvelope {
   final bool isCustom;
   final String createdAtUtc;
   final String updatedAtUtc;
+
+  // ------------------------------------------------- RepDB catalogue fields
+  /// English display name (`name_en`).
+  final String nameEn;
+
+  /// English description (`description_en`).
+  final String descriptionEn;
+
+  /// Raw body part, e.g. `upper_legs`.
+  final String bodyPart;
+
+  /// Display body part, e.g. `Hips / Glutes`.
+  final String bodyPartLabel;
+
+  /// `strength` | `stretching` | …
+  final String exerciseCategory;
+
+  /// `compound` | `isolation`.
+  final String mechanic;
+
+  /// `push` | `pull` | `static`.
+  final String forceType;
+
+  /// `beginner` | `intermediate` | `advanced`.
+  final String difficulty;
+
+  /// Equipment slug, e.g. `pull_up_bar`.
+  final String equipment;
+
+  /// Primary muscle slugs.
+  final List<String> primaryMuscles;
+
+  /// Secondary muscle slugs.
+  final List<String> secondaryMuscles;
+
+  /// Training goals, e.g. `hypertrophy`.
+  final List<String> goals;
+
+  /// Free-form safety tags.
+  final List<String> tags;
+
+  /// Step-by-step instructions.
+  final List<String> instructions;
+
+  /// Form tips.
+  final List<String> tips;
+
+  /// Illustration paths (`start`, `peak`, `main`).
+  final Map<String, dynamic> images;
+
+  final bool isBodyweight;
+  final bool isUnilateral;
+
+  /// Metabolic equivalent, when the dataset provides one.
+  final double? met;
+
+  /// Grouping slug for variations of the same movement.
+  final String variationGroup;
+
+  /// Lower-cased haystack used by the Discover search.
+  final String searchIndex;
+
   final String? deletedAtUtc;
 
   Exercise copyWith({
@@ -272,6 +355,9 @@ class Exercise with RecordEnvelope {
     int? defaultSets,
     String? description,
     bool? isCustom,
+    String? bodyPartLabel,
+    String? bodyPart,
+    String? searchIndex,
   }) {
     return Exercise(
       id: id,
@@ -285,6 +371,27 @@ class Exercise with RecordEnvelope {
       isCustom: isCustom ?? this.isCustom,
       createdAtUtc: createdAtUtc,
       updatedAtUtc: _nowIso(),
+      nameEn: nameEn,
+      descriptionEn: descriptionEn,
+      bodyPart: bodyPart ?? this.bodyPart,
+      bodyPartLabel: bodyPartLabel ?? this.bodyPartLabel,
+      exerciseCategory: exerciseCategory,
+      mechanic: mechanic,
+      forceType: forceType,
+      difficulty: difficulty,
+      equipment: equipment,
+      primaryMuscles: primaryMuscles,
+      secondaryMuscles: secondaryMuscles,
+      goals: goals,
+      tags: tags,
+      instructions: instructions,
+      tips: tips,
+      images: images,
+      isBodyweight: isBodyweight,
+      isUnilateral: isUnilateral,
+      met: met,
+      variationGroup: variationGroup,
+      searchIndex: searchIndex ?? this.searchIndex,
       deletedAtUtc: deletedAtUtc,
     );
   }
@@ -301,6 +408,27 @@ class Exercise with RecordEnvelope {
         'isCustom': isCustom,
         'createdAtUtc': createdAtUtc,
         'updatedAtUtc': updatedAtUtc,
+        'nameEn': nameEn,
+        'descriptionEn': descriptionEn,
+        'bodyPart': bodyPart,
+        'bodyPartLabel': bodyPartLabel,
+        'exerciseCategory': exerciseCategory,
+        'mechanic': mechanic,
+        'forceType': forceType,
+        'difficulty': difficulty,
+        'equipment': equipment,
+        'primaryMuscles': primaryMuscles,
+        'secondaryMuscles': secondaryMuscles,
+        'goals': goals,
+        'tags': tags,
+        'instructions': instructions,
+        'tips': tips,
+        'images': images,
+        'isBodyweight': isBodyweight,
+        'isUnilateral': isUnilateral,
+        'met': met,
+        'variationGroup': variationGroup,
+        'searchIndex': searchIndex,
         'deletedAtUtc': deletedAtUtc,
       };
 
@@ -316,6 +444,27 @@ class Exercise with RecordEnvelope {
         isCustom: json['isCustom'] == true,
         createdAtUtc: (json['createdAtUtc'] ?? _nowIso()).toString(),
         updatedAtUtc: (json['updatedAtUtc'] ?? _nowIso()).toString(),
+        nameEn: (json['nameEn'] ?? '').toString(),
+        descriptionEn: (json['descriptionEn'] ?? '').toString(),
+        bodyPart: (json['bodyPart'] ?? '').toString(),
+        bodyPartLabel: (json['bodyPartLabel'] ?? '').toString(),
+        exerciseCategory: (json['exerciseCategory'] ?? '').toString(),
+        mechanic: (json['mechanic'] ?? '').toString(),
+        forceType: (json['forceType'] ?? '').toString(),
+        difficulty: (json['difficulty'] ?? '').toString(),
+        equipment: (json['equipment'] ?? '').toString(),
+        primaryMuscles: _asStringList(json['primaryMuscles']),
+        secondaryMuscles: _asStringList(json['secondaryMuscles']),
+        goals: _asStringList(json['goals']),
+        tags: _asStringList(json['tags']),
+        instructions: _asStringList(json['instructions']),
+        tips: _asStringList(json['tips']),
+        images: _asStringMap(json['images']),
+        isBodyweight: json['isBodyweight'] == true,
+        isUnilateral: json['isUnilateral'] == true,
+        met: json['met'] == null ? null : _toDouble(json['met']),
+        variationGroup: (json['variationGroup'] ?? '').toString(),
+        searchIndex: (json['searchIndex'] ?? '').toString(),
         deletedAtUtc: json['deletedAtUtc']?.toString(),
       );
 }
@@ -793,4 +942,22 @@ List<Map<String, dynamic>> _asMapList(dynamic value) {
       .whereType<Map<dynamic, dynamic>>()
       .map((Map<dynamic, dynamic> e) => e.cast<String, dynamic>())
       .toList(growable: false);
+}
+
+List<String> _asStringList(dynamic value) {
+  if (value is! List) return const <String>[];
+  return value
+      .map((dynamic e) => e.toString())
+      .where((String e) => e.isNotEmpty)
+      .toList(growable: false);
+}
+
+Map<String, dynamic> _asStringMap(dynamic value) {
+  if (value is! Map) return const <String, dynamic>{};
+  return value
+      .map((dynamic key, dynamic e) => MapEntry<String, dynamic>(
+            key.toString(),
+            e,
+          ))
+      .cast<String, dynamic>();
 }

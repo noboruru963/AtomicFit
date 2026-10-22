@@ -15,10 +15,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _email =
-      TextEditingController(text: 'alex@example.com');
-  final TextEditingController _password =
-      TextEditingController(text: 'atomfit2026');
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
   String? _error;
 
   @override
@@ -30,25 +28,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     final AppState state = AfAppScope.of(context);
-    if (_email.text.trim().isEmpty || _password.text.trim().isEmpty) {
+    final String identifier = _email.text.trim();
+    final String password = _password.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
       setState(() => _error = AfStrings.loginError);
       return;
     }
-    setState(() => _error = null);
-    state.saveProfile(
-      username: state.user.username,
-      email: _email.text.trim(),
-      gender: state.user.gender,
-      dobMonth: state.user.dobMonth,
-      weightKg: state.user.weightKg,
-      heightCm: state.user.heightCm,
+
+    final String? error = state.login(
+      identifier: identifier,
+      password: password,
     );
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+
+    setState(() => _error = null);
     state.showToast(
       AfStrings.fill(AfStrings.loginWelcomeToast, <String, Object?>{
-        'name': state.user.username,
+        'name': state.user.username.isEmpty ? identifier : state.user.username,
       }),
     );
-    Navigator.of(context).pushReplacementNamed(AfScreen.home);
+    Navigator.of(context).pushReplacementNamed(
+      state.personalDetailsComplete ? AfScreen.home : AfScreen.personalDetails,
+    );
   }
 
   Future<void> _forgotPassword() async {
