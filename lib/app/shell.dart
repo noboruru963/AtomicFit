@@ -116,60 +116,69 @@ class AfTopBar extends StatelessWidget {
     final AfTokens t = context.af;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: t.bgCard,
         border: Border(bottom: BorderSide(color: t.borderLine)),
       ),
-      child: Row(
-        children: <Widget>[
-          GestureDetector(
-            onTap: () => Navigator.of(context).pushNamed(AfScreen.home),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 32,
-                  height: 32,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: t.accent, width: 2),
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.jpg',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  AfScreen.titleFor(screenId),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 16,
-                        letterSpacing: -0.4,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          Row(
+      // The bar reaches the top edge, its content stays clear of the status
+      // bar and the front camera.
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
             children: <Widget>[
-              const SizedBox(width: 6),
-              _IconAction(
-                icon: Icons.person_outline,
-                tooltip: AfStrings.titleProfile,
-                onTap: () => Navigator.of(context).pushNamed(AfScreen.profile),
+              GestureDetector(
+                onTap: () => Navigator.of(context).pushNamed(AfScreen.home),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 32,
+                      height: 32,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: t.accent, width: 2),
+                      ),
+                      child: Image.asset(
+                        'assets/images/logo.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      AfScreen.titleFor(screenId),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: 16,
+                            letterSpacing: -0.4,
+                          ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 6),
-              _IconAction(
-                icon: Icons.settings_outlined,
-                tooltip: AfStrings.titleSettings,
-                onTap: () => Navigator.of(context).pushNamed(AfScreen.settings),
+              const Spacer(),
+              Row(
+                children: <Widget>[
+                  const SizedBox(width: 6),
+                  _IconAction(
+                    icon: Icons.person_outline,
+                    tooltip: AfStrings.titleProfile,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AfScreen.profile),
+                  ),
+                  const SizedBox(width: 6),
+                  _IconAction(
+                    icon: Icons.settings_outlined,
+                    tooltip: AfStrings.titleSettings,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AfScreen.settings),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
