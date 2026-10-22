@@ -272,13 +272,56 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          AfCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  AfStrings.settingsAboutCredits,
+                  style: AfText.strong(t, size: 14),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  AfStrings.settingsAboutVersion,
+                  style: AfText.muted(t, size: 12),
+                ),
+                Text.rich(
+                  TextSpan(
+                    children: <InlineSpan>[
+                      TextSpan(
+                        text: '${AfStrings.settingsAboutExerciseData} ',
+                        style: TextStyle(
+                          color: t.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextSpan(
+                        text: AfStrings.discoverRepDbLink,
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           AfButton(
             label: AfStrings.settingsLogOut,
             variant: AfButtonVariant.danger,
             size: AfButtonSize.compact,
             expand: true,
-            onPressed: () =>
-                Navigator.of(context).pushReplacementNamed(AfScreen.login),
+            onPressed: () {
+              state.logout();
+              Navigator.of(context).pushReplacementNamed(AfScreen.login);
+            },
           ),
           if (kDebugMode) ...<Widget>[
             const SizedBox(height: 12),

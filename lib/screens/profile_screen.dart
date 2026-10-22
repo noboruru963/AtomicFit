@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../app/shell.dart';
+import '../services/personal_details_validation.dart';
 import '../state/app_state.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
-/// Port of `renderProfileScreen()` (`index.html` lines 3979-4053).
+/// Port of `renderProfileScreen()` (`index.html` lines 4784-4909).
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -15,38 +16,36 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late final TextEditingController _username;
-  late final TextEditingController _email;
-  late final TextEditingController _weight;
-  late final TextEditingController _height;
-  late String _gender;
-  late String _dobMonth;
+  final TextEditingController _username = TextEditingController();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _weight = TextEditingController();
+  final TextEditingController _height = TextEditingController();
 
-  static const List<String> _months = <String>[
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
+  String _day = '';
+  String _month = '';
+  String _year = '';
+  String _gender = AfStrings.genderPreferNot;
+  String? _error;
+  bool _initialised = false;
+
+  static const List<String> _months = calendarMonths;
 
   @override
-  void initState() {
-    super.initState();
-    final AppState state = AfAppScope.read(context);
-    _username = TextEditingController(text: state.user.username);
-    _email = TextEditingController(text: state.user.email);
-    _weight = TextEditingController(text: state.user.weightKg);
-    _height = TextEditingController(text: state.user.heightCm);
-    _gender = state.user.gender;
-    _dobMonth = state.user.dobMonth.isEmpty ? 'May' : state.user.dobMonth;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialised) return;
+    _initialised = true;
+    final AppState state = AfAppScope.of(context);
+    _username.text = state.user.username;
+    _email.text = state.user.email;
+    _weight.text = state.user.weightKg;
+    _height.text = state.user.heightCm;
+    _day = state.user.dobDay;
+    _month = state.user.dobMonth;
+    _year = state.user.dobYear;
+    _gender = state.user.gender.isEmpty
+        ? AfStrings.genderPreferNot
+        : state.user.gender;
   }
 
   @override
@@ -56,6 +55,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _weight.dispose();
     _height.dispose();
     super.dispose();
+  }
+
+  void _update(AppState state) {
+    final PersonalDetailsCheck check = validatePersonalDetails(
+      username: _username.text,
+      dobDay: _day,
+      dobMonth: _month,
+      dobYear: _year,
+      gender: _gender,
+      weightRaw: _weight.text,
+      heightRaw: _height.text,
+    );
+    if (!check.isValid) {
+      setState(() => _error = check.error);
+      return;
+    }
+
+    setState(() => _error = null);
+    state.saveProfile(
+      username: check.username,
+      email: _email.text.trim().isEmpty ? state.user.email : _email.text.trim(),
+      gender: check.gender,
+      dobDay: check.dobDay,
+      dobMonth: check.dobMonth,
+      dobYear: check.dobYear,
+      weightKg: check.weightKg,
+      heightCm: check.heightCm,
+    );
   }
 
   @override
@@ -72,6 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          // ------------------------------------------------------- header card
           AfCard(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -118,6 +146,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 12),
+
+          // ------------------------------------------------------------- stats
           Row(
             children: <Widget>[
               Expanded(
@@ -164,6 +194,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 12),
+
+          // -------------------------------------------------- personal details
           AfCard(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -173,6 +205,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   AfStrings.profileDetails,
                   style: AfText.strong(t, size: 14),
                 ),
+                if (_error != null) ...<Widget>[
+                  const SizedBox(height: 10),
+                  AfErrorBanner(message: _error!),
+                ],
                 const SizedBox(height: 12),
                 Text(
                   AfStrings.profileUsername,
@@ -180,7 +216,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 AfTextField(
-                    controller: _username, style: AfText.muted(t, size: 12)),
+                  controller: _username,
+                  style: AfText.muted(t, size: 12),
+                ),
                 const SizedBox(height: 12),
                 Text(
                   AfStrings.profileEmail,
@@ -193,78 +231,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: AfText.muted(t, size: 12),
                 ),
                 const SizedBox(height: 12),
+                Text(
+                  AfStrings.personalDetailsDob,
+                  style: AfText.muted(t, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.profileGender,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          DropdownButtonFormField<String>(
-                            initialValue: _gender,
-                            isExpanded: true,
-                            style: AfText.muted(t, size: 12),
-                            items: const <DropdownMenuItem<String>>[
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderMale,
-                                child: Text(AfStrings.genderMale),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderFemale,
-                                child: Text(AfStrings.genderFemale),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: AfStrings.genderPreferNot,
-                                child: Text(
-                                  AfStrings.genderPreferNot,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                            onChanged: (String? value) {
-                              if (value == null) return;
-                              setState(() => _gender = value);
-                            },
-                          ),
+                      child: AfDropdown(
+                        value: _day,
+                        hint: AfStrings.personalDetailsDay,
+                        style: AfText.muted(t, size: 12),
+                        items: <String>[
+                          for (int day = 1; day <= 31; day++) '$day',
                         ],
+                        onChanged: (String value) =>
+                            setState(() => _day = value),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.profileDobMonth,
-                            style: AfText.muted(t, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          DropdownButtonFormField<String>(
-                            initialValue:
-                                _months.contains(_dobMonth) ? _dobMonth : 'May',
-                            isExpanded: true,
-                            style: AfText.muted(t, size: 12),
-                            items: <DropdownMenuItem<String>>[
-                              for (final String month in _months)
-                                DropdownMenuItem<String>(
-                                  value: month,
-                                  child: Text(month),
-                                ),
-                            ],
-                            onChanged: (String? value) {
-                              if (value == null) return;
-                              setState(() => _dobMonth = value);
-                            },
-                          ),
+                      child: AfDropdown(
+                        value: _month,
+                        hint: AfStrings.personalDetailsMonth,
+                        style: AfText.muted(t, size: 12),
+                        items: _months,
+                        onChanged: (String value) =>
+                            setState(() => _month = value),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AfDropdown(
+                        value: _year,
+                        hint: AfStrings.personalDetailsYear,
+                        style: AfText.muted(t, size: 12),
+                        items: <String>[
+                          for (int year = 2025; year >= 1920; year--) '$year',
                         ],
+                        onChanged: (String value) =>
+                            setState(() => _year = value),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  AfStrings.profileGender,
+                  style: AfText.muted(t, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                AfDropdown(
+                  value: _gender,
+                  style: AfText.muted(t, size: 12),
+                  items: const <String>[
+                    AfStrings.genderMale,
+                    AfStrings.genderFemale,
+                    AfStrings.genderPreferNot,
+                  ],
+                  onChanged: (String value) => setState(() => _gender = value),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -282,7 +308,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           AfTextField(
                             controller: _weight,
                             keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
+                              decimal: true,
+                            ),
                             style: AfText.muted(t, size: 12),
                           ),
                         ],
@@ -313,16 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: AfStrings.profileUpdate,
                   size: AfButtonSize.compact,
                   expand: true,
-                  onPressed: () {
-                    state.saveProfile(
-                      username: _username.text,
-                      email: _email.text,
-                      gender: _gender,
-                      dobMonth: _dobMonth,
-                      weightKg: _weight.text,
-                      heightCm: _height.text,
-                    );
-                  },
+                  onPressed: () => _update(state),
                 ),
               ],
             ),

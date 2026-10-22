@@ -885,11 +885,15 @@ class WorkoutSummary {
     required this.totalReps,
     required this.totalVolume,
     required this.methods,
+    this.durationSec = 0,
   });
 
   final String name;
   final String type;
   final int durationMin;
+
+  /// The exact duration in seconds (`mm:ss` on the summary screen).
+  final int durationSec;
   final int totalSets;
   final int totalReps;
   final double totalVolume;

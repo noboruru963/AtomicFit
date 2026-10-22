@@ -85,12 +85,6 @@ class _RestTimerScreenState extends State<RestTimerScreen>
     final int remaining = state.restSecondsRemaining;
     final double progress = total <= 0 ? 0 : remaining / total;
 
-    final String statusLabel = state.restRunning
-        ? AfStrings.timerRunning
-        : (remaining < total && remaining > 0
-            ? AfStrings.timerPaused
-            : AfStrings.timerReady);
-
     void applyDuration() {
       final int minutes = int.tryParse(_minutes.text) ?? -1;
       final int seconds = int.tryParse(_seconds.text) ?? -1;
@@ -116,20 +110,11 @@ class _RestTimerScreenState extends State<RestTimerScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Text(
-                      AfStrings.timerTitle.toUpperCase(),
-                      style: AfText.sectionHead(t).copyWith(fontSize: 12),
-                    ),
-                    const Spacer(),
-                    AfBadge(
-                      label: statusLabel,
-                      tone: state.restRunning
-                          ? AfBadgeTone.green
-                          : AfBadgeTone.blue,
-                    ),
-                  ],
+                Center(
+                  child: Text(
+                    AfStrings.timerTitle.toUpperCase(),
+                    style: AfText.sectionHead(t).copyWith(fontSize: 12),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Center(
@@ -274,17 +259,6 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                   ],
                 ),
                 const SizedBox(height: 8),
-                AfButton(
-                  label: AfStrings.timerSkip,
-                  variant: AfButtonVariant.secondary,
-                  size: AfButtonSize.compact,
-                  expand: true,
-                  onPressed: () {
-                    state.skipRestTimer();
-                    Navigator.of(context)
-                        .pushReplacementNamed(AfScreen.activeWorkout);
-                  },
-                ),
               ],
             ),
           ),

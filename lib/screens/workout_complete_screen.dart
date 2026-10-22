@@ -101,7 +101,7 @@ class WorkoutCompleteScreen extends StatelessWidget {
                 Expanded(
                   child: AfStatTile(
                     label: AfStrings.completeTotalTime,
-                    value: '${summary.durationMin} min',
+                    value: _formatDuration(summary.durationSec),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -174,4 +174,12 @@ class WorkoutCompleteScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Formats a duration as `mm:ss`, like the prototype's `formatMMSS`.
+String _formatDuration(int totalSeconds) {
+  final int minutes = (totalSeconds ~/ 60).clamp(0, 999);
+  final int seconds = (totalSeconds % 60).clamp(0, 59);
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
 }

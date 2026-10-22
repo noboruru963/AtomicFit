@@ -910,6 +910,7 @@ class AppState extends ChangeNotifier {
     }
 
     final DateTime now = DateTime.now();
+    final int durationSec = _durationSeconds;
     final int durationMin = _durationMinutes;
     final String label = DateFormat('MMM d, HH:mm').format(now);
     final String nowIso = now.toUtc().toIso8601String();
@@ -938,6 +939,7 @@ class AppState extends ChangeNotifier {
       name: session.name,
       type: session.type,
       durationMin: session.durationMin,
+      durationSec: durationSec,
       totalSets: session.setsCount,
       totalReps: session.reps,
       totalVolume: session.volume,
@@ -951,11 +953,17 @@ class AppState extends ChangeNotifier {
 
   /// Elapsed workout time, measured from the first logged set of the session.
   int get _durationMinutes {
+    final int seconds = _durationSeconds;
+    if (seconds <= 0) return 0;
+    return (seconds / 60).ceil();
+  }
+
+  /// Elapsed workout time in seconds, measured from the first logged set.
+  int get _durationSeconds {
     if (activeWorkout.sets.isEmpty) return 0;
     final DateTime first = DateTime.parse(activeWorkout.sets.first.loggedAtUtc);
     final int seconds = DateTime.now().difference(first).inSeconds;
-    if (seconds <= 0) return 1;
-    return (seconds / 60).ceil();
+    return seconds <= 0 ? 1 : seconds;
   }
 
   // ---------------------------------------------------------------- history
@@ -1422,12 +1430,16 @@ class AppState extends ChangeNotifier {
     required String dobMonth,
     required String weightKg,
     required String heightCm,
+    String dobDay = '',
+    String dobYear = '',
   }) {
     user = user.copyWith(
       username: username.trim().isEmpty ? 'Alex' : username.trim(),
       email: email.trim().isEmpty ? 'alex@example.com' : email.trim(),
       gender: gender,
+      dobDay: dobDay,
       dobMonth: dobMonth,
+      dobYear: dobYear,
       weightKg: weightKg,
       heightCm: heightCm,
     );
@@ -1440,7 +1452,9 @@ class AppState extends ChangeNotifier {
                     username: user.username,
                     email: user.email,
                     gender: user.gender,
+                    dobDay: user.dobDay,
                     dobMonth: user.dobMonth,
+                    dobYear: user.dobYear,
                     weightKg: user.weightKg,
                     heightCm: user.heightCm,
                   )

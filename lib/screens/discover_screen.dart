@@ -46,57 +46,68 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final TextEditingController weight = TextEditingController(text: '15');
     final TextEditingController reps = TextEditingController(text: '10');
     String bodyPart = 'other';
+    String? error;
+    StateSetter? setModalState;
 
     await AfDialog.show<void>(
       context,
       title: AfStrings.discoverCustomTitle,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            AfStrings.discoverCustomNamePlaceholder,
-            style: AfText.muted(context.af, size: 12),
-          ),
-          const SizedBox(height: 6),
-          AfTextField(controller: name),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: bodyPart,
-            isExpanded: true,
-            style: AfText.muted(context.af, size: 12),
-            items: <DropdownMenuItem<String>>[
-              for (final String option in _customBodyParts)
-                DropdownMenuItem<String>(
-                  value: option,
-                  child: Text(option),
-                ),
-            ],
-            onChanged: (String? value) {
-              if (value != null) bodyPart = value;
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
+      body: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setter) {
+          setModalState = setter;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Expanded(
-                child: AfTextField(
-                  controller: weight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                ),
+              if (error != null) ...<Widget>[
+                AfErrorBanner(message: error!),
+                const SizedBox(height: 10),
+              ],
+              Text(
+                AfStrings.discoverCustomNamePlaceholder,
+                style: AfText.muted(context.af, size: 12),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AfTextField(
-                  controller: reps,
-                  keyboardType: TextInputType.number,
-                ),
+              const SizedBox(height: 6),
+              AfTextField(controller: name),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: bodyPart,
+                isExpanded: true,
+                style: AfText.muted(context.af, size: 12),
+                items: <DropdownMenuItem<String>>[
+                  for (final String option in _customBodyParts)
+                    DropdownMenuItem<String>(
+                      value: option,
+                      child: Text(option),
+                    ),
+                ],
+                onChanged: (String? value) {
+                  if (value != null) bodyPart = value;
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AfTextField(
+                      controller: weight,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: AfTextField(
+                      controller: reps,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
       actions: <Widget>[
         AfButton(
@@ -111,7 +122,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           onPressed: () {
             final String value = name.text.trim();
             if (value.isEmpty) {
-              Navigator.of(context).pop();
+              setModalState?.call(
+                () => error = AfStrings.discoverCustomNameRequired,
+              );
               return;
             }
             final AppState state = AfAppScope.of(context);

@@ -114,7 +114,6 @@ class AfTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
-    final AppState state = AfAppScope.of(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -156,8 +155,6 @@ class AfTopBar extends StatelessWidget {
           const Spacer(),
           Row(
             children: <Widget>[
-              if (_timerPill(context, state) != null)
-                _timerPill(context, state)!,
               const SizedBox(width: 6),
               _IconAction(
                 icon: Icons.person_outline,
@@ -176,65 +173,6 @@ class AfTopBar extends StatelessWidget {
       ),
     );
   }
-
-  Widget? _timerPill(BuildContext context, AppState state) {
-    final AfTokens t = context.af;
-    final bool started = state.restRunning ||
-        state.restCompleted ||
-        state.activeWorkout.restSeconds != state.activeWorkout.restTotalSeconds;
-    if (!started) return null;
-
-    String text;
-    Color dot;
-    if (state.restCompleted) {
-      text = AfStrings.timerDonePill;
-      dot = const Color(0xFF22C55E);
-    } else {
-      final int seconds = state.restSecondsRemaining;
-      final String clock = _formatClock(seconds);
-      if (state.restRunning) {
-        text = '⏱ $clock';
-        dot = t.accent;
-      } else {
-        text = '⏸ $clock';
-        dot = t.accent;
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: t.accentTint,
-        borderRadius: BorderRadius.circular(t.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: t.accentTintText,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _formatClock(int totalSeconds) {
-  final int minutes = (totalSeconds ~/ 60).clamp(0, 999);
-  final int seconds = (totalSeconds % 60).clamp(0, 59);
-  return '${minutes.toString().padLeft(2, '0')}:'
-      '${seconds.toString().padLeft(2, '0')}';
 }
 
 class _IconAction extends StatelessWidget {

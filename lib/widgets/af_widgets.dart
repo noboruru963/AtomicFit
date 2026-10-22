@@ -580,6 +580,60 @@ class AfProgress extends StatelessWidget {
   }
 }
 
+/// A themed dropdown matching the prototype's `<select class="af-input">`.
+class AfDropdown extends StatelessWidget {
+  const AfDropdown({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.hint,
+    this.style,
+    this.isDense = true,
+  });
+
+  /// The selected value. An empty value (or one that is not in [items])
+  /// shows the hint instead.
+  final String value;
+
+  final List<String> items;
+  final ValueChanged<String> onChanged;
+  final String? hint;
+  final TextStyle? style;
+  final bool isDense;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final bool hasValue = value.isNotEmpty && items.contains(value);
+
+    return DropdownButtonFormField<String>(
+      initialValue: hasValue ? value : null,
+      isExpanded: true,
+      isDense: isDense,
+      decoration: const InputDecoration(),
+      style: style ?? Theme.of(context).textTheme.bodyMedium,
+      hint: hint == null
+          ? null
+          : Text(
+              hint!,
+              style: AfText.muted(t),
+              overflow: TextOverflow.ellipsis,
+            ),
+      items: <DropdownMenuItem<String>>[
+        for (final String item in items)
+          DropdownMenuItem<String>(
+            value: item,
+            child: Text(item, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (String? selected) {
+        if (selected != null) onChanged(selected);
+      },
+    );
+  }
+}
+
 /// Themed text field matching `.af-input`.
 class AfTextField extends StatelessWidget {
   const AfTextField({

@@ -66,123 +66,120 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                // Navigation arrows first, spread across the top.
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const AfSectionHead(AfStrings.workoutCurrentExercise),
-                          const SizedBox(height: 4),
-                          if (workout.exercises.isEmpty)
-                            Text(
-                              workout.currentExercise.isEmpty
-                                  ? AfStrings.workoutNoneSelected
-                                  : workout.currentExercise,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            )
-                          else
-                            DropdownButtonFormField<String>(
-                              initialValue: workout.exercises.any(
-                                      (ProgramExercise e) =>
-                                          e.name == workout.currentExercise)
-                                  ? workout.currentExercise
-                                  : workout.exercises.first.name,
-                              isExpanded: true,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                              items: <DropdownMenuItem<String>>[
-                                for (final ProgramExercise exercise
-                                    in workout.exercises)
-                                  DropdownMenuItem<String>(
-                                    value: exercise.name,
-                                    child: Text(
-                                      exercise.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                              ],
-                              onChanged: (String? value) {
-                                if (value == null) return;
-                                state.changeActiveExercise(value);
-                                setState(() => _weightError = null);
-                              },
-                            ),
-                          const SizedBox(height: 4),
-                          if (workout.currentExercise.isNotEmpty &&
-                              target != null)
-                            Text.rich(
-                              TextSpan(
-                                children: <InlineSpan>[
-                                  TextSpan(
-                                    text: AfStrings.fill(
-                                      AfStrings.workoutTarget,
-                                      <String, Object?>{
-                                        'sets': target.sets,
-                                        'reps': target.reps,
-                                        'kg': _trim(target.weightKg),
-                                      },
-                                    ),
-                                    style: AfText.muted(t),
-                                  ),
-                                  const TextSpan(text: ' '),
-                                  TextSpan(
-                                    text: '· ',
-                                    style: AfText.muted(t),
-                                  ),
-                                  TextSpan(
-                                    text: AfStrings.fill(
-                                      AfStrings.workoutLogged,
-                                      <String, Object?>{
-                                        'done': logged,
-                                        'total': target.sets,
-                                      },
-                                    ),
-                                    style: AfText.muted(t),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Text(
-                              AfStrings.workoutNoExerciseHint,
-                              style: AfText.muted(t),
-                            ),
-                        ],
-                      ),
+                    _StepButton(
+                      label: '<',
+                      tooltip: AfStrings.previousExercise,
+                      enabled: workout.exercises.length > 1 &&
+                          workout.exercises.indexWhere(
+                                (ProgramExercise e) =>
+                                    e.name == workout.currentExercise,
+                              ) >
+                              0,
+                      onTap: () => state.stepActiveExercise(-1),
                     ),
-                    const SizedBox(width: 8),
-                    Row(
-                      children: <Widget>[
-                        _StepButton(
-                          label: '<',
-                          tooltip: AfStrings.previousExercise,
-                          enabled: workout.exercises.length > 1 &&
-                              workout.exercises.indexWhere(
-                                    (ProgramExercise e) =>
-                                        e.name == workout.currentExercise,
-                                  ) >
-                                  0,
-                          onTap: () => state.stepActiveExercise(-1),
-                        ),
-                        const SizedBox(width: 6),
-                        _StepButton(
-                          label: '>',
-                          tooltip: AfStrings.nextExercise,
-                          enabled: workout.exercises.length > 1 &&
-                              workout.exercises.indexWhere(
-                                    (ProgramExercise e) =>
-                                        e.name == workout.currentExercise,
-                                  ) <
-                                  workout.exercises.length - 1,
-                          onTap: () => state.stepActiveExercise(1),
-                        ),
-                      ],
+                    _StepButton(
+                      label: '>',
+                      tooltip: AfStrings.nextExercise,
+                      enabled: workout.exercises.length > 1 &&
+                          workout.exercises.indexWhere(
+                                (ProgramExercise e) =>
+                                    e.name == workout.currentExercise,
+                              ) <
+                              workout.exercises.length - 1,
+                      onTap: () => state.stepActiveExercise(1),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                const Center(
+                  child: AfSectionHead(AfStrings.workoutCurrentExercise),
+                ),
+                const SizedBox(height: 6),
+                Center(
+                  child: workout.exercises.isEmpty
+                      ? Text(
+                          workout.currentExercise.isEmpty
+                              ? AfStrings.workoutNoneSelected
+                              : workout.currentExercise,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        )
+                      : ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: workout.exercises.any(
+                                    (ProgramExercise e) =>
+                                        e.name == workout.currentExercise)
+                                ? workout.currentExercise
+                                : workout.exercises.first.name,
+                            isExpanded: true,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                            items: <DropdownMenuItem<String>>[
+                              for (final ProgramExercise exercise
+                                  in workout.exercises)
+                                DropdownMenuItem<String>(
+                                  value: exercise.name,
+                                  child: Text(
+                                    exercise.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: (String? value) {
+                              if (value == null) return;
+                              state.changeActiveExercise(value);
+                              setState(() => _weightError = null);
+                            },
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: workout.currentExercise.isNotEmpty && target != null
+                      ? Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              TextSpan(
+                                text: AfStrings.fill(
+                                  AfStrings.workoutTarget,
+                                  <String, Object?>{
+                                    'sets': target.sets,
+                                    'reps': target.reps,
+                                    'kg': _trim(target.weightKg),
+                                  },
+                                ),
+                                style: AfText.muted(t),
+                              ),
+                              const TextSpan(text: ' '),
+                              TextSpan(
+                                text: '· ',
+                                style: AfText.muted(t),
+                              ),
+                              TextSpan(
+                                text: AfStrings.fill(
+                                  AfStrings.workoutLogged,
+                                  <String, Object?>{
+                                    'done': logged,
+                                    'total': target.sets,
+                                  },
+                                ),
+                                style: AfText.muted(t),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        )
+                      : Text(
+                          AfStrings.workoutNoExerciseHint,
+                          style: AfText.muted(t),
+                          textAlign: TextAlign.center,
+                        ),
                 ),
                 const SizedBox(height: 14),
                 if (workout.inputMethod == 'sensor')
@@ -367,30 +364,30 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    AfSectionHead(
-                      AfStrings.fill(
-                          AfStrings.workoutLoggedSets, <String, Object?>{
-                        'count': workout.sets.length,
-                      }),
+                Center(
+                  child: AfSectionHead(
+                    AfStrings.fill(
+                        AfStrings.workoutLoggedSets, <String, Object?>{
+                      'count': workout.sets.length,
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Center(
+                  child: Text.rich(
+                    TextSpan(
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: 'Total Vol: ',
+                          style: AfText.muted(t, size: 12),
+                        ),
+                        TextSpan(
+                          text: '${state.activeVolume} kg',
+                          style: AfText.strong(t, size: 12),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    Text.rich(
-                      TextSpan(
-                        children: <InlineSpan>[
-                          TextSpan(
-                            text: 'Total Vol: ',
-                            style: AfText.muted(t),
-                          ),
-                          TextSpan(
-                            text: '${state.activeVolume} kg',
-                            style: AfText.strong(t, size: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (workout.sets.isEmpty)
@@ -417,53 +414,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   decoration: BoxDecoration(
                     border: Border(top: BorderSide(color: t.borderLine)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: <InlineSpan>[
-                              TextSpan(
-                                text: AfStrings.fill(
-                                  AfStrings.workoutInputChannel,
-                                  <String, Object?>{
-                                    'method': workout.inputMethod,
-                                  },
-                                ).replaceFirst(
-                                  'Change in Settings',
-                                  '',
-                                ),
-                                style: AfText.muted(t, size: 11),
-                              ),
-                              TextSpan(
-                                text: '(',
-                                style: AfText.muted(t, size: 11),
-                              ),
-                              TextSpan(
-                                text: AfStrings.openInSettings,
-                                style: TextStyle(
-                                  color: t.accent,
-                                  fontSize: 11,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ')',
-                                style: AfText.muted(t, size: 11),
-                              ),
-                            ],
+                      const SizedBox(height: 10),
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: AfButton(
+                            label: AfStrings.workoutFinish,
+                            size: AfButtonSize.large,
+                            expand: true,
+                            onPressed: () {
+                              if (state.finishActiveWorkout() == null) return;
+                              Navigator.of(context).pushReplacementNamed(
+                                  AfScreen.workoutComplete);
+                            },
                           ),
                         ),
-                      ),
-                      AfButton(
-                        label: AfStrings.workoutFinish,
-                        variant: AfButtonVariant.tint,
-                        size: AfButtonSize.compact,
-                        onPressed: () {
-                          if (state.finishActiveWorkout() == null) return;
-                          Navigator.of(context)
-                              .pushReplacementNamed(AfScreen.workoutComplete);
-                        },
                       ),
                     ],
                   ),

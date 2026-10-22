@@ -133,7 +133,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: _Dropdown(
+                      child: AfDropdown(
                         value: _day,
                         hint: AfStrings.personalDetailsDay,
                         items: <String>[
@@ -145,7 +145,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _Dropdown(
+                      child: AfDropdown(
                         value: _month,
                         hint: AfStrings.personalDetailsMonth,
                         items: calendarMonths,
@@ -155,7 +155,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _Dropdown(
+                      child: AfDropdown(
                         value: _year,
                         hint: AfStrings.personalDetailsYear,
                         items: <String>[
@@ -173,7 +173,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                   style: AfText.muted(t, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
-                _Dropdown(
+                AfDropdown(
                   value: _gender,
                   hint: AfStrings.personalDetailsGender,
                   items: const <String>[
@@ -237,50 +237,6 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A labelled dropdown matching the prototype's `<select class="af-input">`.
-class _Dropdown extends StatelessWidget {
-  const _Dropdown({
-    required this.value,
-    required this.hint,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final String value;
-  final String hint;
-  final List<String> items;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final AfTokens t = context.af;
-    final bool hasValue = value.isNotEmpty && items.contains(value);
-
-    return DropdownButtonFormField<String>(
-      initialValue: hasValue ? value : null,
-      isExpanded: true,
-      isDense: true,
-      decoration: const InputDecoration(),
-      style: Theme.of(context).textTheme.bodyMedium,
-      hint: Text(
-        hint,
-        style: AfText.muted(t),
-        overflow: TextOverflow.ellipsis,
-      ),
-      items: <DropdownMenuItem<String>>[
-        for (final String item in items)
-          DropdownMenuItem<String>(
-            value: item,
-            child: Text(item, overflow: TextOverflow.ellipsis),
-          ),
-      ],
-      onChanged: (String? selected) {
-        if (selected != null) onChanged(selected);
-      },
     );
   }
 }
