@@ -71,8 +71,8 @@ void main() {
       isNull,
     );
 
-    // The sign-in persists in the background; let it finish before teardown.
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    // The sign-in persists in the background; wait for it before teardown.
+    await state.pendingWrite;
   });
 
   test('the state survives a restart of the app', () async {

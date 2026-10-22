@@ -277,7 +277,7 @@ class AppState extends ChangeNotifier {
 
   /// Writes the current state back to the store.
   Future<void> persist() async {
-    await store.write(<String, dynamic>{
+    final Future<void> write = store.write(<String, dynamic>{
       'schemaVersion': 1,
       'seedVersion': 1,
       'user': user.toJson(),
@@ -296,7 +296,20 @@ class AppState extends ChangeNotifier {
       'quizShortMode': quizShortMode,
       'quizStepIndex': quizStepIndex,
     });
+    _pendingWrite = write;
+    try {
+      await write;
+    } finally {
+      if (identical(_pendingWrite, write)) _pendingWrite = null;
+    }
   }
+
+  Future<void>? _pendingWrite;
+
+  /// Completes when the last background write has finished.
+  ///
+  /// The app writes in the background; tests use this to wait for it.
+  Future<void> get pendingWrite => _pendingWrite ?? Future<void>.value();
 
   /// The account record matching [userId], if any.
   AppAccount? _accountFor(String userId) {
