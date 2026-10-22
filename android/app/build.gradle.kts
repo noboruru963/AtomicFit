@@ -36,6 +36,13 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 minification strips methods the plugin platform channels call
+            // reflectively: the release APK crashed at startup with
+            // `NoSuchMethodError: SharedPreferencesApiRegistrar.getAll` before
+            // the first frame. A prototype trades the extra megabytes for a
+            // build that behaves exactly like the debug one.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

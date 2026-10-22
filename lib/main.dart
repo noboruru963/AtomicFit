@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app/shell.dart';
+import 'app/startup_error_app.dart';
 import 'data/db/app_database.dart';
 import 'data/db/bootstrap.dart';
 import 'data/db/exercise_repository.dart';
@@ -32,30 +33,55 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _boot();
+}
 
-  // The local database: accounts, exercise catalogue, programs, sessions.
-  final AppDatabase database = AppDatabase();
-  final SqliteExerciseRepository exercises =
-      SqliteExerciseRepository(await database.database);
-  final SqliteStore store = SqliteStore(database);
+/// Opens the database, prepares the catalogue and loads the saved state.
+///
+/// The first frame needs this data, so it runs before `runApp`. Anything that
+/// fails here is reported on screen ([StartupErrorApp]) instead of leaving the
+/// launch window blank.
+Future<void> _boot() async {
+  try {
+    // The local database: accounts, exercise catalogue, programs, sessions.
+    final AppDatabase database = AppDatabase();
+    final SqliteExerciseRepository exercises =
+        SqliteExerciseRepository(await database.database);
+    final SqliteStore store = SqliteStore(database);
 
-  // Data of the previous (JSON blob) build moves into the database once.
-  await LegacyMigration.run(
-    appDatabase: database,
-    store: store,
-    exercises: exercises,
-  );
+    // Data of the previous (JSON blob) build moves into the database once.
+    // A failure here must not stop the app: the user can still train, and the
+    // database simply starts empty.
+    try {
+      await LegacyMigration.run(
+        appDatabase: database,
+        store: store,
+        exercises: exercises,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('AtomFit: legacy migration skipped ($error)\n$stackTrace');
+    }
 
-  await DatabaseBootstrap.ensureCatalogue(exercises);
+    await DatabaseBootstrap.ensureCatalogue(exercises);
 
-  final AppState state = AppState(
-    store: store,
-    exercises: exercises,
-  );
-  await state.load();
-  await RestAlerts.instance.init();
+    final AppState state = AppState(
+      store: store,
+      exercises: exercises,
+    );
+    await state.load();
+    await RestAlerts.instance.init();
 
-  runApp(AtomFitApp(state: state));
+    runApp(AtomFitApp(state: state));
+  } catch (error, stackTrace) {
+    debugPrint('AtomFit: startup failed ($error)\n$stackTrace');
+    runApp(
+      StartupErrorApp(
+        error: error,
+        stackTrace: stackTrace,
+        retry: _boot,
+      ),
+    );
+  }
 }
 
 class AtomFitApp extends StatelessWidget {

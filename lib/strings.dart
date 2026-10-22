@@ -8,6 +8,15 @@ class AfStrings {
   static const String tagline = 'Log it. Keep going.';
   static const String appTitle = 'AtomFit — Adaptive Workout Tracker';
 
+  // ------------------------------------------------------- startup failure
+  static const String startupErrorTitle = 'AtomFit could not start';
+  static const String startupErrorMessage =
+      'Something went wrong while preparing the local data on this device.\n\n'
+      'Your phone is fine — nothing was deleted. Try again, and if it keeps '
+      'happening send this screen to the team.';
+  static const String startupErrorDetailLabel = 'Technical detail';
+  static const String startupErrorRetry = 'Try again';
+
   // ------------------------------------------------------------- screen titles
   static const String titleHome = 'AtomFit';
   static const String titlePrograms = 'My Programs';
