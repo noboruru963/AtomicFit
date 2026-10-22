@@ -96,18 +96,18 @@ class SqliteStore implements AtomFitStore {
       document['user'] = user;
     }
 
-    final Map<String, Object?> settingsFlags = <String, Object?>{
+    final Map<String, dynamic> settingsFlags = <String, dynamic>{
       'id': 'settings',
-      'user_id': (settings['user_id'] ?? '').toString(),
-      'sensor_auto_detect': (settings['sensor_auto_detect'] as int? ?? 1) == 1,
-      'voice_logging': (settings['voice_logging'] as int? ?? 1) == 1,
-      'haptic_feedback': (settings['haptic_feedback'] as int? ?? 1) == 1,
-      'lockscreen_widget': (settings['lockscreen_widget'] as int? ?? 1) == 1,
-      'bell_sound': (settings['bell_sound'] as int? ?? 1) == 1,
-      'rest_notifications': (settings['rest_notifications'] as int? ?? 1) == 1,
-      'created_at_utc': (settings['created_at_utc'] ?? '').toString(),
-      'updated_at_utc': (settings['updated_at_utc'] ?? '').toString(),
-      'deleted_at_utc': settings['deleted_at_utc'],
+      'userId': (settings['user_id'] ?? '').toString(),
+      'sensorAutoDetect': (settings['sensor_auto_detect'] as int? ?? 1) == 1,
+      'voiceLogging': (settings['voice_logging'] as int? ?? 1) == 1,
+      'hapticFeedback': (settings['haptic_feedback'] as int? ?? 1) == 1,
+      'lockscreenWidget': (settings['lockscreen_widget'] as int? ?? 1) == 1,
+      'bellSound': (settings['bell_sound'] as int? ?? 1) == 1,
+      'restNotifications': (settings['rest_notifications'] as int? ?? 1) == 1,
+      'createdAtUtc': (settings['created_at_utc'] ?? '').toString(),
+      'updatedAtUtc': (settings['updated_at_utc'] ?? '').toString(),
+      'deletedAtUtc': settings['deleted_at_utc'],
     };
     document['settings'] = settingsFlags;
 
@@ -159,8 +159,30 @@ class SqliteStore implements AtomFitStore {
       }
 
       // ------------------------------------------------------------ settings
+      // A partial document must not reset the stored preferences, so the
+      // existing row is merged with whatever the document carries.
+      final List<Map<String, Object?>> existingSettings =
+          await txn.query('settings', limit: 1);
+      final Map<String, Object?> storedSettings = existingSettings.isEmpty
+          ? <String, Object?>{}
+          : existingSettings.first;
       final Map<String, dynamic> settings =
           _asMap(document['settings']) ?? <String, dynamic>{};
+
+      bool flag(String key, String column) {
+        final Object? value = settings[key];
+        if (value is bool) return value;
+        final Object? stored = storedSettings[column];
+        return stored is int ? stored == 1 : true;
+      }
+
+      bool documentFlag(String key, String column, {bool fallback = false}) {
+        final Object? value = document[key];
+        if (value is bool) return value;
+        final Object? stored = storedSettings[column];
+        return stored is int ? stored == 1 : fallback;
+      }
+
       final String currentAccountId =
           (user?['id'] ?? document['currentAccountId'] ?? '').toString();
       await txn.insert(
@@ -168,18 +190,24 @@ class SqliteStore implements AtomFitStore {
         <String, Object?>{
           'id': 'settings',
           'user_id': (settings['userId'] ?? currentAccountId).toString(),
-          'sensor_auto_detect': settings['sensorAutoDetect'] == true ? 1 : 0,
-          'voice_logging': settings['voiceLogging'] == true ? 1 : 0,
-          'haptic_feedback': settings['hapticFeedback'] == true ? 1 : 0,
-          'lockscreen_widget': settings['lockscreenWidget'] == true ? 1 : 0,
-          'bell_sound': settings['bellSound'] == true ? 1 : 0,
-          'rest_notifications': settings['restNotifications'] == true ? 1 : 0,
-          'is_dark_mode': document['isDarkMode'] == true ? 1 : 0,
-          'is_logged_in': document['isLoggedIn'] == true ? 1 : 0,
+          'sensor_auto_detect':
+              flag('sensorAutoDetect', 'sensor_auto_detect') ? 1 : 0,
+          'voice_logging': flag('voiceLogging', 'voice_logging') ? 1 : 0,
+          'haptic_feedback': flag('hapticFeedback', 'haptic_feedback') ? 1 : 0,
+          'lockscreen_widget':
+              flag('lockscreenWidget', 'lockscreen_widget') ? 1 : 0,
+          'bell_sound': flag('bellSound', 'bell_sound') ? 1 : 0,
+          'rest_notifications':
+              flag('restNotifications', 'rest_notifications') ? 1 : 0,
+          'is_dark_mode': documentFlag('isDarkMode', 'is_dark_mode') ? 1 : 0,
+          'is_logged_in': documentFlag('isLoggedIn', 'is_logged_in') ? 1 : 0,
           'current_account_id': currentAccountId,
-          'is_program_adjusted': document['isProgramAdjusted'] == true ? 1 : 0,
+          'is_program_adjusted':
+              documentFlag('isProgramAdjusted', 'is_program_adjusted') ? 1 : 0,
           'adjustment_factor':
-              (document['adjustmentFactor'] as num?)?.toDouble() ?? 0.9,
+              (document['adjustmentFactor'] as num?)?.toDouble() ??
+                  (storedSettings['adjustment_factor'] as num?)?.toDouble() ??
+                  0.9,
           'created_at_utc': now,
           'updated_at_utc': now,
           'deleted_at_utc': null,

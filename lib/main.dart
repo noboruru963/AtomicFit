@@ -5,6 +5,7 @@ import 'app/shell.dart';
 import 'data/db/app_database.dart';
 import 'data/db/bootstrap.dart';
 import 'data/db/exercise_repository.dart';
+import 'data/db/legacy_migration.dart';
 import 'data/db/sqlite_store.dart';
 import 'screens/active_workout_screen.dart';
 import 'screens/discover_screen.dart';
@@ -36,10 +37,19 @@ Future<void> main() async {
   final AppDatabase database = AppDatabase();
   final SqliteExerciseRepository exercises =
       SqliteExerciseRepository(await database.database);
+  final SqliteStore store = SqliteStore(database);
+
+  // Data of the previous (JSON blob) build moves into the database once.
+  await LegacyMigration.run(
+    appDatabase: database,
+    store: store,
+    exercises: exercises,
+  );
+
   await DatabaseBootstrap.ensureCatalogue(exercises);
 
   final AppState state = AppState(
-    store: SqliteStore(database),
+    store: store,
     exercises: exercises,
   );
   await state.load();

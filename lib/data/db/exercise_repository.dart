@@ -30,6 +30,9 @@ abstract class ExerciseRepository {
   /// How many exercises match [query] and [bodyPartFilter].
   Future<int> count({String query = '', String bodyPartFilter = 'All'});
 
+  /// How many catalogue exercises (the ones that are not user-created) exist.
+  Future<int> countCatalogue();
+
   /// Inserts or updates a single exercise.
   Future<void> upsert(Exercise exercise);
 
@@ -99,6 +102,17 @@ class SqliteExerciseRepository implements ExerciseRepository {
     final List<Map<String, Object?>> rows = await _database.rawQuery(
       'SELECT COUNT(*) AS total FROM exercises${where.clause}',
       where.args,
+    );
+    if (rows.isEmpty) return 0;
+    final Object? total = rows.first['total'];
+    return total is int ? total : 0;
+  }
+
+  @override
+  Future<int> countCatalogue() async {
+    final List<Map<String, Object?>> rows = await _database.rawQuery(
+      'SELECT COUNT(*) AS total FROM exercises '
+      'WHERE deleted_at_utc IS NULL AND is_custom = 0',
     );
     if (rows.isEmpty) return 0;
     final Object? total = rows.first['total'];

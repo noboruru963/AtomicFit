@@ -14,7 +14,7 @@ class DatabaseBootstrap {
   /// Returns the number of imported records (0 when the catalogue was
   /// already present).
   static Future<int> ensureCatalogue(ExerciseRepository repository) async {
-    final int existing = await repository.count();
+    final int existing = await repository.countCatalogue();
     if (existing > 0) return 0;
 
     final List<Exercise> catalogue = await CatalogueLoader.loadFromAsset();

@@ -25,8 +25,11 @@ document contract on top of the relational tables:
   `assets/data/exercise_catalogue.json` and imported once on first launch
   (`DatabaseBootstrap.ensureCatalogue`). `ExerciseRepository` answers the
   Discover search, body-part filters, result count and pagination with SQL.
-* `LocalBlobStore` (a single JSON blob in `shared_preferences`) stays
-  available for tests and as a fallback.
+* **Legacy data**: the previous build stored everything in one JSON blob
+  (`atomfit_app_v23`) in `shared_preferences`. `LegacyMigration` moves that
+  blob into the database once, on the first launch of the database build.
+  `shared_preferences` is kept for that one-off read only and can be dropped
+  once every device has migrated.
 
 ### Layout
 
@@ -40,6 +43,7 @@ lib/data/
 │  ├─ catalogue.dart          pure label/format/search rules
 │  ├─ catalogue_loader.dart   asset -> Exercise records
 │  ├─ password_hasher.dart    salted password hashing
+│  ├─ legacy_migration.dart   the previous JSON blob -> the database
 │  └─ bootstrap.dart          first-run catalogue import
 ├─ seed_data.dart             demo programs, history and quiz questions
 └─ store.dart                 the AtomFitStore seam
