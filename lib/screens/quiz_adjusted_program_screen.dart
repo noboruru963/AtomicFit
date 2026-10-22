@@ -1,105 +1,130 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
-class QuizAdjustedProgramScreen extends StatefulWidget {
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderQuizAdjustedScreen()` (`index.html` lines 1936-1975).
+class QuizAdjustedProgramScreen extends StatelessWidget {
   const QuizAdjustedProgramScreen({super.key});
 
   @override
-  State<QuizAdjustedProgramScreen> createState() => _QuizAdjustedProgramScreenState();
-}
-
-class _QuizAdjustedProgramScreenState extends State<QuizAdjustedProgramScreen> {
-  bool _accepted = false;
-
-  @override
   Widget build(BuildContext context) {
-    if (_accepted) {
-      return Scaffold(
-        backgroundColor: AppTheme.bgLight,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(width: 64, height: 64, decoration: BoxDecoration(color: AppTheme.success, borderRadius: BorderRadius.circular(32)), child: const Center(child: Text('✓', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)))),
-                const SizedBox(height: 20),
-                Text('Program adjusted', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                const SizedBox(height: 8),
-                Text('Your new program version is now Current.', style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: 250,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                    child: const Text(AppTexts.continueBtn, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final QuizAdjustment adjustment = state.computedQuizAdjustment();
+    final Program? active = state.getActiveProgram();
+
+    return AfScaffold(
+      screenId: AfScreen.quizAdjusted,
+      child: AfCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const AfBadge(
+                  label: AfStrings.quizPlanReady,
+                  tone: AfBadgeTone.green,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    active?.name ?? '',
+                    style: AfText.muted(t),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(width: double.infinity),
-                    const SizedBox(height: 24),
-                    Text(AppTexts.adjustedTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: AppTheme.cardLight, borderRadius: BorderRadius.circular(AppTheme.radiusCard), border: Border.all(color: AppTheme.lineLight)),
+            const SizedBox(height: 12),
+            Text(
+              AfStrings.quizAdjustedTitle,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AfStrings.quizAdjustedBody,
+              style: AfText.muted(t).copyWith(height: 1.625),
+            ),
+            const SizedBox(height: 16),
+            for (final ProgramExercise exercise
+                in active?.exercises ?? const <ProgramExercise>[]) ...<Widget>[
+              AfSubtle(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
                       child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                            child: Text(AppTexts.nonDiagnostic, style: const TextStyle(fontSize: 10, color: AppTheme.mutedLight)),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            exercise.name,
+                            style: AfText.strong(t, size: 14),
                           ),
-                          const SizedBox(height: 16),
-                          _buildPreviewRow(AppTexts.sessionLengthKey, 'Slightly shorter'),
-                          _buildPreviewRow(AppTexts.intensityKey, 'Reduce the weight'),
-                          _buildPreviewRow(AppTexts.frequencyKey, 'Same as last'),
-                          _buildPreviewRow(AppTexts.weightReductionKey, '15% (within 10-20%)'),
-                          const SizedBox(height: 16),
-                          Text('Reduced intensity requested — easing back in.', style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
+                          Text(
+                            AfStrings.fill(
+                              AfStrings.quizAdjustedSets,
+                              <String, Object?>{
+                                'sets': exercise.sets,
+                                'reps': exercise.reps,
+                              },
+                            ),
+                            style: AfText.muted(t),
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: 250,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () => setState(() => _accepted = true),
-                        child: const Text(AppTexts.acceptButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 250,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                        child: const Text(AppTexts.keepButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                      ),
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          '${_trim(exercise.weightKg)} kg',
+                          style: AfText.muted(t).copyWith(
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_trim(exercise.weightKg * adjustment.factor)} kg '
+                          '(${adjustment.pctText})',
+                          style: TextStyle(
+                            color: t.success,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: 2),
+            AfButton(
+              label: AfStrings.quizAccept,
+              expand: true,
+              fontSize: 14,
+              onPressed: () {
+                state.acceptAdjustedProgram();
+                Navigator.of(context)
+                    .pushReplacementNamed(AfScreen.activeWorkout);
+              },
+            ),
+            const SizedBox(height: 10),
+            AfButton(
+              label: AfStrings.quizKeepOld,
+              variant: AfButtonVariant.secondary,
+              expand: true,
+              size: AfButtonSize.compact,
+              onPressed: () {
+                state.keepOldProgram();
+                Navigator.of(context).pushReplacementNamed(AfScreen.home);
+              },
             ),
           ],
         ),
@@ -107,34 +132,8 @@ class _QuizAdjustedProgramScreenState extends State<QuizAdjustedProgramScreen> {
     );
   }
 
-  Widget _buildPreviewRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
-      child: Row(
-        children: [
-          Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)))),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.notifications_none, color: Colors.white), onPressed: null),
-        ],
-      ),
-    );
+  static String _trim(double value) {
+    final String text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
   }
 }

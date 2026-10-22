@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
-import '../models/app_models.dart';
 
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderActiveWorkoutScreen()` (`index.html` lines 2522-2656).
 class ActiveWorkoutScreen extends StatefulWidget {
   const ActiveWorkoutScreen({super.key});
 
@@ -12,467 +16,607 @@ class ActiveWorkoutScreen extends StatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
-  String? _currentExercise;
-  int _reps = 0;
-  String _weightInput = '';
-  int _restSeconds = 120;
-  bool _restRunning = false;
-  Timer? _restTimer;
-
-  final List<Map<String, dynamic>> _exercises = [
-    {'id': 'e1', 'name': 'Dumbbell curl', 'sets': 3},
-    {'id': 'e2', 'name': 'Chest press', 'sets': 3},
-    {'id': 'e3', 'name': 'Tricep raise', 'sets': 3},
-  ];
-
-  final List<Map<String, dynamic>> _sets = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _currentExercise = _exercises.first['name'];
-    _addSet();
-  }
+  final TextEditingController _weight = TextEditingController();
+  final TextEditingController _reps = TextEditingController();
+  final TextEditingController _voice = TextEditingController();
+  String? _weightError;
+  bool _syncing = false;
 
   @override
   void dispose() {
-    _restTimer?.cancel();
+    _weight.dispose();
+    _reps.dispose();
+    _voice.dispose();
     super.dispose();
   }
 
-  void _addSet() {
-    final ex = _exercises.firstWhere((e) => e['name'] == _currentExercise);
-    final prev = _sets.isNotEmpty ? _sets.last : null;
-    setState(() {
-      _sets.add({
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'exerciseId': ex['id'],
-        'exerciseName': ex['name'],
-        'setNo': _sets.where((s) => s['exerciseId'] == ex['id']).length + 1,
-        'weightKg': prev?['weightKg'] ?? 0,
-        'reps': 0,
-        'restS': prev?['restS'] ?? 120,
-      });
-    });
-  }
-
-  void _incrementReps(Map<String, dynamic> set) {
-    setState(() => set['reps'] = set['reps'] + 1);
-  }
-
-  void _decrementReps(Map<String, dynamic> set) {
-    setState(() => set['reps'] = set['reps'] > 0 ? set['reps'] - 1 : 0);
-  }
-
-  void _quickAddRep() {
-    if (_sets.isNotEmpty) {
-      setState(() => _sets.last['reps'] = (_sets.last['reps'] as int) + 1);
-    }
-  }
-
-  void _quickAddSet() {
-    _addSet();
-  }
-
-  void _startRest() => setState(() => _restRunning = true);
-  void _pauseRest() => setState(() => _restRunning = false);
-  void _skipRest() => setState(() {
-    _restRunning = false;
-    _restSeconds = 0;
-  });
-  void _adjustRest(int delta) => setState(() => _restSeconds = (_restSeconds + delta).clamp(15, 999));
-
-  void _showAddExerciseDialog() {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController weightController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Exercise'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Exercise name',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (kg)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
-              final weight = double.tryParse(weightController.text) ?? 0;
-              setState(() {
-                _currentExercise = name;
-                _sets.add({
-                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                  'exerciseId': 'manual-${DateTime.now().millisecondsSinceEpoch}',
-                  'exerciseName': name,
-                  'setNo': 1,
-                  'weightKg': weight,
-                  'reps': 0,
-                  'restS': 120,
-                });
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+  void _syncInputs(AppState state) {
+    if (_syncing) return;
+    _syncing = true;
+    _weight.text = state.activeWorkout.weightInput;
+    _reps.text = state.activeWorkout.repsInput.toString();
+    _voice.text = state.activeWorkout.voiceSimText;
+    _syncing = false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final ex = _exercises.firstWhere((e) => e['name'] == _currentExercise, orElse: () => {'id': 'custom', 'name': _currentExercise ?? '', 'sets': 3});
-    final totalSetsDone = _sets.where((s) => s['reps'] >= 1).length;
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final ActiveWorkout workout = state.activeWorkout;
+    final ProgramExercise? target = state.currentTarget;
+    final int logged = state.loggedCountFor(workout.currentExercise);
 
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+    if (!_syncing &&
+        (_weight.text != workout.weightInput ||
+            _reps.text != workout.repsInput.toString())) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncInputs(state);
+      });
+    }
+
+    return AfScaffold(
+      screenId: AfScreen.activeWorkout,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // ------------------------------------------------ current exercise
+          AfCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Exercise name header
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _currentExercise ?? '',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textLight),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Sets list
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardLight,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                        border: Border.all(color: AppTheme.lineLight),
-                      ),
+                  children: <Widget>[
+                    Expanded(
                       child: Column(
-                        children: [
-                          ..._sets.map((s) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppTheme.bgLight,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.lineLight),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Set ${s['setNo']}',
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.mutedLight),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () => setState(() => _sets.remove(s)),
-                                        child: const Text('×', style: TextStyle(fontSize: 18, color: AppTheme.mutedLight)),
-                                      ),
-                                    ],
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const AfSectionHead(AfStrings.workoutCurrentExercise),
+                          const SizedBox(height: 4),
+                          if (workout.exercises.isEmpty)
+                            Text(
+                              workout.currentExercise.isEmpty
+                                  ? AfStrings.workoutNoneSelected
+                                  : workout.currentExercise,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            )
+                          else
+                            DropdownButtonFormField<String>(
+                              initialValue: workout.exercises.any(
+                                      (ProgramExercise e) =>
+                                          e.name == workout.currentExercise)
+                                  ? workout.currentExercise
+                                  : workout.exercises.first.name,
+                              isExpanded: true,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                              items: <DropdownMenuItem<String>>[
+                                for (final ProgramExercise exercise
+                                    in workout.exercises)
+                                  DropdownMenuItem<String>(
+                                    value: exercise.name,
+                                    child: Text(
+                                      exercise.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  // Reps input
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          decoration: InputDecoration(
-                                            labelText: 'Reps',
-                                            hintText: '0',
-                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                          ),
-                                          keyboardType: TextInputType.number,
-                                          onChanged: (v) => s['reps'] = int.tryParse(v) ?? 0,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        child: ElevatedButton(
-                                          onPressed: () => _decrementReps(s),
-                                          child: const Text('-', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.mutedLight,
-                                            foregroundColor: AppTheme.textLight,
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        child: ElevatedButton(
-                                          onPressed: () => _incrementReps(s),
-                                          child: const Text('+', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primary,
-                                            foregroundColor: Colors.white,
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                              ],
+                              onChanged: (String? value) {
+                                if (value == null) return;
+                                state.changeActiveExercise(value);
+                                setState(() => _weightError = null);
+                              },
+                            ),
+                          const SizedBox(height: 4),
+                          if (workout.currentExercise.isNotEmpty &&
+                              target != null)
+                            Text.rich(
+                              TextSpan(
+                                children: <InlineSpan>[
+                                  TextSpan(
+                                    text: AfStrings.fill(
+                                      AfStrings.workoutTarget,
+                                      <String, Object?>{
+                                        'sets': target.sets,
+                                        'reps': target.reps,
+                                        'kg': _trim(target.weightKg),
+                                      },
+                                    ),
+                                    style: AfText.muted(t),
                                   ),
-                                  const SizedBox(height: 10),
-                                  // Weight input
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          decoration: InputDecoration(
-                                            labelText: 'Weight (kg)',
-                                            hintText: '0',
-                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                          ),
-                                          keyboardType: TextInputType.number,
-                                          onChanged: (v) => s['weightKg'] = double.tryParse(v) ?? 0,
-                                        ),
-                                      ),
-                                    ],
+                                  const TextSpan(text: ' '),
+                                  TextSpan(
+                                    text: '· ',
+                                    style: AfText.muted(t),
+                                  ),
+                                  TextSpan(
+                                    text: AfStrings.fill(
+                                      AfStrings.workoutLogged,
+                                      <String, Object?>{
+                                        'done': logged,
+                                        'total': target.sets,
+                                      },
+                                    ),
+                                    style: AfText.muted(t),
                                   ),
                                 ],
                               ),
-                            );
-                          }).toList(),
-                          if (_sets.isEmpty)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text('No sets yet. Add a set to begin.', style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-                              ),
+                            )
+                          else
+                            Text(
+                              AfStrings.workoutNoExerciseHint,
+                              style: AfText.muted(t),
                             ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Add set / Add exercise buttons
+                    const SizedBox(width: 8),
                     Row(
-                      children: [
+                      children: <Widget>[
+                        _StepButton(
+                          label: '<',
+                          tooltip: AfStrings.previousExercise,
+                          enabled: workout.exercises.length > 1 &&
+                              workout.exercises.indexWhere(
+                                    (ProgramExercise e) =>
+                                        e.name == workout.currentExercise,
+                                  ) >
+                                  0,
+                          onTap: () => state.stepActiveExercise(-1),
+                        ),
+                        const SizedBox(width: 6),
+                        _StepButton(
+                          label: '>',
+                          tooltip: AfStrings.nextExercise,
+                          enabled: workout.exercises.length > 1 &&
+                              workout.exercises.indexWhere(
+                                    (ProgramExercise e) =>
+                                        e.name == workout.currentExercise,
+                                  ) <
+                                  workout.exercises.length - 1,
+                          onTap: () => state.stepActiveExercise(1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (workout.inputMethod == 'sensor')
+                  _ChannelHelper(
+                    child: Row(
+                      children: <Widget>[
                         Expanded(
-                          child: SizedBox(
-                            height: 48,
-                            child: ElevatedButton(
-                              onPressed: _addSet,
-                              child: const Text(AppTexts.addSet, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '⌚ ${AfStrings.workoutAutoCount} '
+                            '${state.sensorSimActive ? AfStrings.workoutCounting : AfStrings.workoutReady}',
+                            style: AfText.muted(t, size: 12),
+                          ),
+                        ),
+                        AfButton(
+                          label: state.sensorSimActive
+                              ? AfStrings.workoutStopSensor
+                              : AfStrings.workoutStartAutoCount,
+                          variant: state.sensorSimActive
+                              ? AfButtonVariant.danger
+                              : AfButtonVariant.tint,
+                          size: AfButtonSize.compact,
+                          onPressed: state.toggleSensorSimulation,
+                        ),
+                      ],
+                    ),
+                  )
+                else if (workout.inputMethod == 'voice')
+                  _ChannelHelper(
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: AfTextField(
+                            controller: _voice,
+                            style: AfText.muted(t, size: 12),
+                            hint: AfStrings.workoutVoicePlaceholder,
+                            onChanged: (String value) => state.activeWorkout =
+                                state.activeWorkout.copyWith(
+                              voiceSimText: value,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 48,
-                            child: OutlinedButton(
-                              onPressed: _showAddExerciseDialog,
-                              child: const Text(AppTexts.addExercise, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                            ),
-                          ),
+                        AfButton(
+                          label: AfStrings.workoutParseAdd,
+                          variant: AfButtonVariant.tint,
+                          size: AfButtonSize.compact,
+                          onPressed: () {
+                            final String? error = state.logCurrentSet();
+                            if (error != null) {
+                              setState(() => _weightError = error);
+                              return;
+                            }
+                            setState(() => _weightError = null);
+                            Navigator.of(context).pushNamed(AfScreen.timer);
+                          },
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Quick add rep / set
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardLight,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                        border: Border.all(color: AppTheme.lineLight),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Quick add', style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    width: 70,
-                                    height: 40,
-                                    child: ElevatedButton(
-                                      onPressed: _quickAddRep,
-                                      child: const Text('+1 rep', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 70,
-                                    height: 40,
-                                    child: ElevatedButton(
-                                      onPressed: _quickAddSet,
-                                      child: const Text('+1 set', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                  )
+                else if (workout.inputMethod == 'lockscreen')
+                  _ChannelHelper(
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            '${AfStrings.workoutLockscreen} '
+                            '${workout.weightInput} kg × ${workout.repsInput} reps',
+                            style: AfText.muted(t, size: 12),
                           ),
-                          Text('$totalSetsDone sets logged', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Rest timer
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardLight,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                        border: Border.all(color: AppTheme.lineLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(AppTexts.restTimerTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-                              Text(
-                                '${(_restSeconds ~/ 60).toString().padLeft(2, '0')}:${(_restSeconds % 60).toString().padLeft(2, '0')}',
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.primary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 60,
-                                height: 36,
-                                child: OutlinedButton(
-                                  onPressed: () => _adjustRest(-15),
-                                  child: const Text('-15 s', style: TextStyle(fontSize: 10)),
-                                  style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 60,
-                                height: 36,
-                                child: OutlinedButton(
-                                  onPressed: () => _adjustRest(15),
-                                  child: const Text('+15 s', style: TextStyle(fontSize: 10)),
-                                  style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 36,
-                                  child: ElevatedButton(
-                                    onPressed: _restRunning ? _pauseRest : _startRest,
-                                    child: Text(_restRunning ? AppTexts.pause : AppTexts.setTimer, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _restRunning ? AppTheme.mutedLight : AppTheme.primary,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: _skipRest,
-                                child: Text(AppTexts.skip, style: TextStyle(fontSize: 12, color: AppTheme.primary)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Cancel before start · vibrate 300 ms at 0:00 where supported', style: TextStyle(fontSize: 10, color: AppTheme.mutedLight)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Finish button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pushReplacementNamed(
-                          context,
-                          '/workout/complete',
-                          arguments: {'totalSets': totalSetsDone},
                         ),
-                        child: const Text(AppTexts.finish, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        AfButton(
+                          label: AfStrings.workoutAddSet,
+                          variant: AfButtonVariant.tint,
+                          size: AfButtonSize.compact,
+                          onPressed: () {
+                            final String? error = state.logCurrentSet();
+                            if (error != null) {
+                              setState(() => _weightError = error);
+                              return;
+                            }
+                            setState(() => _weightError = null);
+                            Navigator.of(context).pushNamed(AfScreen.timer);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                if (_weightError != null) ...<Widget>[
+                  AfErrorBanner(
+                    message: _weightError!,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.workoutWeightLabel,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          AfTextField(
+                            controller: _weight,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textAlign: TextAlign.center,
+                            emphasised: true,
+                            onChanged: state.updateWeightInput,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.workoutRepsLabel,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          AfTextField(
+                            controller: _reps,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            emphasised: true,
+                            onChanged: (String value) => state.updateRepsInput(
+                              int.tryParse(value) ?? 0,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 14),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: AfWorkoutButton(
+                        label: AfStrings.workoutMinusOneRep,
+                        onPressed: () => state.incrementRepCounter(-1),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: AfWorkoutButton(
+                        label: AfStrings.workoutPlusOneRep,
+                        onPressed: () => state.incrementRepCounter(1),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                AfWorkoutButton(
+                  label: AfStrings.workoutAddSet,
+                  onPressed: () {
+                    final String? error = state.logCurrentSet();
+                    if (error != null) {
+                      setState(() => _weightError = error);
+                      return;
+                    }
+                    setState(() => _weightError = null);
+                    Navigator.of(context).pushNamed(AfScreen.timer);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
-            child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800))),
           ),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+          const SizedBox(height: 16),
+
+          // --------------------------------------------------- logged sets
+          AfCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    AfSectionHead(
+                      AfStrings.fill(
+                          AfStrings.workoutLoggedSets, <String, Object?>{
+                        'count': workout.sets.length,
+                      }),
+                    ),
+                    const Spacer(),
+                    Text.rich(
+                      TextSpan(
+                        children: <InlineSpan>[
+                          TextSpan(
+                            text: 'Total Vol: ',
+                            style: AfText.muted(t),
+                          ),
+                          TextSpan(
+                            text: '${state.activeVolume} kg',
+                            style: AfText.strong(t, size: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (workout.sets.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      AfStrings.workoutNoSets,
+                      textAlign: TextAlign.center,
+                      style: AfText.muted(t),
+                    ),
+                  )
+                else
+                  for (int i = 0; i < workout.sets.length; i++) ...<Widget>[
+                    _LoggedSetRow(
+                      index: i,
+                      set: workout.sets[i],
+                      onRemove: () => state.removeLoggedSet(workout.sets[i].id),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.only(top: 8),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: t.borderLine)),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              TextSpan(
+                                text: AfStrings.fill(
+                                  AfStrings.workoutInputChannel,
+                                  <String, Object?>{
+                                    'method': workout.inputMethod,
+                                  },
+                                ).replaceFirst(
+                                  'Change in Settings',
+                                  '',
+                                ),
+                                style: AfText.muted(t, size: 11),
+                              ),
+                              TextSpan(
+                                text: '(',
+                                style: AfText.muted(t, size: 11),
+                              ),
+                              TextSpan(
+                                text: AfStrings.openInSettings,
+                                style: TextStyle(
+                                  color: t.accent,
+                                  fontSize: 11,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ')',
+                                style: AfText.muted(t, size: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      AfButton(
+                        label: AfStrings.workoutFinish,
+                        variant: AfButtonVariant.tint,
+                        size: AfButtonSize.compact,
+                        onPressed: () {
+                          if (state.finishActiveWorkout() == null) return;
+                          Navigator.of(context)
+                              .pushReplacementNamed(AfScreen.workoutComplete);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+class _ChannelHelper extends StatelessWidget {
+  const _ChannelHelper({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AfSubtle(padding: const EdgeInsets.all(10), child: child),
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  const _StepButton({
+    required this.label,
+    required this.tooltip,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final String tooltip;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: AfButton(
+          label: label,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: enabled ? onTap : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoggedSetRow extends StatelessWidget {
+  const _LoggedSetRow({
+    required this.index,
+    required this.set,
+    required this.onRemove,
+  });
+
+  final int index;
+  final LoggedSet set;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return AfSubtle(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: t.accentTint,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                color: t.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: set.exerciseName,
+                    style: AfText.strong(t, size: 12),
+                  ),
+                  if (set.exerciseSetNo > 0)
+                    TextSpan(
+                      text:
+                          ' (${AfStrings.fill(AfStrings.workoutSetNumber, <String, Object?>{
+                            'number': set.exerciseSetNo
+                          })})',
+                      style: AfText.muted(t, size: 11),
+                    ),
+                  TextSpan(
+                    text:
+                        '  ${AfStrings.fill(AfStrings.workoutSetSummary, <String, Object?>{
+                          'kg': _trim(set.weightKg),
+                          'reps': set.reps
+                        })}',
+                    style: AfText.muted(t, size: 12),
+                  ),
+                ],
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          AfBadge(
+            label: set.inputMethod,
+            fontSize: 10,
+            uppercase: true,
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: AfStrings.removeSet,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  '✕',
+                  style: TextStyle(
+                    color: t.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _trim(double value) {
+  final String text = value.toStringAsFixed(1);
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
 }

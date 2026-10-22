@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderProfileScreen()` (`index.html` lines 3979-4053).
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -10,208 +15,320 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _username = 'Alex';
-  String _email = 'alex@example.com';
-  String _gender = 'Prefer not to say';
-  String _day = '';
-  String? _month;
-  String _year = '';
-  String _weight = '';
-  String _height = '';
-  bool _saved = false;
+  late final TextEditingController _username;
+  late final TextEditingController _email;
+  late final TextEditingController _weight;
+  late final TextEditingController _height;
+  late String _gender;
+  late String _dobMonth;
 
-  final List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+  static const List<String> _months = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final AppState state = AfAppScope.read(context);
+    _username = TextEditingController(text: state.user.username);
+    _email = TextEditingController(text: state.user.email);
+    _weight = TextEditingController(text: state.user.weightKg);
+    _height = TextEditingController(text: state.user.heightCm);
+    _gender = state.user.gender;
+    _dobMonth = state.user.dobMonth.isEmpty ? 'May' : state.user.dobMonth;
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _email.dispose();
+    _weight.dispose();
+    _height.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(AppTexts.profileTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-              const SizedBox(height: 24),
-              _buildField(AppTexts.profileUsername, _username, (v) => _username = v ?? ''),
-              const SizedBox(height: 16),
-              _buildField(AppTexts.profileEmail, _email, (v) => _email = v ?? '', keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 16),
-              _buildGenderField(),
-              const SizedBox(height: 16),
-              _buildDobField(),
-              const SizedBox(height: 16),
-              _buildField(AppTexts.profileWeight, _weight, (v) => _weight = v ?? '', keyboardType: TextInputType.number, suffix: 'kg'),
-              const SizedBox(height: 16),
-              _buildField(AppTexts.profileHeight, _height, (v) => _height = v ?? '', keyboardType: TextInputType.number, suffix: 'cm'),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() => _saved = true);
-                    Future.delayed(const Duration(seconds: 2), () => setState(() => _saved = false));
-                  },
-                  child: const Text(AppTexts.updateProfile, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final double totalVolume = state.history.fold<double>(
+      0,
+      (double sum, session) => sum + session.volume,
+    );
+
+    return AfScaffold(
+      screenId: AfScreen.profile,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AfCard(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 56,
+                  height: 56,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: t.accent, width: 2),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        state.user.username,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        state.user.email,
+                        style: AfText.muted(t),
+                      ),
+                      const SizedBox(height: 4),
+                      AfBadge(
+                        label: AfStrings.fill(
+                          AfStrings.profileMemberSince,
+                          <String, Object?>{'date': state.user.createdAt},
+                        ),
+                        fontSize: 10,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: AfCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: <Widget>[
+                      Text(
+                        AfStrings.profileSessions,
+                        style: AfText.muted(t, size: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${state.history.length}',
+                        style: AfText.strong(t, size: 16),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              if (_saved)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(AppTexts.profileUpdated, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.success)),
-                ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(AppTheme.radiusCard)),
-                child: Text(
-                  'Gender is stored/displayed only — it does not affect quiz rules, program adjustments, or analytics.',
-                  style: TextStyle(fontSize: 11, color: AppTheme.mutedLight),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AfCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: <Widget>[
+                      Text(
+                        AfStrings.profileVolume,
+                        style: AfText.muted(t, size: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${totalVolume.round()} kg',
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          AfCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  AfStrings.profileDetails,
+                  style: AfText.strong(t, size: 14),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  AfStrings.profileUsername,
+                  style: AfText.muted(t, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                AfTextField(
+                    controller: _username, style: AfText.muted(t, size: 12)),
+                const SizedBox(height: 12),
+                Text(
+                  AfStrings.profileEmail,
+                  style: AfText.muted(t, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                AfTextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  style: AfText.muted(t, size: 12),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.profileGender,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          DropdownButtonFormField<String>(
+                            initialValue: _gender,
+                            isExpanded: true,
+                            style: AfText.muted(t, size: 12),
+                            items: const <DropdownMenuItem<String>>[
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderMale,
+                                child: Text(AfStrings.genderMale),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderFemale,
+                                child: Text(AfStrings.genderFemale),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: AfStrings.genderPreferNot,
+                                child: Text(
+                                  AfStrings.genderPreferNot,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                            onChanged: (String? value) {
+                              if (value == null) return;
+                              setState(() => _gender = value);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.profileDobMonth,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          DropdownButtonFormField<String>(
+                            initialValue:
+                                _months.contains(_dobMonth) ? _dobMonth : 'May',
+                            isExpanded: true,
+                            style: AfText.muted(t, size: 12),
+                            items: <DropdownMenuItem<String>>[
+                              for (final String month in _months)
+                                DropdownMenuItem<String>(
+                                  value: month,
+                                  child: Text(month),
+                                ),
+                            ],
+                            onChanged: (String? value) {
+                              if (value == null) return;
+                              setState(() => _dobMonth = value);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.profileWeight,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          AfTextField(
+                            controller: _weight,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            style: AfText.muted(t, size: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            AfStrings.profileHeight,
+                            style: AfText.muted(t, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          AfTextField(
+                            controller: _height,
+                            keyboardType: TextInputType.number,
+                            style: AfText.muted(t, size: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                AfButton(
+                  label: AfStrings.profileUpdate,
+                  size: AfButtonSize.compact,
+                  expand: true,
+                  onPressed: () {
+                    state.saveProfile(
+                      username: _username.text,
+                      email: _email.text,
+                      gender: _gender,
+                      dobMonth: _dobMonth,
+                      weightKg: _weight.text,
+                      heightCm: _height.text,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildField(String label, String value, Function(String?) onSaved, {TextInputType? keyboardType, String? suffix}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: value,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.cardLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput), borderSide: BorderSide(color: AppTheme.lineLight)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput), borderSide: const BorderSide(color: AppTheme.primary)),
-            suffixText: suffix,
-          ),
-          keyboardType: keyboardType,
-          onSaved: onSaved,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGenderField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(AppTexts.profileGender, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.cardLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput), borderSide: BorderSide(color: AppTheme.lineLight)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput), borderSide: const BorderSide(color: AppTheme.primary)),
-          ),
-          value: _gender,
-          items: [
-            AppTexts.genderMale,
-            AppTexts.genderFemale,
-            AppTexts.genderPreferNotToSay,
-          ].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-          onChanged: (v) => setState(() => _gender = v ?? 'Prefer not to say'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDobField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(AppTexts.profileDateOfBirth, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Day', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 48,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppTheme.cardLight,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput)),
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 2,
-                      onChanged: (v) => _day = v,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Month', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 48,
-                    child: DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppTheme.cardLight,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput)),
-                      ),
-                      value: _month,
-                      items: _months.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: (v) => setState(() => _month = v),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Year', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 48,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppTheme.cardLight,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusInput)),
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                      onChanged: (v) => _year = v,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

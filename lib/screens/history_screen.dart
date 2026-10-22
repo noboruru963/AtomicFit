@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderHistoryScreen()` (`index.html` lines 3486-3569).
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -10,172 +16,367 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  String _search = '';
-  String _filter = 'All';
+  final TextEditingController _search = TextEditingController();
 
-  final List<Map<String, dynamic>> _sessions = [
-    {'id': 's1', 'name': 'Push Pull Leg', 'type': 'full', 'date': 'Oct 18, 17:30', 'reps': 30, 'volume': 600.0},
-    {'id': 's2', 'name': 'Empty program', 'type': 'micro', 'date': 'Oct 17, 08:15', 'reps': 12, 'volume': 240.0},
-    {'id': 's3', 'name': 'Upper Lower', 'type': 'stitched', 'date': 'Oct 15, 19:00', 'reps': 45, 'volume': 900.0, 'children': 2},
-    {'id': 's4', 'name': 'Push Pull Leg', 'type': 'full', 'date': 'Oct 12, 10:00', 'reps': 28, 'volume': 560.0},
-  ];
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _sessions.where((s) {
-      final match = s['name'].toLowerCase().contains(_search.toLowerCase());
-      final typeMatch = _filter == 'All' ||
-          (_filter == 'Full' && s['type'] == 'full') ||
-          (_filter == 'Micro' && s['type'] == 'micro');
-      return match && typeMatch;
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    const List<String> filters = <String>['All', 'Full', 'Micro', 'Stitched'];
+
+    final String query = state.historySearch.trim().toLowerCase();
+    final List<WorkoutSession> sessions =
+        state.history.where((WorkoutSession s) {
+      final bool filterMatch = state.historyFilter == 'All' ||
+          s.type.toLowerCase() == state.historyFilter.toLowerCase();
+      final bool searchMatch =
+          query.isEmpty || s.name.toLowerCase().contains(query);
+      return filterMatch && searchMatch;
     }).toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppTexts.historyTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      decoration: InputDecoration(
-                        labelText: AppTexts.search,
-                        prefixIcon: const Icon(Icons.search),
-                      ),
-                      onChanged: (v) => setState(() => _search = v),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: ['All', 'Full', 'Micro'].map((f) {
-                        final isSelected = _filter == f;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(f == 'All' ? AppTexts.filterAll : f == 'Full' ? AppTexts.filterFull : AppTexts.filterMicro),
-                            selected: isSelected,
-                            onSelected: (v) => setState(() => _filter = f),
-                            selectedColor: AppTheme.primary.withOpacity(0.1),
-                            labelStyle: TextStyle(color: isSelected ? AppTheme.primary : AppTheme.mutedLight, fontWeight: FontWeight.w700),
-                            backgroundColor: Colors.transparent,
-                            shape: isSelected
-                                ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusPill), side: const BorderSide(color: AppTheme.primary))
-                                : RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusPill), side: BorderSide(color: AppTheme.lineLight)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    if (filtered.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(48),
-                          child: Text(AppTexts.noWorkouts, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
-                        ),
-                      )
-                    else
-                      ...filtered.map((s) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: AppTheme.cardLight, borderRadius: BorderRadius.circular(AppTheme.radiusCard), border: Border.all(color: AppTheme.lineLight)),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(s['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-                                        if (s['type'] == 'micro') ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                                            child: Text(AppTexts.microBadge, style: const TextStyle(color: AppTheme.primary, fontSize: 8, fontWeight: FontWeight.w700)),
-                                          ),
-                                        ],
-                                        if (s['type'] == 'stitched') ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.mutedLight.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                                            child: Text(AppTexts.stitchedBadge, style: const TextStyle(color: AppTheme.mutedLight, fontSize: 8, fontWeight: FontWeight.w700)),
-                                          ),
-                                        ],
-                                        if (s['children'] != null) ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                                            child: Text('${s['children']} sessions', style: const TextStyle(color: AppTheme.primary, fontSize: 8, fontWeight: FontWeight.w700)),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text('${s['date']} · ${s['reps']} reps · ${s['volume']} kg', style: TextStyle(fontSize: 11, color: AppTheme.mutedLight)),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (c) => AlertDialog(
-                                      title: const Text('Delete session?'),
-                                      content: Text(AppTexts.deleteConfirm),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(c), child: const Text(AppTexts.cancel)),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(c);
-                                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppTexts.deleted)));
-                                          },
-                                          child: const Text(AppTexts.delete, style: TextStyle(color: AppTheme.danger)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                  ],
+    final List<WorkoutSession> micros =
+        state.history.where((WorkoutSession s) => s.type == 'micro').toList();
+
+    return AfScaffold(
+      screenId: AfScreen.history,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AfTextField(
+            controller: _search,
+            style: AfText.muted(t, size: 12),
+            hint: AfStrings.historySearchPlaceholder,
+            onChanged: state.setHistorySearch,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: <Widget>[
+              for (final String filter in filters)
+                AfButton(
+                  label: filter,
+                  variant:
+                      state.historyFilter.toLowerCase() == filter.toLowerCase()
+                          ? AfButtonVariant.primary
+                          : AfButtonVariant.secondary,
+                  size: AfButtonSize.compact,
+                  onPressed: () => state.setHistoryFilter(filter),
                 ),
+            ],
+          ),
+          if (micros.length >= 2) ...<Widget>[
+            const SizedBox(height: 12),
+            AfCard(
+              padding: const EdgeInsets.all(14),
+              borderLeftColor: t.accent,
+              borderLeftWidth: 4,
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          AfStrings.fill(
+                            AfStrings.historyStitchBanner,
+                            <String, Object?>{'count': micros.length},
+                          ),
+                          style: AfText.strong(t, size: 12),
+                        ),
+                        Text(
+                          AfStrings.historyStitchBannerBody,
+                          style: AfText.muted(t, size: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AfButton(
+                    label: AfStrings.historyStitchButton,
+                    variant: AfButtonVariant.tint,
+                    size: AfButtonSize.compact,
+                    onPressed: state.stitchMicroSessions,
+                  ),
+                ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      ),
-      child: Row(
-        children: [
-          Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)), child: const Center(child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)))),
-          const SizedBox(width: 12),
-          const Text('AtomFit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+          const SizedBox(height: 12),
+          if (sessions.isEmpty)
+            AfCard(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                AfStrings.historyEmpty,
+                textAlign: TextAlign.center,
+                style: AfText.muted(t),
+              ),
+            )
+          else
+            for (final WorkoutSession session in sessions) ...<Widget>[
+              _SessionCard(session: session),
+              const SizedBox(height: 12),
+            ],
         ],
       ),
     );
   }
+}
+
+class _SessionCard extends StatelessWidget {
+  const _SessionCard({required this.session});
+
+  final WorkoutSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+
+    final AfBadgeTone tone = session.isStitched
+        ? AfBadgeTone.amber
+        : (session.isMicro ? AfBadgeTone.green : AfBadgeTone.blue);
+    final String label =
+        session.isStitched ? 'Stitched' : (session.isMicro ? 'Micro' : 'Full');
+
+    return AfCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          session.name,
+                          style: AfText.strong(t, size: 14),
+                        ),
+                        AfBadge(label: label, tone: tone, fontSize: 10),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(session.dateLabel, style: AfText.muted(t)),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  Text(
+                    '${session.volume} kg',
+                    style: TextStyle(
+                      color: t.accent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    '${session.reps} reps',
+                    style: AfText.muted(t, size: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (session.isStitched && session.children.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            AfSubtle(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    AfStrings.fill(
+                      AfStrings.historyStitchedFrom,
+                      <String, Object?>{'count': session.children.length},
+                    ),
+                    style: AfText.muted(t, size: 11, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final WorkoutSession child in session.children)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: <Widget>[
+                          Text(
+                            '• ${child.name}',
+                            style: AfText.muted(t, size: 11),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${child.volume} kg (${child.reps} reps)',
+                            style: AfText.muted(t, size: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: t.borderLine)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                if (session.isStitched) ...<Widget>[
+                  AfButton(
+                    label: AfStrings.historyUnstitch,
+                    variant: AfButtonVariant.tint,
+                    size: AfButtonSize.compact,
+                    onPressed: () => state.unstitchSession(session.id),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                AfButton(
+                  label: AfStrings.historyDetail,
+                  variant: AfButtonVariant.secondary,
+                  size: AfButtonSize.compact,
+                  onPressed: () => _openDetail(context, session),
+                ),
+                const SizedBox(width: 8),
+                AfButton(
+                  label: AfStrings.historyDelete,
+                  variant: AfButtonVariant.danger,
+                  size: AfButtonSize.compact,
+                  onPressed: () => _confirmDelete(context, state, session),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> _openDetail(
+    BuildContext context,
+    WorkoutSession session,
+  ) async {
+    final AfTokens t = context.af;
+    await AfDialog.show<void>(
+      context,
+      title: session.name,
+      scrollable: true,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              AfBadge(
+                label: session.type,
+                uppercase: true,
+                tone: session.isStitched
+                    ? AfBadgeTone.amber
+                    : (session.isMicro ? AfBadgeTone.green : AfBadgeTone.blue),
+              ),
+              const SizedBox(width: 8),
+              Text(session.dateLabel, style: AfText.muted(t)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            AfStrings.fill(AfStrings.historyTotalVolume, <String, Object?>{
+              'volume': session.volume,
+            }),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Text(
+            AfStrings.fill(AfStrings.historyTotalReps, <String, Object?>{
+              'reps': session.reps,
+            }),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
+          if (session.setsDetail.isEmpty)
+            Text(
+              AfStrings.fill(AfStrings.historyNoSetDetail, <String, Object?>{
+                'reps': session.reps,
+                'count': session.setsCount,
+              }),
+              style: AfText.muted(t),
+            )
+          else
+            for (int i = 0; i < session.setsDetail.length; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  AfStrings.fill(AfStrings.historySetRow, <String, Object?>{
+                    'index': i + 1,
+                    'exercise': session.setsDetail[i].exerciseName,
+                    'kg': _trim(session.setsDetail[i].weightKg),
+                    'reps': session.setsDetail[i].reps,
+                    'method': session.setsDetail[i].inputMethod,
+                  }),
+                  style: AfText.muted(t, size: 12),
+                ),
+              ),
+        ],
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.close,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+
+  static Future<void> _confirmDelete(
+    BuildContext context,
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    await AfDialog.show<void>(
+      context,
+      title: AfStrings.historyDeleteTitle,
+      body: Text(
+        AfStrings.historyDeleteBody,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        AfButton(
+          label: AfStrings.historyDelete,
+          variant: AfButtonVariant.danger,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            Navigator.of(context).pop();
+            state.deleteSession(session.id);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+String _trim(double value) {
+  final String text = value.toStringAsFixed(1);
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
 }

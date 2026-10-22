@@ -1,70 +1,175 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
+import '../app/shell.dart';
+import '../models/app_models.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderWorkoutCompleteScreen()` (`index.html` lines 3439-3481).
 class WorkoutCompleteScreen extends StatelessWidget {
   const WorkoutCompleteScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map? ?? {};
-    final totalSets = args['totalSets'] ?? 0;
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final WorkoutSummary? summary = state.lastCompletedWorkout;
 
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(width: 64, height: 64, decoration: BoxDecoration(color: AppTheme.success, borderRadius: BorderRadius.circular(32)), child: const Center(child: Text('✓', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)))),
-                const SizedBox(height: 20),
-                Text(AppTexts.completeTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(color: AppTheme.cardLight, borderRadius: BorderRadius.circular(AppTheme.radiusCard), border: Border.all(color: AppTheme.lineLight)),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Column(
-                            children: [
-                              Text(AppTexts.totalTime, style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-                              const SizedBox(height: 4),
-                              const Text('00:00', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                            ],
-                          ),
-                          Container(width: 1, height: 40, color: AppTheme.lineLight),
-                          Column(
-                            children: [
-                              Text(AppTexts.totalSets, style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-                              const SizedBox(height: 4),
-                              Text('$totalSets', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text('Every rep counts. Saved to your history.', style: TextStyle(fontSize: 12, color: AppTheme.mutedLight)),
-                    ],
+    if (summary == null) {
+      return AfScaffold(
+        screenId: AfScreen.workoutComplete,
+        child: AfCard(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: <Widget>[
+              Text(
+                AfStrings.completeTitle,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 16),
+              AfButton(
+                label: AfStrings.completeGoHome,
+                expand: true,
+                onPressed: () =>
+                    Navigator.of(context).pushReplacementNamed(AfScreen.home),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return AfScaffold(
+      screenId: AfScreen.workoutComplete,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: AfCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: t.successTint,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '✓',
+                  style: TextStyle(
+                    color: t.success,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: 250,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                    child: const Text(AppTexts.goHome, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: AfBadge(
+                label:
+                    AfStrings.fill(AfStrings.completeBadge, <String, Object?>{
+                  'type': summary.type,
+                }),
+                tone: AfBadgeTone.green,
+                uppercase: true,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                AfStrings.completeTitle,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                AfStrings.fill(AfStrings.completeSubtitle, <String, Object?>{
+                  'name': summary.name,
+                }),
+                style: AfText.muted(t),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: AfStatTile(
+                    label: AfStrings.completeTotalTime,
+                    value: '${summary.durationMin} min',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AfStatTile(
+                    label: AfStrings.completeTotalSets,
+                    value: '${summary.totalSets}',
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: AfStatTile(
+                    label: AfStrings.completeTotalVolume,
+                    value: '${summary.totalVolume} kg',
+                    valueColor: t.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AfStatTile(
+                    label: AfStrings.completeTotalReps,
+                    value: '${summary.totalReps}',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AfSubtle(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: <Widget>[
+                  Text(
+                    AfStrings.completeChannelsUsed,
+                    style: AfText.muted(t),
+                  ),
+                  const Spacer(),
+                  Flexible(
+                    child: Text(
+                      summary.methods.join(', ').toUpperCase(),
+                      textAlign: TextAlign.right,
+                      style: AfText.strong(t, size: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            AfButton(
+              label: AfStrings.completeGoHome,
+              expand: true,
+              fontSize: 14,
+              onPressed: () =>
+                  Navigator.of(context).pushReplacementNamed(AfScreen.home),
+            ),
+            const SizedBox(height: 8),
+            AfButton(
+              label: AfStrings.completeViewHistory,
+              variant: AfButtonVariant.secondary,
+              expand: true,
+              size: AfButtonSize.compact,
+              onPressed: () =>
+                  Navigator.of(context).pushReplacementNamed(AfScreen.history),
+            ),
+          ],
         ),
       ),
     );

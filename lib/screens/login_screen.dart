@@ -1,103 +1,210 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../texts/app_texts.dart';
 
-class LoginScreen extends StatelessWidget {
+import '../app/shell.dart';
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Port of `renderLoginScreen()` (`index.html` lines 1456-1489).
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _email =
+      TextEditingController(text: 'alex@example.com');
+  final TextEditingController _password =
+      TextEditingController(text: 'atomfit2026');
+  String? _error;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final AppState state = AfAppScope.of(context);
+    if (_email.text.trim().isEmpty || _password.text.trim().isEmpty) {
+      setState(() => _error = AfStrings.loginError);
+      return;
+    }
+    setState(() => _error = null);
+    state.saveProfile(
+      username: state.user.username,
+      email: _email.text.trim(),
+      gender: state.user.gender,
+      dobMonth: state.user.dobMonth,
+      weightKg: state.user.weightKg,
+      heightCm: state.user.heightCm,
+    );
+    state.showToast(
+      AfStrings.fill(AfStrings.loginWelcomeToast, <String, Object?>{
+        'name': state.user.username,
+      }),
+    );
+    Navigator.of(context).pushReplacementNamed(AfScreen.home);
+  }
+
+  Future<void> _forgotPassword() async {
+    final AppState state = AfAppScope.of(context);
+    await AfDialog.show<void>(
+      context,
+      title: AfStrings.forgotTitle,
+      body: Text(
+        AfStrings.forgotBody,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        AfButton(
+          label: AfStrings.forgotSend,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            Navigator.of(context).pop();
+            state.showToast(AfStrings.forgotSentToast, kind: ToastKind.info);
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgLight,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+    final AfTokens t = context.af;
+
+    return AfScaffold(
+      screenId: AfScreen.login,
+      padding: const EdgeInsets.fromLTRB(8, 24, 8, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Center(
+            child: Container(
+              width: 64,
+              height: 64,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: t.borderLine),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Image.asset('assets/images/logo.jpg', fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(child: AfEyebrow(AfStrings.loginEyebrow)),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              AfStrings.loginTitle,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              AfStrings.tagline,
+              style: AfText.muted(t),
+            ),
+          ),
+          const SizedBox(height: 18),
+          AfCard(
+            padding: const EdgeInsets.all(20),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(32),
-                  ),
-                  child: const Center(
-                    child: Text('AF', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
-                  ),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (_error != null) ...<Widget>[
+                  AfErrorBanner(message: _error!),
+                  const SizedBox(height: 12),
+                ],
+                Text(
+                  AfStrings.loginEmailLabel,
+                  style: AfText.muted(t, weight: FontWeight.w600),
                 ),
-                const SizedBox(height: 16),
-                Text(AppTexts.appName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                const SizedBox(height: 8),
-                Text(AppTexts.tagline, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
-                const SizedBox(height: 32),
-                Text(AppTexts.loginTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textLight)),
-                const SizedBox(height: 24),
-                _buildTextField(AppTexts.emailLabel, Icons.email_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(AppTexts.passwordLabel, Icons.lock_outline, obscureText: true),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                    child: const Text(AppTexts.loginButton, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  ),
+                const SizedBox(height: 4),
+                AfTextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(AppTexts.noAccount, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
-                    const SizedBox(width: 4),
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(context, '/register'),
-                      child: Text(AppTexts.registerButton, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+                  children: <Widget>[
+                    Text(
+                      AfStrings.loginPasswordLabel,
+                      style: AfText.muted(t, weight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _forgotPassword,
+                      child: Text(
+                        AfStrings.loginForgotPassword,
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {},
-                  child: Text(AppTexts.forgotPassword, style: TextStyle(fontSize: 14, color: AppTheme.mutedLight)),
+                const SizedBox(height: 4),
+                AfTextField(
+                  controller: _password,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 8),
+                AfButton(
+                  label: AfStrings.loginButton,
+                  expand: true,
+                  onPressed: _submit,
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(String label, IconData icon, {bool obscureText = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textLight)),
-        const SizedBox(height: 8),
-        TextField(
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppTheme.mutedLight),
-            filled: true,
-            fillColor: AppTheme.cardLight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: BorderSide(color: AppTheme.lineLight),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              borderSide: const BorderSide(color: AppTheme.primary),
-            ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  AfStrings.loginNoAccount,
+                  style: AfText.muted(t),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.of(context)
+                    .pushReplacementNamed(AfScreen.register),
+                child: Text(
+                  AfStrings.loginCreateAccount,
+                  style: TextStyle(
+                    color: t.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,0 +1,437 @@
+import 'package:flutter/material.dart';
+
+import '../state/app_state.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+import '../widgets/af_widgets.dart';
+
+/// Provides the [AppState] to the widget tree and rebuilds listeners when it
+/// changes.
+class AfAppScope extends InheritedNotifier<AppState> {
+  const AfAppScope({
+    super.key,
+    required AppState state,
+    required super.child,
+  }) : super(notifier: state);
+
+  static AppState of(BuildContext context) {
+    final AfAppScope? scope =
+        context.dependOnInheritedWidgetOfExactType<AfAppScope>();
+    assert(scope != null, 'AfAppScope is missing from the widget tree');
+    return scope!.notifier!;
+  }
+
+  /// Reads the state without subscribing to changes.
+  static AppState read(BuildContext context) {
+    final AfAppScope? scope =
+        context.getInheritedWidgetOfExactType<AfAppScope>();
+    assert(scope != null, 'AfAppScope is missing from the widget tree');
+    return scope!.notifier!;
+  }
+}
+
+/// Screen identifiers, matching the prototype's `currentScreen` values.
+class AfScreen {
+  const AfScreen._();
+
+  static const String login = 'login';
+  static const String register = 'register';
+  static const String home = 'home';
+  static const String programs = 'programs';
+  static const String activeWorkout = 'active-workout';
+  static const String timer = 'timer';
+  static const String workoutComplete = 'workout-complete';
+  static const String history = 'history';
+  static const String discover = 'discover';
+  static const String profile = 'profile';
+  static const String settings = 'settings';
+  static const String quizPrompt = 'quiz-prompt';
+  static const String quizQuestion = 'quiz-question';
+  static const String quizExplainer = 'quiz-explainer';
+  static const String quizAdjusted = 'quiz-adjusted';
+
+  /// The prototype's `getScreenTitle()` (lines 1272-1289).
+  static String titleFor(String screenId) {
+    switch (screenId) {
+      case programs:
+        return AfStrings.titlePrograms;
+      case activeWorkout:
+        return AfStrings.titleWorkout;
+      case timer:
+        return AfStrings.titleTimer;
+      case workoutComplete:
+        return AfStrings.titleWorkoutComplete;
+      case history:
+        return AfStrings.titleHistory;
+      case discover:
+        return AfStrings.titleDiscover;
+      case profile:
+        return AfStrings.titleProfile;
+      case settings:
+        return AfStrings.titleSettings;
+      case quizPrompt:
+        return AfStrings.titleQuizPrompt;
+      case quizQuestion:
+        return AfStrings.titleQuizQuestion;
+      case quizExplainer:
+        return AfStrings.titleQuizExplainer;
+      case quizAdjusted:
+        return AfStrings.titleQuizAdjusted;
+      case home:
+      default:
+        return AfStrings.titleHome;
+    }
+  }
+
+  static bool showsTopBar(String screenId) =>
+      screenId != login && screenId != register;
+
+  static bool showsBottomNav(String screenId) =>
+      screenId != login && screenId != register && screenId != timer;
+}
+
+/// The persistent app header (`#app-top-bar`).
+class AfTopBar extends StatelessWidget {
+  const AfTopBar({super.key, required this.screenId});
+
+  final String screenId;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: t.bgCard,
+        border: Border(bottom: BorderSide(color: t.borderLine)),
+      ),
+      child: Row(
+        children: <Widget>[
+          GestureDetector(
+            onTap: () => Navigator.of(context).pushNamed(AfScreen.home),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 32,
+                  height: 32,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: t.accent, width: 2),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  AfScreen.titleFor(screenId),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 16,
+                        letterSpacing: -0.4,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: <Widget>[
+              if (_timerPill(context, state) != null)
+                _timerPill(context, state)!,
+              const SizedBox(width: 6),
+              _IconAction(
+                icon: Icons.person_outline,
+                tooltip: AfStrings.titleProfile,
+                onTap: () => Navigator.of(context).pushNamed(AfScreen.profile),
+              ),
+              const SizedBox(width: 6),
+              _IconAction(
+                icon: Icons.settings_outlined,
+                tooltip: AfStrings.titleSettings,
+                onTap: () => Navigator.of(context).pushNamed(AfScreen.settings),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _timerPill(BuildContext context, AppState state) {
+    final AfTokens t = context.af;
+    final bool started = state.restRunning ||
+        state.restCompleted ||
+        state.activeWorkout.restSeconds != state.activeWorkout.restTotalSeconds;
+    if (!started) return null;
+
+    String text;
+    Color dot;
+    if (state.restCompleted) {
+      text = AfStrings.timerDonePill;
+      dot = const Color(0xFF22C55E);
+    } else {
+      final int seconds = state.restSecondsRemaining;
+      final String clock = _formatClock(seconds);
+      if (state.restRunning) {
+        text = '⏱ $clock';
+        dot = t.accent;
+      } else {
+        text = '⏸ $clock';
+        dot = t.accent;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: t.accentTint,
+        borderRadius: BorderRadius.circular(t.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: t.accentTintText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatClock(int totalSeconds) {
+  final int minutes = (totalSeconds ~/ 60).clamp(0, 999);
+  final int seconds = (totalSeconds % 60).clamp(0, 59);
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
+}
+
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: t.bgSubtle,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, size: 16, color: t.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The persistent bottom navigation (`#app-bottom-nav`).
+class AfBottomNav extends StatelessWidget {
+  const AfBottomNav({super.key, required this.current});
+
+  final String current;
+
+  static const List<({String id, String label, IconData icon})> _tabs =
+      <({String id, String label, IconData icon})>[
+    (id: AfScreen.home, label: 'Home', icon: Icons.home_outlined),
+    (id: AfScreen.programs, label: 'Programs', icon: Icons.assignment_outlined),
+    (id: AfScreen.activeWorkout, label: 'Workout', icon: Icons.bolt_outlined),
+    (id: AfScreen.history, label: 'History', icon: Icons.bar_chart_outlined),
+    (id: AfScreen.discover, label: 'Discover', icon: Icons.search_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return Container(
+      decoration: BoxDecoration(
+        color: t.bgCard,
+        border: Border(top: BorderSide(color: t.borderLine)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 20,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              for (final ({String id, String label, IconData icon}) tab
+                  in _tabs)
+                Expanded(
+                  child: _NavTab(
+                    label: tab.label,
+                    icon: tab.icon,
+                    selected: tab.id == current,
+                    onTap: () {
+                      if (tab.id == current) return;
+                      Navigator.of(context).pushReplacementNamed(tab.id);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavTab extends StatelessWidget {
+  const _NavTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final Color color = selected ? t.accent : t.textMuted;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      child: Material(
+        color: selected ? t.accentTint : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(icon, size: 20, color: color),
+                const SizedBox(height: 2),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The app frame: header, content, bottom navigation and the global toast.
+class AfScaffold extends StatelessWidget {
+  const AfScaffold({
+    super.key,
+    required this.screenId,
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(16, 16, 16, 112),
+  });
+
+  final String screenId;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+
+    return Scaffold(
+      backgroundColor: t.bgPage,
+      body: Stack(
+        children: <Widget>[
+          Column(
+            children: <Widget>[
+              if (AfScreen.showsTopBar(screenId)) AfTopBar(screenId: screenId),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: SingleChildScrollView(
+                      padding: padding,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+              if (AfScreen.showsBottomNav(screenId))
+                AfBottomNav(current: screenId),
+            ],
+          ),
+          const AfToastHost(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renders the global toast above the bottom navigation.
+class AfToastHost extends StatelessWidget {
+  const AfToastHost({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final AppState state = AfAppScope.of(context);
+    final String? message = state.toastText;
+    if (message == null) return const SizedBox.shrink();
+    final ToastTone tone = switch (state.toastKind) {
+      ToastKind.success => ToastTone.success,
+      ToastKind.info => ToastTone.info,
+      ToastKind.danger => ToastTone.danger,
+    };
+    return Positioned(
+      right: 0,
+      bottom: 0,
+      child: AfToastView(message: message, kind: tone),
+    );
+  }
+}
