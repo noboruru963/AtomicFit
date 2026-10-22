@@ -84,6 +84,25 @@ flutter build apk --release
 
 Either the user name or the e-mail works as the sign-in identifier.
 
+## Demo script (about 3 minutes)
+
+1. **Log in** — `joe@example.com` / `password123`.
+2. **Personal details** — the first launch of an account asks for a user name,
+   date of birth, gender, weight and height; the form rejects bad values and
+   names the field.
+3. **Home** — the calendar marks the days you trained, the monthly count is
+   there, the quiz banner offers a program adjustment.
+4. **Discover** — search `squat` (or any muscle, body part or equipment),
+   pick a body-part pill, open a result for the instructions, illustrations
+   and form tips, and add it to the workout.
+5. **Workout** — log a set, watch the rest timer run, and finish the workout
+   to see the summary.
+6. **History** — the new session is at the top; the micro sessions can be
+   stitched into one and unstitched again.
+7. **Profile / Settings** — the personal details, the theme switch and the
+   RepDB credits.
+8. **Restart the app** — everything is still there: it lives in the database.
+
 ## Branches
 
 | branch           | what it holds                                              |
