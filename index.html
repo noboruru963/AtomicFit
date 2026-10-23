@@ -413,6 +413,37 @@
       box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
     }
 
+    .nav-workout-center-btn {
+      width: 78px;
+      height: 58px;
+      margin-top: -14px;
+      border-radius: 20px;
+      background-color: var(--accent) !important;
+      color: #FFFFFF !important;
+      border: 2px solid var(--bg-card);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.38);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .nav-workout-center-btn:hover {
+      background-color: var(--accent-dark) !important;
+      transform: translateY(-1px);
+    }
+
+    .nav-workout-center-btn svg {
+      width: 26px;
+      height: 26px;
+      color: #FFFFFF !important;
+    }
+
     @keyframes pulseRing {
       0% { transform: scale(0.95); opacity: 0.8; }
       50% { transform: scale(1.08); opacity: 0.35; }
@@ -465,26 +496,26 @@
         <!-- Populated dynamically by renderCurrentScreen() -->
       </div>
 
-      <!-- PERSISTENT SEAMLESS BOTTOM NAVIGATION BAR (With dedicated Timer page per Requirement 6) -->
+      <!-- PERSISTENT SEAMLESS BOTTOM NAVIGATION BAR (With prominent central Workout button) -->
       <nav id="app-bottom-nav" class="bottom-nav-seamless">
-        <div class="max-w-lg mx-auto px-1.5 py-1.5 flex items-center justify-around">
-          <button type="button" onclick="navigateApp('home')" data-nav="home" class="nav-tab-btn flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl text-[11px] font-semibold transition-all">
+        <div class="max-w-lg mx-auto px-2 py-1.5 flex items-center justify-around gap-1">
+          <button type="button" onclick="navigateApp('home')" data-nav="home" class="nav-tab-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1.5 rounded-xl text-[11px] font-semibold transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
             <span>Home</span>
           </button>
-          <button type="button" onclick="navigateApp('programs')" data-nav="programs" class="nav-tab-btn flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl text-[11px] font-semibold transition-all">
+          <button type="button" onclick="navigateApp('programs')" data-nav="programs" class="nav-tab-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1.5 rounded-xl text-[11px] font-semibold transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
             <span>Programs</span>
           </button>
-          <button type="button" onclick="navigateApp('active-workout')" data-nav="active-workout" class="nav-tab-btn flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl text-[11px] font-semibold transition-all" title="Active Workout">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <button type="button" id="nav-workout-btn" onclick="navigateApp('active-workout')" data-nav="active-workout" class="nav-tab-btn nav-workout-center-btn" title="Active Workout">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span>Workout</span>
           </button>
-          <button type="button" onclick="navigateApp('history')" data-nav="history" class="nav-tab-btn flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl text-[11px] font-semibold transition-all">
+          <button type="button" onclick="navigateApp('history')" data-nav="history" class="nav-tab-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1.5 rounded-xl text-[11px] font-semibold transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             <span>History</span>
           </button>
-          <button type="button" onclick="navigateApp('discover')" data-nav="discover" class="nav-tab-btn flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl text-[11px] font-semibold transition-all">
+          <button type="button" onclick="navigateApp('discover')" data-nav="discover" class="nav-tab-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1.5 rounded-xl text-[11px] font-semibold transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <span>Discover</span>
           </button>
@@ -812,6 +843,7 @@
       historyFilter: 'All',
       historySearch: '',
       history: JSON.parse(JSON.stringify(DEFAULT_HISTORY)),
+      scheduledWorkouts: [],
       activeWorkout: {
         programId: 'p_push',
         sessionName: 'Push Day',
@@ -959,6 +991,11 @@
               }
               appState.programs = cleanProgs;
             }
+            if (Array.isArray(parsed.scheduledWorkouts)) {
+              appState.scheduledWorkouts = parsed.scheduledWorkouts.filter(function(sw) {
+                return sw && typeof sw === 'object' && sw.dayOfMonth >= 1 && sw.dayOfMonth <= 31;
+              });
+            }
             if (Array.isArray(parsed.history)) {
               appState.history = parsed.history.filter(function(h) {
                 return h && typeof h === 'object' && h.id && h.name;
@@ -1027,6 +1064,7 @@
         settings: appState.settings,
         customExercises: appState.customExercises || [],
         history: appState.history,
+        scheduledWorkouts: appState.scheduledWorkouts || [],
         programs: appState.programs,
         isProgramAdjusted: appState.isProgramAdjusted,
         activeWorkout: {
@@ -1431,7 +1469,10 @@
       var navButtons = document.querySelectorAll('.nav-tab-btn');
       navButtons.forEach(function(btn) {
         var target = btn.getAttribute('data-nav');
-        if (target === appState.currentScreen || (target === 'discover' && appState.currentScreen === 'discover-detail')) {
+        if (target === 'active-workout') {
+          btn.style.color = '#FFFFFF';
+          btn.style.backgroundColor = (appState.currentScreen === 'active-workout') ? 'var(--accent-dark)' : 'var(--accent)';
+        } else if (target === appState.currentScreen || (target === 'discover' && appState.currentScreen === 'discover-detail')) {
           btn.style.color = 'var(--accent)';
           btn.style.backgroundColor = 'var(--accent-tint)';
         } else {
@@ -2015,6 +2056,12 @@
       appState.history.forEach(function(h) {
         if (h.dayOfMonth) workoutDays[h.dayOfMonth] = h.type;
       });
+      var scheduledByDay = {};
+      if (Array.isArray(appState.scheduledWorkouts)) {
+        appState.scheduledWorkouts.forEach(function(sw) {
+          if (sw && sw.dayOfMonth) scheduledByDay[sw.dayOfMonth] = sw;
+        });
+      }
 
       var calendarCells = '';
       for (var b = 0; b < 3; b++) {
@@ -2022,17 +2069,21 @@
       }
       for (var d = 1; d <= 31; d++) {
         var sessionType = workoutDays[d];
+        var scheduledItem = scheduledByDay[d];
         var isToday = (d === 19);
         var cellStyle = 'background-color: var(--bg-subtle); color: var(--text-muted);';
         var dotHtml = '';
         if (sessionType) {
           cellStyle = 'background-color: var(--accent); color: #FFFFFF; font-weight: 700;';
           dotHtml = '<span class="block w-1 h-1 rounded-full bg-white mx-auto mt-0.5"></span>';
+        } else if (scheduledItem) {
+          cellStyle = 'background-color: var(--accent-tint); border: 1.5px solid var(--accent); color: var(--accent-tint-text); font-weight: 700;';
+          dotHtml = '<span class="block w-1 h-1 rounded-full mx-auto mt-0.5" style="background-color: var(--accent);"></span>';
         } else if (isToday) {
           cellStyle = 'border: 1.5px solid var(--accent); color: var(--accent); font-weight: 700;';
         }
         calendarCells += '' +
-          '<button type="button" onclick="inspectCalendarDay(' + d + ')" class="h-8 rounded-lg text-[11px] flex flex-col items-center justify-center transition-transform hover:scale-105" style="' + cellStyle + '" title="October ' + d + ', 2026">' +
+          '<button type="button" data-calendar-day="' + d + '" onclick="inspectCalendarDay(' + d + ')" class="h-8 rounded-lg text-[11px] flex flex-col items-center justify-center transition-transform hover:scale-105" style="' + cellStyle + '" title="October ' + d + ', 2026">' +
             '<span>' + d + '</span>' + dotHtml +
           '</button>';
       }
@@ -2126,9 +2177,108 @@
       showToast('Quiz reminder snoozed. You can launch it anytime from Settings.', 'info');
     }
 
+    function getScheduledWorkoutForDay(day) {
+      if (!Array.isArray(appState.scheduledWorkouts)) return null;
+      for (var i = 0; i < appState.scheduledWorkouts.length; i++) {
+        if (appState.scheduledWorkouts[i] && appState.scheduledWorkouts[i].dayOfMonth === day) {
+          return appState.scheduledWorkouts[i];
+        }
+      }
+      return null;
+    }
+
+    function openScheduleWorkoutModal(day) {
+      var existing = getScheduledWorkoutForDay(day);
+      var activeProg = getActiveProgram();
+      var selectedProgId = existing ? existing.programId : (activeProg ? activeProg.id : 'p_push');
+      var selectedTime = existing ? existing.plannedTime : '09:00';
+      var programOptions = appState.programs.map(function(p) {
+        var sel = (p.id === selectedProgId) ? ' selected' : '';
+        return '<option value="' + escapeHtml(p.id) + '"' + sel + '>' + escapeHtml(p.name) + '</option>';
+      }).join('');
+
+      openModal(
+        existing ? 'Edit Scheduled Workout' : 'Schedule Workout',
+        '<div class="space-y-3 text-left">' +
+          '<div class="space-y-1">' +
+            '<label class="text-xs font-semibold af-text-muted">Workout Date</label>' +
+            '<div id="schedule-workout-date" class="af-subtle p-2.5 text-xs font-bold">October ' + day + ', 2026</div>' +
+          '</div>' +
+          '<div class="space-y-1">' +
+            '<label class="text-xs font-semibold af-text-muted" for="schedule-workout-time">Workout Time</label>' +
+            '<input id="schedule-workout-time" type="time" class="af-input text-xs" value="' + escapeHtml(selectedTime) + '" />' +
+          '</div>' +
+          '<div class="space-y-1">' +
+            '<label class="text-xs font-semibold af-text-muted" for="schedule-workout-program">Workout Program</label>' +
+            '<select id="schedule-workout-program" class="af-input text-xs">' + programOptions + '</select>' +
+          '</div>' +
+        '</div>',
+        '<button type="button" onclick="closeModal()" class="af-btn-secondary text-xs">Cancel</button>' +
+        '<button type="button" id="schedule-save-btn" onclick="saveScheduledWorkout(' + day + ')" class="af-btn-primary text-xs">Save</button>'
+      );
+    }
+
+    function saveScheduledWorkout(day) {
+      var timeEl = document.getElementById('schedule-workout-time');
+      var progEl = document.getElementById('schedule-workout-program');
+      var plannedTime = (timeEl && timeEl.value) ? timeEl.value : '09:00';
+      var programId = (progEl && progEl.value) ? progEl.value : 'p_push';
+      var prog = appState.programs.find(function(p) { return p.id === programId; }) || getActiveProgram();
+      if (!Array.isArray(appState.scheduledWorkouts)) appState.scheduledWorkouts = [];
+      var existingIdx = appState.scheduledWorkouts.findIndex(function(sw) { return sw && sw.dayOfMonth === day; });
+      var record = {
+        id: existingIdx >= 0 ? appState.scheduledWorkouts[existingIdx].id : ('sched_' + Date.now() + '_' + day),
+        dayOfMonth: day,
+        month: 10,
+        year: 2026,
+        dateIso: '2026-10-' + (day < 10 ? '0' + day : day),
+        plannedTime: plannedTime,
+        programId: prog.id,
+        programName: prog.name
+      };
+      if (existingIdx >= 0) {
+        appState.scheduledWorkouts[existingIdx] = record;
+      } else {
+        appState.scheduledWorkouts.push(record);
+      }
+      saveStateToStorage();
+      closeModal();
+      renderCurrentScreen();
+      showToast('Scheduled "' + prog.name + '" for October ' + day + ' at ' + plannedTime);
+    }
+
+    function removeScheduledWorkout(day) {
+      if (!Array.isArray(appState.scheduledWorkouts)) return;
+      appState.scheduledWorkouts = appState.scheduledWorkouts.filter(function(sw) {
+        return !sw || sw.dayOfMonth !== day;
+      });
+      saveStateToStorage();
+      closeModal();
+      renderCurrentScreen();
+      showToast('Removed scheduled workout for October ' + day, 'info');
+    }
+
     function inspectCalendarDay(day) {
+      var scheduled = getScheduledWorkoutForDay(day);
       var matches = appState.history.filter(function(h) { return h.dayOfMonth === day; });
-      if (matches.length > 0) {
+      if (scheduled) {
+        openModal(
+          'October ' + day + ' • ' + scheduled.programName,
+          '<div class="space-y-2 text-left">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="af-badge af-badge-blue uppercase">Scheduled</span>' +
+              '<span class="text-xs af-text-muted">October ' + day + ', 2026</span>' +
+            '</div>' +
+            '<div class="af-subtle p-3 space-y-1 text-xs">' +
+              '<div>Workout Program: <strong>' + escapeHtml(scheduled.programName) + '</strong></div>' +
+              '<div>Planned Time: <strong>' + escapeHtml(scheduled.plannedTime) + '</strong></div>' +
+            '</div>' +
+          '</div>',
+          '<button type="button" onclick="closeModal()" class="af-btn-secondary text-xs">Close</button>' +
+          '<button type="button" onclick="removeScheduledWorkout(' + day + ')" class="af-btn-danger text-xs">Remove</button>' +
+          '<button type="button" onclick="openScheduleWorkoutModal(' + day + ')" class="af-btn-primary text-xs">Edit</button>'
+        );
+      } else if (matches.length > 0) {
         var s = matches[0];
         openModal(
           'October ' + day + ' • ' + s.name,
@@ -2140,10 +2290,11 @@
             '<p class="text-xs">Total Reps: <strong>' + s.reps + '</strong> · Total Volume: <strong>' + s.volume + ' kg</strong></p>' +
           '</div>',
           '<button type="button" onclick="closeModal()" class="af-btn-secondary text-xs">Close</button>' +
+          '<button type="button" onclick="openScheduleWorkoutModal(' + day + ')" class="af-btn-tint text-xs">Schedule Workout</button>' +
           '<button type="button" onclick="closeModal(); navigateApp(\'history\')" class="af-btn-primary text-xs">Open in History</button>'
         );
       } else {
-        showToast('October ' + day + ': Rest day (No logged session)', 'info');
+        openScheduleWorkoutModal(day);
       }
     }
 

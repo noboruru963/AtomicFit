@@ -777,6 +777,105 @@ class WorkoutSession with RecordEnvelope {
       );
 }
 
+/// A planned workout scheduled on a calendar date.
+///
+/// Kept strictly separate from completed [WorkoutSession] records so that
+/// scheduling a workout never increases the completed workout count.
+class ScheduledWorkout with RecordEnvelope {
+  const ScheduledWorkout({
+    required this.id,
+    required this.userId,
+    required this.year,
+    required this.month,
+    required this.dayOfMonth,
+    required this.dateIso,
+    required this.plannedTime,
+    required this.programId,
+    required this.programName,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+    this.deletedAtUtc,
+  });
+
+  final String id;
+  final String userId;
+  final int year;
+  final int month;
+  final int dayOfMonth;
+  final String dateIso;
+  final String plannedTime;
+  final String programId;
+  final String programName;
+  final String createdAtUtc;
+  final String updatedAtUtc;
+  final String? deletedAtUtc;
+
+  ScheduledWorkout copyWith({
+    int? year,
+    int? month,
+    int? dayOfMonth,
+    String? dateIso,
+    String? plannedTime,
+    String? programId,
+    String? programName,
+    String? updatedAtUtc,
+    String? deletedAtUtc,
+  }) {
+    return ScheduledWorkout(
+      id: id,
+      userId: userId,
+      year: year ?? this.year,
+      month: month ?? this.month,
+      dayOfMonth: dayOfMonth ?? this.dayOfMonth,
+      dateIso: dateIso ?? this.dateIso,
+      plannedTime: plannedTime ?? this.plannedTime,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      createdAtUtc: createdAtUtc,
+      updatedAtUtc: updatedAtUtc ?? _nowIso(),
+      deletedAtUtc: deletedAtUtc ?? this.deletedAtUtc,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'userId': userId,
+        'year': year,
+        'month': month,
+        'dayOfMonth': dayOfMonth,
+        'dateIso': dateIso,
+        'plannedTime': plannedTime,
+        'programId': programId,
+        'programName': programName,
+        'createdAtUtc': createdAtUtc,
+        'updatedAtUtc': updatedAtUtc,
+        'deletedAtUtc': deletedAtUtc,
+      };
+
+  factory ScheduledWorkout.fromJson(Map<String, dynamic> json) {
+    final DateTime fallbackNow = DateTime.now();
+    final int year = _toInt(json['year'], fallbackNow.year);
+    final int month = _toInt(json['month'], fallbackNow.month);
+    final int day = _toInt(json['dayOfMonth'], 1);
+    final String defaultIso =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+    return ScheduledWorkout(
+      id: (json['id'] ?? '').toString(),
+      userId: (json['userId'] ?? 'u_alex_01').toString(),
+      year: year,
+      month: month,
+      dayOfMonth: day,
+      dateIso: (json['dateIso'] ?? defaultIso).toString(),
+      plannedTime: (json['plannedTime'] ?? '09:00').toString(),
+      programId: (json['programId'] ?? 'p_push').toString(),
+      programName: (json['programName'] ?? 'Push Day').toString(),
+      createdAtUtc: (json['createdAtUtc'] ?? _nowIso()).toString(),
+      updatedAtUtc: (json['updatedAtUtc'] ?? _nowIso()).toString(),
+      deletedAtUtc: json['deletedAtUtc']?.toString(),
+    );
+  }
+}
+
 /// The workout in progress. Mirrors `appState.activeWorkout`.
 class ActiveWorkout {
   const ActiveWorkout({

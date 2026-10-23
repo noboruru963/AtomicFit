@@ -36,6 +36,9 @@ class AppState extends ChangeNotifier {
   final PasswordHasher _hasher = const PasswordHasher();
   final DateTime _now;
 
+  /// Reference date used by the calendar and seed data.
+  DateTime get currentDate => _now;
+
   // ------------------------------------------------------------- persisted
   AppUser user = AppUser.defaultUser();
   AppSettings settings = AppSettings.defaults(SeedData.userId);
@@ -43,6 +46,7 @@ class AppState extends ChangeNotifier {
   List<Exercise> catalogue = <Exercise>[];
   List<Program> programs = <Program>[];
   List<WorkoutSession> history = <WorkoutSession>[];
+  List<ScheduledWorkout> scheduledWorkouts = <ScheduledWorkout>[];
   ActiveWorkout activeWorkout = const ActiveWorkout(
     programId: 'p_push',
     sessionName: 'Push Day',
@@ -143,6 +147,7 @@ class AppState extends ChangeNotifier {
     catalogue = SeedData.catalogue(now);
     programs = SeedData.programs(now);
     history = SeedData.history(now);
+    scheduledWorkouts = <ScheduledWorkout>[];
     isProgramAdjusted = false;
     adjustmentFactor = 0.9;
     showQuizBannerOnHome = true;
@@ -239,6 +244,17 @@ class AppState extends ChangeNotifier {
     history =
         restoredHistory.isEmpty ? SeedData.history(_now) : restoredHistory;
 
+    scheduledWorkouts = _mapList(document['scheduledWorkouts'])
+        .map(ScheduledWorkout.fromJson)
+        .where(
+          (ScheduledWorkout s) =>
+              s.id.isNotEmpty &&
+              s.deletedAtUtc == null &&
+              s.dayOfMonth >= 1 &&
+              s.dayOfMonth <= 31,
+        )
+        .toList();
+
     final Object? draft = document['activeWorkout'];
     if (draft is Map<String, dynamic>) {
       final ActiveWorkout restored = ActiveWorkout.fromJson(draft);
@@ -290,6 +306,8 @@ class AppState extends ChangeNotifier {
       'adjustmentFactor': adjustmentFactor,
       'programs': programs.map((Program p) => p.toJson()).toList(),
       'history': history.map((WorkoutSession s) => s.toJson()).toList(),
+      'scheduledWorkouts':
+          scheduledWorkouts.map((ScheduledWorkout s) => s.toJson()).toList(),
       'activeWorkout': activeWorkout.toJson(),
       'quizAnswers': Map<String, dynamic>.from(quizAnswers),
       'showQuizBannerOnHome': showQuizBannerOnHome,
@@ -366,6 +384,7 @@ class AppState extends ChangeNotifier {
     isLoggedIn = true;
     personalDetailsComplete = false;
     history = <WorkoutSession>[];
+    scheduledWorkouts = <ScheduledWorkout>[];
     unawaited(persist());
     notifyListeners();
     return null;
@@ -587,6 +606,13 @@ class AppState extends ChangeNotifier {
     return programs.isEmpty ? null : programs.first;
   }
 
+  Program? getProgramById(String programId) {
+    for (final Program program in programs) {
+      if (program.id == programId) return program;
+    }
+    return null;
+  }
+
   void setActiveProgram(String programId) {
     Program? found;
     programs = programs.map((Program p) {
@@ -735,6 +761,137 @@ class AppState extends ChangeNotifier {
     unawaited(persist());
     notifyListeners();
     return program;
+  }
+
+  // ---------------------------------------------------- calendar scheduling
+
+  /// Returns the scheduled workout for [dayOfMonth] in [month]/[year], if any.
+  ScheduledWorkout? scheduledWorkoutForDay(
+    int dayOfMonth, {
+    int? month,
+    int? year,
+  }) {
+    final int targetMonth = month ?? _now.month;
+    final int targetYear = year ?? _now.year;
+    for (final ScheduledWorkout item in scheduledWorkouts) {
+      if (item.deletedAtUtc != null) continue;
+      if (item.dayOfMonth == dayOfMonth &&
+          item.month == targetMonth &&
+          item.year == targetYear) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  /// Creates or updates a scheduled workout on the selected calendar date.
+  ///
+  /// Scheduled workouts are stored in [scheduledWorkouts] and never modify
+  /// [history], so scheduling a workout never increases the completed workout
+  /// count.
+  ScheduledWorkout? scheduleWorkout({
+    required int dayOfMonth,
+    required String plannedTime,
+    required String programId,
+    int? month,
+    int? year,
+    String? existingId,
+  }) {
+    final int targetYear = year ?? _now.year;
+    final int targetMonth = month ?? _now.month;
+    final String cleanTime =
+        plannedTime.trim().isEmpty ? '09:00' : plannedTime.trim();
+
+    Program? program = getProgramById(programId);
+    if (program == null) {
+      for (final Program p in programs) {
+        if (p.name.toLowerCase() == programId.trim().toLowerCase()) {
+          program = p;
+          break;
+        }
+      }
+    }
+    program ??= getActiveProgram();
+    if (program == null) return null;
+
+    final String nowIso = DateTime.now().toUtc().toIso8601String();
+    final String dateIso =
+        '${targetYear.toString().padLeft(4, '0')}-${targetMonth.toString().padLeft(2, '0')}-${dayOfMonth.toString().padLeft(2, '0')}';
+
+    final ScheduledWorkout? existing = existingId != null
+        ? scheduledWorkouts
+            .where((ScheduledWorkout s) => s.id == existingId)
+            .firstOrNull
+        : scheduledWorkoutForDay(
+            dayOfMonth,
+            month: targetMonth,
+            year: targetYear,
+          );
+
+    late final ScheduledWorkout saved;
+    if (existing != null) {
+      saved = existing.copyWith(
+        year: targetYear,
+        month: targetMonth,
+        dayOfMonth: dayOfMonth,
+        dateIso: dateIso,
+        plannedTime: cleanTime,
+        programId: program.id,
+        programName: program.name,
+        updatedAtUtc: nowIso,
+      );
+      scheduledWorkouts = scheduledWorkouts
+          .map((ScheduledWorkout s) => s.id == existing.id ? saved : s)
+          .toList();
+    } else {
+      saved = ScheduledWorkout(
+        id: 'sched_${DateTime.now().millisecondsSinceEpoch}_${dayOfMonth}_$targetMonth',
+        userId: user.id.isEmpty ? SeedData.userId : user.id,
+        year: targetYear,
+        month: targetMonth,
+        dayOfMonth: dayOfMonth,
+        dateIso: dateIso,
+        plannedTime: cleanTime,
+        programId: program.id,
+        programName: program.name,
+        createdAtUtc: nowIso,
+        updatedAtUtc: nowIso,
+      );
+      scheduledWorkouts = <ScheduledWorkout>[...scheduledWorkouts, saved];
+    }
+
+    unawaited(persist());
+    notifyListeners();
+    return saved;
+  }
+
+  /// Removes a scheduled workout by its [scheduleId].
+  bool removeScheduledWorkout(String scheduleId) {
+    final int before = scheduledWorkouts.length;
+    scheduledWorkouts = scheduledWorkouts
+        .where((ScheduledWorkout s) => s.id != scheduleId)
+        .toList();
+    final bool removed = scheduledWorkouts.length < before;
+    if (removed) {
+      unawaited(persist());
+      notifyListeners();
+    }
+    return removed;
+  }
+
+  /// Removes any scheduled workout on [dayOfMonth] in [month]/[year].
+  bool removeScheduledWorkoutForDay(
+    int dayOfMonth, {
+    int? month,
+    int? year,
+  }) {
+    final ScheduledWorkout? target = scheduledWorkoutForDay(
+      dayOfMonth,
+      month: month,
+      year: year,
+    );
+    if (target == null) return false;
+    return removeScheduledWorkout(target.id);
   }
 
   // -------------------------------------------------------------- workout
@@ -1515,6 +1672,7 @@ class AppState extends ChangeNotifier {
     catalogue = SeedData.catalogue(now);
     programs = SeedData.programs(now);
     history = SeedData.history(now);
+    scheduledWorkouts = <ScheduledWorkout>[];
     isProgramAdjusted = false;
     showQuizBannerOnHome = true;
     final Program active = programs.first;

@@ -28,6 +28,7 @@ void main() {
     expect(state.catalogue, hasLength(13));
     expect(state.programs, hasLength(7));
     expect(state.history, hasLength(4));
+    expect(state.scheduledWorkouts, isEmpty);
     expect(state.getActiveProgram()?.name, 'Push Day');
   });
 
@@ -37,6 +38,11 @@ void main() {
     await first.load();
     first.setThemeExplicit(true);
     first.setActiveProgram('p_pull');
+    first.scheduleWorkout(
+      dayOfMonth: 25,
+      plannedTime: '17:30',
+      programId: 'p_pull',
+    );
     await first.persist();
 
     final AppState second = AppState(store: store);
@@ -44,6 +50,47 @@ void main() {
     expect(second.isDarkMode, isTrue);
     expect(second.getActiveProgram()?.id, 'p_pull');
     expect(second.catalogue, hasLength(13));
+    expect(second.scheduledWorkouts, hasLength(1));
+    expect(second.scheduledWorkouts.first.dayOfMonth, 25);
+    expect(second.scheduledWorkouts.first.plannedTime, '17:30');
+    expect(second.scheduledWorkouts.first.programName, 'Pull Day');
+  });
+
+  test(
+      'scheduling, editing, and removing a workout does not affect completed workout count',
+      () async {
+    final AppState state = await _freshState();
+    final int completedBefore = state.history.length;
+
+    final ScheduledWorkout? created = state.scheduleWorkout(
+      dayOfMonth: 26,
+      plannedTime: '08:30',
+      programId: 'p_leg',
+    );
+    expect(created, isNotNull);
+    expect(created!.dayOfMonth, 26);
+    expect(created.plannedTime, '08:30');
+    expect(created.programName, 'Leg Day');
+    expect(state.history.length, completedBefore);
+    expect(state.scheduledWorkoutForDay(26)?.id, created.id);
+
+    final ScheduledWorkout? edited = state.scheduleWorkout(
+      dayOfMonth: 26,
+      plannedTime: '18:00',
+      programId: 'p_upper',
+      existingId: created.id,
+    );
+    expect(edited, isNotNull);
+    expect(edited!.id, created.id);
+    expect(edited.plannedTime, '18:00');
+    expect(edited.programName, 'Upper Day');
+    expect(state.scheduledWorkouts, hasLength(1));
+    expect(state.history.length, completedBefore);
+
+    final bool removed = state.removeScheduledWorkout(created.id);
+    expect(removed, isTrue);
+    expect(state.scheduledWorkoutForDay(26), isNull);
+    expect(state.history.length, completedBefore);
   });
 
   test('logs a set through the single write path', () async {

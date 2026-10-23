@@ -114,6 +114,8 @@ class SqliteStore implements AtomFitStore {
     document['programs'] =
         programRows.map(_programToJson).toList(growable: false);
     document['history'] = _assembleHistory(sessionRows, setRows);
+    document['scheduledWorkouts'] =
+        _asMapList(_decodeJson(state['scheduledWorkouts']));
     document['activeWorkout'] =
         _decodeJson(state['activeWorkout']) ?? <String, dynamic>{};
     document['quizAnswers'] =
@@ -253,6 +255,17 @@ class SqliteStore implements AtomFitStore {
       }
 
       // ----------------------------------------------------------- app state
+      await txn.insert(
+        'app_state',
+        <String, Object?>{
+          'key': 'scheduledWorkouts',
+          'value': jsonEncode(
+            document['scheduledWorkouts'] ?? const <dynamic>[],
+          ),
+          'updated_at_utc': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       await txn.insert(
         'app_state',
         <String, Object?>{

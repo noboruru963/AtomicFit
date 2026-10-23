@@ -217,16 +217,24 @@ class _IconAction extends StatelessWidget {
 }
 
 /// The persistent bottom navigation (`#app-bottom-nav`).
+///
+/// Places the **Workout** button prominently in the center with a noticeably
+/// larger, raised, rounded style and contrasting blue background, while
+/// keeping the remaining navigation buttons smaller and evenly spaced on both
+/// sides.
 class AfBottomNav extends StatelessWidget {
   const AfBottomNav({super.key, required this.current});
 
   final String current;
 
-  static const List<({String id, String label, IconData icon})> _tabs =
+  static const List<({String id, String label, IconData icon})> _leftTabs =
       <({String id, String label, IconData icon})>[
     (id: AfScreen.home, label: 'Home', icon: Icons.home_outlined),
     (id: AfScreen.programs, label: 'Programs', icon: Icons.assignment_outlined),
-    (id: AfScreen.activeWorkout, label: 'Workout', icon: Icons.bolt_outlined),
+  ];
+
+  static const List<({String id, String label, IconData icon})> _rightTabs =
+      <({String id, String label, IconData icon})>[
     (id: AfScreen.history, label: 'History', icon: Icons.bar_chart_outlined),
     (id: AfScreen.discover, label: 'Discover', icon: Icons.search_outlined),
   ];
@@ -234,6 +242,8 @@ class AfBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final bool workoutSelected = current == AfScreen.activeWorkout;
+
     return Container(
       decoration: BoxDecoration(
         color: t.bgCard,
@@ -249,14 +259,41 @@ class AfBottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               for (final ({String id, String label, IconData icon}) tab
-                  in _tabs)
+                  in _leftTabs)
                 Expanded(
                   child: _NavTab(
+                    key: ValueKey<String>('nav-tab-${tab.id}'),
+                    label: tab.label,
+                    icon: tab.icon,
+                    selected: tab.id == current,
+                    onTap: () {
+                      if (tab.id == current) return;
+                      Navigator.of(context).pushReplacementNamed(tab.id);
+                    },
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: AfWorkoutNavButton(
+                  key: const ValueKey<String>('nav-workout-button'),
+                  selected: workoutSelected,
+                  onTap: () {
+                    if (workoutSelected) return;
+                    Navigator.of(context)
+                        .pushReplacementNamed(AfScreen.activeWorkout);
+                  },
+                ),
+              ),
+              for (final ({String id, String label, IconData icon}) tab
+                  in _rightTabs)
+                Expanded(
+                  child: _NavTab(
+                    key: ValueKey<String>('nav-tab-${tab.id}'),
                     label: tab.label,
                     icon: tab.icon,
                     selected: tab.id == current,
@@ -274,8 +311,93 @@ class AfBottomNav extends StatelessWidget {
   }
 }
 
+/// Prominent, raised, rounded central navigation button for **Workout**.
+class AfWorkoutNavButton extends StatelessWidget {
+  const AfWorkoutNavButton({
+    super.key,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final Color bgColor = selected ? t.accentDark : t.accent;
+    final BorderRadius borderRadius = BorderRadius.circular(20);
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: 'Workout',
+      child: Padding(
+        // Raises the central Workout button visually above the smaller side
+        // navigation items while keeping its full touch target inside the bar.
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Container(
+          width: 78,
+          height: 58,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: selected ? Colors.white : t.accentDark,
+              width: 1.5,
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: t.accent.withOpacity(0.38),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: borderRadius,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: borderRadius,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 26,
+                      color: Colors.white,
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Workout',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NavTab extends StatelessWidget {
   const _NavTab({
+    super.key,
     required this.label,
     required this.icon,
     required this.selected,

@@ -111,6 +111,32 @@ class AfStrings {
   static const String quizSnoozedToast =
       'Quiz reminder snoozed. You can launch it anytime from Settings.';
 
+  // ------------------------------------------------------ calendar scheduling
+  static const String calendarScheduleTitle = 'Schedule Workout';
+  static const String calendarEditScheduleTitle = 'Edit Scheduled Workout';
+  static const String calendarScheduledDetailsTitle =
+      '{month} {day}, {year} • Scheduled';
+  static const String calendarScheduleSubtitle =
+      'Plan a workout session for {month} {day}, {year}.';
+  static const String calendarWorkoutDateLabel = 'Workout Date';
+  static const String calendarWorkoutTimeLabel = 'Workout Time';
+  static const String calendarWorkoutProgramLabel = 'Workout Program';
+  static const String calendarSaveSchedule = 'Save';
+  static const String calendarEditSchedule = 'Edit';
+  static const String calendarRemoveSchedule = 'Remove';
+  static const String calendarScheduleAnother = 'Schedule Workout';
+  static const String calendarScheduledBadge = 'Scheduled';
+  static const String calendarPlannedTimeLine = 'Planned Time: {time}';
+  static const String calendarPlannedProgramLine = 'Workout Program: {program}';
+  static const String calendarScheduledToast =
+      'Scheduled "{program}" for {month} {day} at {time}';
+  static const String calendarScheduleUpdatedToast =
+      'Updated scheduled workout for {month} {day} at {time}';
+  static const String calendarScheduleRemovedToast =
+      'Removed scheduled workout for {month} {day}';
+  static const String calendarScheduledCount = 'Scheduled: {count}';
+  static const String calendarPickTimeButton = 'Pick Time';
+
   // -------------------------------------------------------------- quiz prompt
   static const String quizNonDiagnostic =
       'Non-diagnostic quiz · used only to adjust your workouts';
@@ -478,7 +504,7 @@ class AfStrings {
   /// Replaces `{key}` placeholders in [template] with [values].
   static String fill(String template, Map<String, Object?> values) {
     String out = template;
-    values.forEach((key, value) {
+    values.forEach((String key, Object? value) {
       out = out.replaceAll('{$key}', value?.toString() ?? '');
     });
     return out;
