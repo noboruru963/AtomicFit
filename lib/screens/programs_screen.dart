@@ -178,10 +178,13 @@ class _ProgramCard extends StatelessWidget {
                             ),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Expanded(
                                 child: Text(
                                   '${i + 1}. ${program.exercises[i].name}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: t.textPrimary,
                                     fontSize: 12,
@@ -190,6 +193,9 @@ class _ProgramCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              // Keeps long exercise names from touching the
+                              // sets column.
+                              const SizedBox(width: 10),
                               Text(
                                 AfStrings.fill(
                                   AfStrings.programsExerciseRow,
