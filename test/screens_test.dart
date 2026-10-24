@@ -83,6 +83,8 @@ void main() {
           isNull,
           reason: 'exception while rendering $route',
         );
+        // The rest timer starts by itself, so stop it before the next route.
+        state.dispose();
       }
     });
   }
@@ -119,6 +121,29 @@ void main() {
     expect(state.activeWorkout.sets, hasLength(1));
     // The prototype upper-cases the rest timer heading.
     expect(find.text('REST COUNTDOWN'), findsOneWidget);
+
+    // The countdown starts by itself after a set; there is no Start button.
+    expect(state.isTimerRunning, isTrue);
+    expect(find.text('Start'), findsNothing);
+    expect(find.text('Pause'), findsOneWidget);
+
+    // "-15s" also rewrites the boxes (02:00 -> 01:45).
+    await tester.tap(find.text('-15s'));
+    await tester.pump();
+    expect(state.activeWorkout.restTotalSeconds, 105);
+    expect(find.text('45'), findsOneWidget);
+
+    // Pausing swaps the primary control to Continue.
+    await tester.tap(find.text('Pause'));
+    await tester.pump();
+    expect(state.isTimerRunning, isFalse);
+    expect(find.text('Continue'), findsOneWidget);
+
+    // Reset goes back to the edited target and stays paused.
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    expect(state.isTimerRunning, isFalse);
+    expect(state.restSecondsRemaining, 105);
     expect(tester.takeException(), isNull);
 
     // Let the toast auto-dismiss timer run out before the tree is torn down.

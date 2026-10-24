@@ -280,9 +280,9 @@ class AfStrings {
   static const String timerTargetLine =
       'Target Duration: {duration} · Exercise: {exercise}';
   static const String timerGeneralRest = 'General Rest';
-  static const String timerStart = 'Start';
   static const String timerReset = 'Reset';
   static const String timerPause = 'Pause';
+  static const String timerResume = 'Continue';
   static const String timerMinus15 = '-15s';
   static const String timerPlus15 = '+15s';
   static const String timerSkip = 'Skip Rest';

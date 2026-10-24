@@ -30,6 +30,14 @@ class _RestTimerScreenState extends State<RestTimerScreen>
       if (!mounted) return;
       final AppState state = AfAppScope.of(context);
       state.onRestTimerFinished = _onFinished;
+      _handledFinish = false;
+      // This screen is always pushed right after a set is logged, so the
+      // countdown starts by itself (there is no Start button).
+      if (!state.restRunning &&
+          !state.restCompleted &&
+          state.activeWorkout.restSeconds > 0) {
+        state.startRestTimerCountdown();
+      }
       _syncInputs(state);
     });
   }
@@ -171,6 +179,34 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: AfButton(
+                        label: AfStrings.timerMinus15,
+                        variant: AfButtonVariant.secondary,
+                        size: AfButtonSize.compact,
+                        onPressed: () {
+                          state.adjustRestSeconds(-15);
+                          _syncInputs(state);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AfButton(
+                        label: AfStrings.timerPlus15,
+                        variant: AfButtonVariant.secondary,
+                        size: AfButtonSize.compact,
+                        onPressed: () {
+                          state.adjustRestSeconds(15);
+                          _syncInputs(state);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 AfProgress(value: progress, height: 10),
                 const SizedBox(height: 12),
@@ -199,16 +235,22 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 Row(
                   children: <Widget>[
                     Expanded(
                       child: AfButton(
-                        label: AfStrings.timerStart,
+                        label: state.restRunning
+                            ? AfStrings.timerPause
+                            : AfStrings.timerResume,
                         size: AfButtonSize.compact,
                         onPressed: () {
-                          _handledFinish = false;
-                          state.startRestTimerCountdown();
+                          if (state.restRunning) {
+                            state.pauseRestTimer();
+                          } else {
+                            _handledFinish = false;
+                            state.startRestTimerCountdown();
+                          }
                         },
                       ),
                     ),
@@ -218,38 +260,10 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                         label: AfStrings.timerReset,
                         variant: AfButtonVariant.secondary,
                         size: AfButtonSize.compact,
-                        onPressed: state.resetRestTimer,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerPause,
-                        variant: AfButtonVariant.danger,
-                        size: AfButtonSize.compact,
-                        onPressed: state.pauseRestTimer,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerMinus15,
-                        variant: AfButtonVariant.secondary,
-                        size: AfButtonSize.compact,
-                        onPressed: () => state.adjustRestSeconds(-15),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerPlus15,
-                        variant: AfButtonVariant.secondary,
-                        size: AfButtonSize.compact,
-                        onPressed: () => state.adjustRestSeconds(15),
+                        onPressed: () {
+                          state.resetRestTimer();
+                          _syncInputs(state);
+                        },
                       ),
                     ),
                   ],

@@ -1686,8 +1686,11 @@ class AppState extends ChangeNotifier {
     timerRunId += 1;
     restRunning = true;
     restCompleted = false;
-    restEndTime =
-        DateTime.now().add(Duration(seconds: activeWorkout.restSeconds));
+    // Resume from what is left, or restart the target when nothing is left.
+    final int seconds = activeWorkout.restSeconds > 0
+        ? activeWorkout.restSeconds
+        : activeWorkout.restTotalSeconds;
+    restEndTime = DateTime.now().add(Duration(seconds: seconds));
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (restEndTime == null) return;
@@ -1763,12 +1766,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies a ±15 second adjustment to the remaining time.
+  /// Applies a ±15 second adjustment to the countdown.
+  ///
+  /// The new value also becomes the target duration, so every later set rests
+  /// for the same time (the prototype keeps the last chosen duration).
   void adjustRestSeconds(int delta) {
+    final int total = (activeWorkout.restTotalSeconds + delta).clamp(15, 10800);
     final int current =
         restRunning ? restSecondsRemaining : activeWorkout.restSeconds;
-    final int next = (current + delta).clamp(0, 10800);
-    activeWorkout = activeWorkout.copyWith(restSeconds: next);
+    final int next = (current + delta).clamp(0, total);
+    activeWorkout = activeWorkout.copyWith(
+      restSeconds: next,
+      restTotalSeconds: total,
+    );
     if (restRunning) {
       restEndTime = DateTime.now().add(Duration(seconds: next));
       _syncRestNotification();

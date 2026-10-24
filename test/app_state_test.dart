@@ -293,6 +293,53 @@ void main() {
 
     state.dispose();
   });
+
+  test('a ±15s adjustment becomes the rest time for later sets', () async {
+    final AppState state = await _freshState();
+    expect(state.activeWorkout.restTotalSeconds, 120);
+
+    state.adjustRestSeconds(-15);
+    expect(state.activeWorkout.restTotalSeconds, 105);
+    expect(state.activeWorkout.restSeconds, 105);
+
+    state.updateWeightInput('20');
+    state.updateRepsInput(10);
+    expect(state.logCurrentSet(), isNull);
+    expect(state.activeWorkout.sets.single.restS, 105);
+    expect(state.activeWorkout.restSeconds, 105);
+    expect(state.activeWorkout.restTotalSeconds, 105);
+
+    state.dispose();
+  });
+
+  test('reset restores the target duration and pauses the countdown', () async {
+    final AppState state = await _freshState();
+    state.adjustRestSeconds(15);
+    state.startRestTimerCountdown();
+    expect(state.isTimerRunning, isTrue);
+
+    state.resetRestTimer();
+    expect(state.isTimerRunning, isFalse);
+    expect(state.restSecondsRemaining, 135);
+    expect(state.activeWorkout.restTotalSeconds, 135);
+
+    state.dispose();
+  });
+
+  test('the adjusted rest duration never drops below 15 seconds', () async {
+    final AppState state = await _freshState();
+    for (int i = 0; i < 20; i++) {
+      state.adjustRestSeconds(-15);
+    }
+    expect(state.activeWorkout.restTotalSeconds, 15);
+
+    // Continuing with nothing left restarts the clamped target.
+    state.startRestTimerCountdown();
+    expect(state.restSecondsRemaining, greaterThan(0));
+    expect(state.restSecondsRemaining, lessThanOrEqualTo(15));
+
+    state.dispose();
+  });
 }
 
 class _FakeRestNotifier implements RestTimerNotifier {
