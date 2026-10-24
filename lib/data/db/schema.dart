@@ -177,6 +177,36 @@ const List<String> kCreateIndexes = <String>[
 /// Step 1 creates every table (see [kCreateStatements]).
 const List<List<String>> migrationSteps = <List<String>>[
   kCreateStatements,
+
+  // Step 2 — BA-011 renames the back exercise to "Lat pulldown". Existing
+  // installs already hold the old name in the seeded catalogue, in the
+  // built-in program definitions and in the sets logged so far.
+  <String>[
+    '''
+UPDATE exercises
+   SET name = 'Lat pulldown',
+       category = 'Back',
+       description = 'Cable lat pulldown for the lats and upper back.',
+       search_index = REPLACE(
+         search_index, 'lateral pushdown', 'lat pulldown')
+ WHERE name = 'Lateral pushdown'
+''',
+    '''
+UPDATE programs
+   SET exercises = REPLACE(exercises, 'Lateral pushdown', 'Lat pulldown')
+ WHERE exercises LIKE '%Lateral pushdown%'
+''',
+    '''
+UPDATE set_logs
+   SET exercise_name = 'Lat pulldown'
+ WHERE exercise_name = 'Lateral pushdown'
+''',
+    '''
+UPDATE app_state
+   SET value = REPLACE(value, 'Lateral pushdown', 'Lat pulldown')
+ WHERE key = 'activeWorkout' AND value LIKE '%Lateral pushdown%'
+''',
+  ],
 ];
 
 /// The schema version a freshly created database starts at.

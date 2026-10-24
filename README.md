@@ -66,12 +66,16 @@ flutter pub get
 flutter run                 # on a connected device or emulator
 ```
 
+Android is the only target. The iOS, macOS, Linux, Windows and web runners were
+removed to keep the repository focused; recreate any of them with
+`flutter create . --platforms=<platform>` if it is ever needed.
+
 ## Quality gates
 
 ```bash
 dart format .
 flutter analyze             # must report zero issues
-flutter test                # 87 tests
+flutter test                # 94 tests
 flutter build apk --release
 ```
 
@@ -115,7 +119,9 @@ Either the user name or the e-mail works as the sign-in identifier.
 
 ## Known gaps
 
-- The new screens have not been reviewed on a physical device yet.
+- The dark theme, the rest timer, the workout summary and the full quiz flow
+  still need a pass on a physical device.
 - Exercise images need a network connection.
+- Only an arm64 APK is built; add the other ABIs for 32-bit phones or emulators.
 - Real sensors, speech recognition and the lock-screen widget are not
   implemented (the prototype simulates them).
