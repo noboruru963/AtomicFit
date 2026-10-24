@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:atomfit/data/store.dart';
 import 'package:atomfit/models/app_models.dart';
+import 'package:atomfit/services/notifications.dart';
 import 'package:atomfit/state/app_state.dart';
 
 class _MemoryStore implements AtomFitStore {
@@ -82,21 +83,141 @@ void main() {
     expect(state.activeWorkout.sets, isEmpty);
   });
 
-  test('quiz rule table follows the prototype', () async {
+  test('quiz rule table eases off only when asked or when energy is low',
+      () async {
     final AppState state = await _freshState();
 
+    // Row 1: an explicit request to ease off uses the energy band.
     state.selectQuizOption('q2', 'Low');
     state.selectQuizOption('q10', 'No, reduced intensity');
-    expect(state.computedQuizAdjustment().pctText, '-15%');
-    expect(state.computedQuizAdjustment().factor, 0.85);
+    expect(state.computedQuizAdjustment().pctText, '-20%');
+    expect(state.computedQuizAdjustment().factor, 0.80);
 
+    state.selectQuizOption('q2', 'Normal');
+    expect(state.computedQuizAdjustment().pctText, '-15%');
+    state.selectQuizOption('q2', 'High');
+    expect(state.computedQuizAdjustment().pctText, '-10%');
+
+    // Row 2: asking to progress always adds load.
     state.selectQuizOption('q10', 'Yes, progress the weight');
     expect(state.computedQuizAdjustment().pctText, '+5%');
     expect(state.computedQuizAdjustment().factor, 1.05);
+  });
 
-    state.selectQuizOption('q2', 'Normal');
+  test('an all-high answer set never reduces the load', () async {
+    final AppState state = await _freshState();
+    state.selectQuizOption('q2', 'High');
+    state.selectQuizOption('q3', 'High');
+    state.selectQuizOption('q4', '3-4');
+    state.selectQuizOption('q5', '>60 min');
     state.selectQuizOption('q10', 'No, same program as last');
-    expect(state.computedQuizAdjustment().pctText, '-10%');
+
+    final QuizAdjustment adjustment = state.computedQuizAdjustment();
+    expect(adjustment.factor, greaterThanOrEqualTo(1));
+    expect(adjustment.pctText, '+5%');
+    expect(adjustment.isUnchanged, isFalse);
+  });
+
+  test('the quiz leaves the load alone when nothing points to a change',
+      () async {
+    final AppState state = await _freshState();
+    state.selectQuizOption('q2', 'Normal');
+    state.selectQuizOption('q3', 'Normal');
+    state.selectQuizOption('q5', '30-60 min');
+    state.selectQuizOption('q10', 'No, same program as last');
+
+    final QuizAdjustment adjustment = state.computedQuizAdjustment();
+    expect(adjustment.isUnchanged, isTrue);
+    expect(adjustment.factor, 1);
+  });
+
+  test('a completed session progresses reps before weight', () async {
+    final AppState state = await _freshState();
+    final Program program = state.programs.first;
+    final ProgramExercise first = program.exercises.first;
+    state.startProgramWorkout(program.id, 'full');
+    for (int i = 0; i < first.sets; i++) {
+      state.updateWeightInput(first.weightKg.toString());
+      state.updateRepsInput(first.reps);
+      state.logCurrentSet();
+    }
+    state.finishActiveWorkout();
+
+    final ProgramExercise after = state.programs.first.exercises.firstWhere(
+      (ProgramExercise e) => e.name == first.name,
+    );
+    expect(after.weightKg, first.weightKg);
+    expect(after.reps, first.reps + 1);
+  });
+
+  test('a skipped exercise keeps its targets', () async {
+    final AppState state = await _freshState();
+    final Program program = state.programs.first;
+    final ProgramExercise first = program.exercises.first;
+    // Log fewer sets than planned, so the target was not reached.
+    state.startProgramWorkout(program.id, 'full');
+    state.updateWeightInput(first.weightKg.toString());
+    state.updateRepsInput(first.reps);
+    state.logCurrentSet();
+    state.finishActiveWorkout();
+
+    final ProgramExercise after = state.programs.first.exercises.firstWhere(
+      (ProgramExercise e) => e.name == first.name,
+    );
+    expect(after.reps, first.reps);
+    expect(after.weightKg, first.weightKg);
+  });
+
+  test('scheduling a workout keeps it and survives a restart', () async {
+    final AppState state = await _freshState();
+    final Program program = state.programs.first;
+    final DateTime tomorrow = DateTime.now().add(const Duration(days: 1));
+
+    final ScheduledWorkout planned = state.scheduleWorkout(
+      date: tomorrow,
+      hour: 18,
+      minute: 30,
+      program: program,
+    );
+    expect(state.scheduledOn(tomorrow)?.id, planned.id);
+    expect(state.nextScheduledWorkout?.programName, program.name);
+    await state.pendingWrite;
+
+    final AppState reloaded = AppState(store: state.store);
+    await reloaded.load();
+    expect(reloaded.scheduledOn(tomorrow)?.hour, 18);
+    expect(reloaded.scheduledOn(tomorrow)?.minute, 30);
+
+    reloaded.cancelScheduledWorkout(planned.id);
+    expect(reloaded.scheduledOn(tomorrow), isNull);
+  });
+
+  test('past plans are dropped on the next launch', () async {
+    final AppState state = await _freshState();
+    final Program program = state.programs.first;
+    final DateTime past = DateTime.now().subtract(const Duration(days: 1));
+    state.scheduledWorkouts = <ScheduledWorkout>[
+      ScheduledWorkout(
+        id: 'sch_old',
+        userId: 'u_alex_01',
+        programId: program.id,
+        programName: program.name,
+        year: past.year,
+        month: past.month,
+        day: past.day,
+        hour: 8,
+        minute: 0,
+        createdAtUtc: '2026-10-01T00:00:00.000Z',
+        updatedAtUtc: '2026-10-01T00:00:00.000Z',
+      ),
+    ];
+    await state.persist();
+    await state.pendingWrite;
+
+    final AppState reloaded = AppState(store: state.store);
+    await reloaded.load();
+    expect(reloaded.scheduledWorkouts, isEmpty);
+    expect(reloaded.nextScheduledWorkout, isNull);
   });
 
   test('accepting the quiz adjusts the program weights', () async {
@@ -139,4 +260,60 @@ void main() {
     state.switchInputMethod('voice');
     expect(state.activeWorkout.inputMethod, 'voice');
   });
+
+  test('the rest timer mirrors into the OS notification', () async {
+    final AppState state = await _freshState();
+    final _FakeRestNotifier notifier = _FakeRestNotifier();
+    state.restTimerNotifications = notifier;
+    state.settings = state.settings.copyWith(restNotifications: true);
+
+    state.startRestTimerCountdown();
+    expect(notifier.progressCalls, 1);
+    expect(notifier.lastExercise, isNotEmpty);
+
+    state.pauseRestTimer();
+    expect(notifier.cancelCalls, 1);
+
+    state.startRestTimerCountdown();
+    state.skipRestTimer();
+    expect(notifier.cancelCalls, greaterThanOrEqualTo(2));
+
+    state.dispose();
+  });
+
+  test('the rest timer stays silent when notifications are off', () async {
+    final AppState state = await _freshState();
+    final _FakeRestNotifier notifier = _FakeRestNotifier();
+    state.restTimerNotifications = notifier;
+    state.settings = state.settings.copyWith(restNotifications: false);
+
+    state.startRestTimerCountdown();
+    expect(notifier.progressCalls, 0);
+    expect(notifier.cancelCalls, 1);
+
+    state.dispose();
+  });
+}
+
+class _FakeRestNotifier implements RestTimerNotifier {
+  int progressCalls = 0;
+  int cancelCalls = 0;
+  int finishCalls = 0;
+  String lastExercise = '';
+
+  @override
+  void showProgress({required String exercise, required DateTime endTime}) {
+    progressCalls += 1;
+    lastExercise = exercise;
+  }
+
+  @override
+  void showFinished({required String exercise}) {
+    finishCalls += 1;
+  }
+
+  @override
+  void cancelProgress() {
+    cancelCalls += 1;
+  }
 }

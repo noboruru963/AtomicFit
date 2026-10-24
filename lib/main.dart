@@ -26,6 +26,7 @@ import 'screens/register_screen.dart';
 import 'screens/rest_timer_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/workout_complete_screen.dart';
+import 'services/notifications.dart';
 import 'services/rest_alerts.dart';
 import 'state/app_state.dart';
 import 'strings.dart';
@@ -69,7 +70,13 @@ Future<void> _boot() async {
       exercises: exercises,
     );
     await state.load();
-    await RestAlerts.instance.init();
+    // OS notifications: the live rest countdown and the planned-workout
+    // reminders. Both are optional; the app works without them.
+    await AfNotifications.instance.init();
+    state.restTimerNotifications = AfNotifications.instance;
+    state.reminders = AfNotifications.instance;
+    await state.reconcileReminders();
+    await RestAlerts.instance.warmUp();
 
     runApp(AtomFitApp(state: state));
   } catch (error, stackTrace) {

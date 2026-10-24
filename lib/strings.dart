@@ -157,9 +157,34 @@ class AfStrings {
   static const String quizAdjustedSets = '{sets} Sets × {reps} Reps';
   static const String quizAccept = 'Accept program & Start Workout';
   static const String quizKeepOld = 'Keep my old program';
+  static const String quizAdjustedBodyUnchanged =
+      'Your answers point to no load change, so your program stays exactly as '
+      'it is.';
+  static const String quizAcceptUnchanged = 'Keep my program & Start Workout';
   static const String quizAcceptedToast =
       'Adjusted program accepted ({pct} load applied)!';
   static const String quizKeptOldToast = 'Kept original program weights.';
+
+  // ------------------------------------------------------------- scheduling
+  static const String scheduleTitle = 'Schedule a workout';
+  static const String scheduleBody =
+      'Choose a time and a program. You will get a reminder on the day.';
+  static const String scheduleDate = 'Date';
+  static const String scheduleTime = 'Time';
+  static const String scheduleProgram = 'Program';
+  static const String scheduleSave = 'Schedule';
+  static const String scheduleCancel = 'Cancel';
+  static const String scheduleRemove = 'Remove';
+  static const String scheduleSavedToast = 'Workout scheduled for {when}.';
+  static const String scheduleRemovedToast = 'Scheduled workout removed.';
+  static const String scheduleWhenTitle = '{month} {day} · {name} at {time}';
+  static const String scheduleNoPrograms =
+      'Create a program first, then you can schedule it.';
+  static const String homeUpNext = 'Up next';
+  static const String homeUpNextEmpty =
+      'Nothing scheduled. Tap an empty day on the calendar to plan a workout.';
+  static const String homeUpNextStart = 'Start';
+  static const String homeUpNextCancel = 'Cancel';
 
   // ----------------------------------------------------------------- programs
   static const String programsIntro =

@@ -55,14 +55,10 @@ class _RestTimerScreenState extends State<RestTimerScreen>
   Future<void> _onFinished() async {
     if (_handledFinish) return;
     _handledFinish = true;
-    final AppState state = AfAppScope.of(context);
-    final String exercise = state.activeWorkout.currentExercise.isEmpty
-        ? AfStrings.timerGeneralRest
-        : state.activeWorkout.currentExercise;
-
-    if (_backgrounded && state.settings.restNotifications) {
-      await RestAlerts.instance.showRestNotification(exercise);
-    } else {
+    // The rest-over notification (background) is posted by AfNotifications from
+    // the AppState ticker, so this only covers the in-app feedback.
+    if (!_backgrounded) {
+      final AppState state = AfAppScope.of(context);
       if (state.settings.bellSound) {
         await RestAlerts.instance.playBell();
       }

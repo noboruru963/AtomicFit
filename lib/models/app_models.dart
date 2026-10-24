@@ -928,6 +928,110 @@ class QuizAdjustment {
   final String intensityLabel;
   final String sessionLength;
   final String frequency;
+
+  /// Whether the rule table left the load untouched.
+  bool get isUnchanged => factor == 1;
+}
+
+/// A workout the user planned from the Home calendar.
+///
+/// The reminder itself lives in the operating system's alarm list; this record
+/// only tracks what is planned so the calendar and the "Up next" card can show
+/// it and so a reminder can be cancelled or re-armed.
+class ScheduledWorkout with RecordEnvelope {
+  const ScheduledWorkout({
+    required this.id,
+    required this.userId,
+    required this.programId,
+    required this.programName,
+    required this.year,
+    required this.month,
+    required this.day,
+    required this.hour,
+    required this.minute,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+    this.deletedAtUtc,
+  });
+
+  final String id;
+  final String userId;
+  final String programId;
+  final String programName;
+
+  /// The planned local wall-clock time.
+  final int year;
+  final int month;
+  final int day;
+  final int hour;
+  final int minute;
+
+  final String createdAtUtc;
+  final String updatedAtUtc;
+  final String? deletedAtUtc;
+
+  /// The planned local date and time.
+  DateTime get dateTime => DateTime(year, month, day, hour, minute);
+
+  /// Whether the planned time has already passed.
+  bool get isPast => !dateTime.isAfter(DateTime.now());
+
+  /// Whether the workout is planned for [day] of the same month and year.
+  bool isOn(DateTime day) =>
+      year == day.year && month == day.month && this.day == day.day;
+
+  ScheduledWorkout copyWith({
+    String? programId,
+    String? programName,
+    int? hour,
+    int? minute,
+  }) {
+    return ScheduledWorkout(
+      id: id,
+      userId: userId,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      year: year,
+      month: month,
+      day: day,
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+      createdAtUtc: createdAtUtc,
+      updatedAtUtc: _nowIso(),
+      deletedAtUtc: deletedAtUtc,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'userId': userId,
+        'programId': programId,
+        'programName': programName,
+        'year': year,
+        'month': month,
+        'day': day,
+        'hour': hour,
+        'minute': minute,
+        'createdAtUtc': createdAtUtc,
+        'updatedAtUtc': updatedAtUtc,
+        if (deletedAtUtc != null) 'deletedAtUtc': deletedAtUtc,
+      };
+
+  factory ScheduledWorkout.fromJson(Map<String, dynamic> json) =>
+      ScheduledWorkout(
+        id: (json['id'] ?? '').toString(),
+        userId: (json['userId'] ?? '').toString(),
+        programId: (json['programId'] ?? '').toString(),
+        programName: (json['programName'] ?? '').toString(),
+        year: _toInt(json['year'], 0),
+        month: _toInt(json['month'], 1),
+        day: _toInt(json['day'], 1),
+        hour: _toInt(json['hour'], 0),
+        minute: _toInt(json['minute'], 0),
+        createdAtUtc: (json['createdAtUtc'] ?? '').toString(),
+        updatedAtUtc: (json['updatedAtUtc'] ?? '').toString(),
+        deletedAtUtc: json['deletedAtUtc']?.toString(),
+      );
 }
 
 double _toDouble(dynamic value) {

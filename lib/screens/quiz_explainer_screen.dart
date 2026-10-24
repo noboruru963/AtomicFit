@@ -75,8 +75,12 @@ class QuizExplainerScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   AfBadge(
-                    label: '${adjustment.pctText} across exercises',
-                    tone: AfBadgeTone.green,
+                    label: adjustment.isUnchanged
+                        ? 'No load change'
+                        : '${adjustment.pctText} across exercises',
+                    tone: adjustment.isUnchanged
+                        ? AfBadgeTone.blue
+                        : AfBadgeTone.green,
                   ),
                 ],
               ),

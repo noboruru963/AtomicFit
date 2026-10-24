@@ -11,6 +11,8 @@ import '../data/store.dart';
 import '../models/app_account.dart';
 import '../models/app_models.dart';
 import '../services/personal_details_validation.dart';
+import '../services/notifications.dart';
+import 'rules.dart';
 
 enum ToastKind { success, info, danger }
 
@@ -95,6 +97,10 @@ class AppState extends ChangeNotifier {
   bool sensorSimActive = false;
   Timer? _ticker;
   Timer? _sensorTicker;
+
+  /// Mirrors the countdown into the OS notification. Left null in tests, which
+  /// makes every notification call a no-op.
+  RestTimerNotifier? restTimerNotifications;
 
   // ------------------------------------------------------------------ toast
   String? toastText;
@@ -239,6 +245,12 @@ class AppState extends ChangeNotifier {
     history =
         restoredHistory.isEmpty ? SeedData.history(_now) : restoredHistory;
 
+    scheduledWorkouts = _mapList(document['scheduledWorkouts'])
+        .map(ScheduledWorkout.fromJson)
+        .where((ScheduledWorkout s) => s.id.isNotEmpty)
+        .toList();
+    _purgePastSchedules();
+
     final Object? draft = document['activeWorkout'];
     if (draft is Map<String, dynamic>) {
       final ActiveWorkout restored = ActiveWorkout.fromJson(draft);
@@ -291,6 +303,8 @@ class AppState extends ChangeNotifier {
       'programs': programs.map((Program p) => p.toJson()).toList(),
       'history': history.map((WorkoutSession s) => s.toJson()).toList(),
       'activeWorkout': activeWorkout.toJson(),
+      'scheduledWorkouts':
+          scheduledWorkouts.map((ScheduledWorkout s) => s.toJson()).toList(),
       'quizAnswers': Map<String, dynamic>.from(quizAnswers),
       'showQuizBannerOnHome': showQuizBannerOnHome,
       'quizShortMode': quizShortMode,
@@ -958,10 +972,42 @@ class AppState extends ChangeNotifier {
       totalVolume: session.volume,
       methods: methodList,
     );
+    // Double progression: only a full session whose planned sets were all
+    // completed at the planned reps moves the program forward.
+    _applyProgression(
+      programId: activeWorkout.programId,
+      sets: activeWorkout.sets,
+      sessionType: activeWorkout.sessionType,
+    );
+
     activeWorkout = activeWorkout.copyWith(sets: <LoggedSet>[]);
     unawaited(persist());
     notifyListeners();
     return session;
+  }
+
+  /// Moves every earned exercise of [programId] one progression step.
+  void _applyProgression({
+    required String programId,
+    required List<LoggedSet> sets,
+    required String sessionType,
+  }) {
+    if (sessionType != 'full' || programId.isEmpty) return;
+    programs = programs.map((Program program) {
+      if (program.id != programId) return program;
+      bool touched = false;
+      final List<ProgramExercise> next =
+          program.exercises.map((ProgramExercise exercise) {
+        if (!earnedProgression(exercise, sets)) return exercise;
+        final ProgramExercise updated = progressExercise(exercise);
+        if (updated.reps != exercise.reps ||
+            updated.weightKg != exercise.weightKg) {
+          touched = true;
+        }
+        return updated;
+      }).toList(growable: false);
+      return touched ? program.copyWith(exercises: next) : program;
+    }).toList(growable: false);
   }
 
   /// Elapsed workout time, measured from the first logged set of the session.
@@ -1078,6 +1124,131 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  // ----------------------------------------------------------- scheduling
+
+  /// Workouts the user planned from the Home calendar.
+  List<ScheduledWorkout> scheduledWorkouts = <ScheduledWorkout>[];
+
+  /// Keeps the operating system's reminder list in step with
+  /// [scheduledWorkouts]. Left null in tests, where scheduling stays in-app.
+  WorkoutReminderScheduler? reminders;
+
+  /// The workout planned for [day], if any.
+  ScheduledWorkout? scheduledOn(DateTime day) {
+    for (final ScheduledWorkout item in scheduledWorkouts) {
+      if (item.isOn(day)) return item;
+    }
+    return null;
+  }
+
+  /// The next planned workout that has not happened yet.
+  ScheduledWorkout? get nextScheduledWorkout {
+    ScheduledWorkout? next;
+    for (final ScheduledWorkout item in scheduledWorkouts) {
+      if (item.isPast) continue;
+      if (next == null || item.dateTime.isBefore(next.dateTime)) {
+        next = item;
+      }
+    }
+    return next;
+  }
+
+  /// Plans [program] for the given local [date], [hour] and [minute].
+  ///
+  /// One workout per day: planning the same day again replaces the earlier
+  /// entry and its reminder. Returns the planned workout.
+  ScheduledWorkout scheduleWorkout({
+    required DateTime date,
+    required int hour,
+    required int minute,
+    required Program program,
+  }) {
+    final String now = DateTime.now().toUtc().toIso8601String();
+    final List<ScheduledWorkout> kept = <ScheduledWorkout>[];
+    for (final ScheduledWorkout item in scheduledWorkouts) {
+      if (item.isOn(date)) {
+        unawaited(reminders?.cancelWorkoutReminder(item.id));
+      } else {
+        kept.add(item);
+      }
+    }
+    final ScheduledWorkout planned = ScheduledWorkout(
+      id: 'sch_${date.year}-${date.month}-${date.day}_${program.id}',
+      userId: user.id,
+      programId: program.id,
+      programName: program.name,
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour: hour,
+      minute: minute,
+      createdAtUtc: now,
+      updatedAtUtc: now,
+    );
+    scheduledWorkouts = <ScheduledWorkout>[...kept, planned]..sort(
+        (ScheduledWorkout a, ScheduledWorkout b) =>
+            a.dateTime.compareTo(b.dateTime));
+    _armReminder(planned);
+    unawaited(persist());
+    notifyListeners();
+    return planned;
+  }
+
+  /// Removes a planned workout and its reminder.
+  void cancelScheduledWorkout(String scheduledId) {
+    final bool existed =
+        scheduledWorkouts.any((ScheduledWorkout s) => s.id == scheduledId);
+    if (!existed) return;
+    scheduledWorkouts = scheduledWorkouts
+        .where((ScheduledWorkout s) => s.id != scheduledId)
+        .toList(growable: false);
+    unawaited(reminders?.cancelWorkoutReminder(scheduledId));
+    unawaited(persist());
+    notifyListeners();
+  }
+
+  /// (Re)arms the OS reminder for [item], or clears a stale one.
+  void _armReminder(ScheduledWorkout item) {
+    final WorkoutReminderScheduler? scheduler = reminders;
+    if (scheduler == null) return;
+    if (item.isPast) {
+      unawaited(scheduler.cancelWorkoutReminder(item.id));
+      return;
+    }
+    unawaited(scheduler.scheduleWorkoutReminder(
+      scheduleId: item.id,
+      programName: item.programName,
+      when: item.dateTime,
+    ));
+  }
+
+  /// Drops plans whose moment has passed, so "Up next" stays meaningful.
+  void _purgePastSchedules() {
+    final List<ScheduledWorkout> live = scheduledWorkouts
+        .where((ScheduledWorkout item) => !item.isPast)
+        .toList(growable: false);
+    if (live.length != scheduledWorkouts.length) {
+      scheduledWorkouts = live;
+    }
+  }
+
+  /// Re-arms every future reminder.
+  ///
+  /// Android drops pending alarms when the app is reinstalled or the time zone
+  /// changes; this restores them at launch.
+  Future<void> reconcileReminders() async {
+    final WorkoutReminderScheduler? scheduler = reminders;
+    if (scheduler == null) return;
+    _purgePastSchedules();
+    for (final ScheduledWorkout item in scheduledWorkouts) {
+      await scheduler.scheduleWorkoutReminder(
+        scheduleId: item.id,
+        programName: item.programName,
+        when: item.dateTime,
+      );
+    }
+  }
+
   // ------------------------------------------------------------------- quiz
 
   List<QuizQuestion> get activeQuizQuestions {
@@ -1106,38 +1277,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// The quiz rule table, ported from `getComputedQuizAdjustment`
-  /// (`index.html` lines 1885-1895).
-  QuizAdjustment computedQuizAdjustment() {
-    final String energy = quizAnswers['q2'] ?? 'Low';
-    final String pushPreference = quizAnswers['q10'] ?? 'No, reduced intensity';
-    final String frequencyDays = quizAnswers['q4'] ?? '3-4';
-
-    if (pushPreference == 'Yes, progress the weight') {
-      return QuizAdjustment(
-        factor: 1.05,
-        pctText: '+5%',
-        intensityLabel: 'Progressive Overload (+5%)',
-        sessionLength: '40 min (+5 min)',
-        frequency: '$frequencyDays days/week',
-      );
-    }
-    if (energy == 'Low' || pushPreference == 'No, reduced intensity') {
-      return const QuizAdjustment(
-        factor: 0.85,
-        pctText: '-15%',
-        intensityLabel: 'Reduced (-15% volume & load)',
-        sessionLength: '25 min (-10 min)',
-        frequency: '3 days/week',
-      );
-    }
-    return QuizAdjustment(
-      factor: 0.90,
-      pctText: '-10%',
-      intensityLabel: 'Moderate Deload (-10% weight)',
-      sessionLength: '25 min (-10 min)',
-      frequency: '$frequencyDays days/week',
-    );
-  }
+  /// (`index.html` lines 1885-1895) and extended so an all-high answer set can
+  /// never cut the load (see [computeQuizAdjustment]).
+  QuizAdjustment computedQuizAdjustment() => computeQuizAdjustment(quizAnswers);
 
   /// Applies the adjusted weights to the active program.
   void acceptAdjustedProgram() {
@@ -1557,11 +1699,32 @@ class AppState extends ChangeNotifier {
         restCompleted = true;
         restEndTime = null;
         activeWorkout = activeWorkout.copyWith(restSeconds: 0);
+        restTimerNotifications?.showFinished(exercise: _restExerciseLabel);
         onRestTimerFinished?.call();
       }
       notifyListeners();
     });
+    _syncRestNotification();
     notifyListeners();
+  }
+
+  /// The exercise the ongoing rest notification talks about.
+  String get _restExerciseLabel => activeWorkout.currentExercise.isEmpty
+      ? 'your workout'
+      : activeWorkout.currentExercise;
+
+  /// Pushes the countdown into the OS notification, or clears it when nothing
+  /// is running or the user switched rest notifications off.
+  void _syncRestNotification() {
+    final DateTime? end = restEndTime;
+    if (!settings.restNotifications || !restRunning || end == null) {
+      restTimerNotifications?.cancelProgress();
+      return;
+    }
+    restTimerNotifications?.showProgress(
+      exercise: _restExerciseLabel,
+      endTime: end,
+    );
   }
 
   /// Invoked when the countdown reaches zero. The screen reacts to it.
@@ -1574,6 +1737,7 @@ class AppState extends ChangeNotifier {
     restEndTime = null;
     _ticker?.cancel();
     activeWorkout = activeWorkout.copyWith(restSeconds: remaining);
+    _syncRestNotification();
     notifyListeners();
   }
 
@@ -1585,6 +1749,7 @@ class AppState extends ChangeNotifier {
     activeWorkout = activeWorkout.copyWith(
       restSeconds: activeWorkout.restTotalSeconds,
     );
+    _syncRestNotification();
     notifyListeners();
   }
 
@@ -1594,6 +1759,7 @@ class AppState extends ChangeNotifier {
     restEndTime = null;
     _ticker?.cancel();
     activeWorkout = activeWorkout.copyWith(restSeconds: 0);
+    _syncRestNotification();
     notifyListeners();
   }
 
@@ -1605,6 +1771,7 @@ class AppState extends ChangeNotifier {
     activeWorkout = activeWorkout.copyWith(restSeconds: next);
     if (restRunning) {
       restEndTime = DateTime.now().add(Duration(seconds: next));
+      _syncRestNotification();
     }
     notifyListeners();
   }
@@ -1626,6 +1793,7 @@ class AppState extends ChangeNotifier {
     restRunning = false;
     restCompleted = false;
     _ticker?.cancel();
+    _syncRestNotification();
     notifyListeners();
     return null;
   }

@@ -116,6 +116,8 @@ class SqliteStore implements AtomFitStore {
     document['history'] = _assembleHistory(sessionRows, setRows);
     document['activeWorkout'] =
         _decodeJson(state['activeWorkout']) ?? <String, dynamic>{};
+    document['scheduledWorkouts'] =
+        _decodeJson(state['scheduledWorkouts']) ?? <dynamic>[];
     document['quizAnswers'] =
         _decodeJson(state['quizAnswers']) ?? <String, dynamic>{};
     document['showQuizBannerOnHome'] = state['showQuizBannerOnHome'] != 'false';
@@ -262,6 +264,19 @@ class SqliteStore implements AtomFitStore {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      if (document['scheduledWorkouts'] != null) {
+        // A partial document must not clear the planned workouts, so the key
+        // is only written when the state actually carries it.
+        await txn.insert(
+          'app_state',
+          <String, Object?>{
+            'key': 'scheduledWorkouts',
+            'value': jsonEncode(document['scheduledWorkouts']),
+            'updated_at_utc': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
       await txn.insert(
         'app_state',
         <String, Object?>{
