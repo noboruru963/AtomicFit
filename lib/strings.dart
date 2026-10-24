@@ -254,8 +254,27 @@ class AfStrings {
   static const String workoutReady = 'Ready';
   static const String workoutStartAutoCount = 'Start Auto-Count';
   static const String workoutStopSensor = 'Stop Sensor';
-  static const String workoutVoicePlaceholder = 'e.g. 20 kg for 12 reps';
-  static const String workoutParseAdd = '🎙️ Parse & Add Set';
+  static const String workoutVoicePlaceholder = 'type a command';
+  static const String workoutVoiceHint =
+      'Say or type a command: "add 10 reps" · "subtract 5 reps" · '
+      '"set reps to 12" · "finished set"';
+  static const String workoutVoiceRun = 'Run';
+  static const String workoutVoiceUnknown =
+      'I did not catch that. Try "add 10 reps", "subtract 5 reps", '
+      '"set reps to 12" or "finished set".';
+  static const String voiceAddedToast =
+      'Added {count} reps · {reps} in this set.';
+  static const String voiceRemovedToast =
+      'Removed {count} reps · {reps} in this set.';
+  static const String voiceRepsSetToast = 'Reps set to {reps}.';
+  static const String voiceRepsAtZero = 'Reps are already at 0.';
+  static const String voiceRepsAtMax = 'Reps are already at 999.';
+  static const List<String> voiceCommandExamples = <String>[
+    'add 10 reps',
+    'subtract 5 reps',
+    'set reps to 12',
+    'finished set',
+  ];
   static const String workoutLockscreen = '🔒 Lockscreen Quick-Log:';
   static const String workoutWeightInvalid =
       'Please enter a valid weight in kg (0 or greater).';

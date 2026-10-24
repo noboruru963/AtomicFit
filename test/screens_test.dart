@@ -6,6 +6,7 @@ import 'package:atomfit/data/store.dart';
 import 'package:atomfit/main.dart';
 import 'package:atomfit/screens/home_screen.dart';
 import 'package:atomfit/state/app_state.dart';
+import 'package:atomfit/widgets/af_widgets.dart';
 
 import 'helpers/fonts.dart';
 
@@ -147,6 +148,56 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // Let the toast auto-dismiss timer run out before the tree is torn down.
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
+
+  testWidgets('the voice log turns commands into reps and a saved set',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    state.updateRepsInput(8);
+    state.switchInputMethod('voice');
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.activeWorkout);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    Future<void> runChip(String command) async {
+      final Finder chip = find.widgetWithText(AfButton, command);
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // "add 10 reps" bumps the current set without saving it.
+    await runChip('add 10 reps');
+    expect(state.activeWorkout.repsInput, 18);
+    expect(find.text('18'), findsWidgets);
+    expect(state.activeWorkout.sets, isEmpty);
+
+    await runChip('subtract 5 reps');
+    expect(state.activeWorkout.repsInput, 13);
+
+    await runChip('set reps to 12');
+    expect(state.activeWorkout.repsInput, 12);
+
+    // "finished set" saves the set and opens the (auto-starting) rest timer.
+    await runChip('finished set');
+    expect(state.activeWorkout.sets, hasLength(1));
+    expect(state.activeWorkout.sets.single.reps, 12);
+    expect(find.text('REST COUNTDOWN'), findsOneWidget);
+
     await tester.pump(const Duration(seconds: 3));
     state.dispose();
   });

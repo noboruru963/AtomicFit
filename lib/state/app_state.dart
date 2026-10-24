@@ -12,9 +12,36 @@ import '../models/app_account.dart';
 import '../models/app_models.dart';
 import '../services/personal_details_validation.dart';
 import '../services/notifications.dart';
+import '../strings.dart';
 import 'rules.dart';
+import 'voice_commands.dart';
 
 enum ToastKind { success, info, danger }
+
+/// What [AppState.applyVoiceCommand] did with one voice-log line.
+enum VoiceOutcome {
+  /// The rep count changed (added, removed or set) and nothing was saved.
+  adjusted,
+
+  /// The set was saved through the single Save-Set path.
+  saved,
+
+  /// The line was not one of the instruction strings; nothing changed.
+  unknown,
+
+  /// The line was understood but the set could not be saved (see `error`).
+  rejected,
+}
+
+/// The outcome of [AppState.applyVoiceCommand].
+class VoiceCommandResult {
+  const VoiceCommandResult(this.outcome, {this.error});
+
+  final VoiceOutcome outcome;
+
+  /// Validation message for [VoiceOutcome.rejected], otherwise `null`.
+  final String? error;
+}
 
 /// The application state, ported 1:1 from the web prototype's global
 /// `appState` object (`index.html` lines 667-764) plus its handlers.
@@ -891,18 +918,62 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies the voice command text (`"22.5 kg for 8 reps"`).
-  void parseVoiceSet(String text) {
-    final RegExp number = RegExp(r'\d+(\.\d+)?');
-    final List<RegExpMatch> matches =
-        number.allMatches(text).toList(growable: false);
-    if (matches.length >= 2) {
-      activeWorkout = activeWorkout.copyWith(
-        weightInput: matches[0].group(0),
-        repsInput: int.parse(matches[1].group(0)!),
-      );
+  /// Applies one voice-log line through the fixed instruction table
+  /// ([parseVoiceCommand]). Returns what happened so the screen can react:
+  /// a saved set opens the rest timer, an unknown or rejected line does not.
+  VoiceCommandResult applyVoiceCommand(String text) {
+    final VoiceCommand? command = parseVoiceCommand(text);
+    if (command == null) {
+      return const VoiceCommandResult(VoiceOutcome.unknown);
     }
-    logCurrentSet();
+    switch (command.action) {
+      case VoiceAction.addReps:
+        return _shiftReps(command.reps);
+      case VoiceAction.subtractReps:
+        return _shiftReps(-command.reps);
+      case VoiceAction.setReps:
+        final int next = command.reps.clamp(0, kVoiceMaxReps);
+        updateRepsInput(next);
+        showToast(
+          AfStrings.fill(
+            AfStrings.voiceRepsSetToast,
+            <String, Object?>{'reps': next},
+          ),
+        );
+        return const VoiceCommandResult(VoiceOutcome.adjusted);
+      case VoiceAction.finishSet:
+        // Goes through the single Save-Set path, so the same validation and
+        // the same idempotent write apply as manual logging.
+        final String? error = logCurrentSet();
+        if (error != null) {
+          return VoiceCommandResult(VoiceOutcome.rejected, error: error);
+        }
+        return const VoiceCommandResult(VoiceOutcome.saved);
+    }
+  }
+
+  /// Applies a relative rep change, clamped to 0..[kVoiceMaxReps].
+  VoiceCommandResult _shiftReps(int delta) {
+    final int before = activeWorkout.repsInput;
+    final int next = (before + delta).clamp(0, kVoiceMaxReps);
+    final int applied = next - before;
+    if (applied == 0) {
+      if (delta != 0) {
+        showToast(
+          delta > 0 ? AfStrings.voiceRepsAtMax : AfStrings.voiceRepsAtZero,
+          kind: ToastKind.info,
+        );
+      }
+      return const VoiceCommandResult(VoiceOutcome.adjusted);
+    }
+    updateRepsInput(next);
+    showToast(
+      AfStrings.fill(
+        applied > 0 ? AfStrings.voiceAddedToast : AfStrings.voiceRemovedToast,
+        <String, Object?>{'count': applied.abs(), 'reps': next},
+      ),
+    );
+    return const VoiceCommandResult(VoiceOutcome.adjusted);
   }
 
   /// Simulated auto-count: bumps the rep counter while the simulation runs.

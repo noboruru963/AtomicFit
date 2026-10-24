@@ -20,6 +20,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   final TextEditingController _reps = TextEditingController();
   final TextEditingController _voice = TextEditingController();
   String? _weightError;
+  String? _voiceError;
   bool _syncing = false;
 
   @override
@@ -37,6 +38,39 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     _reps.text = state.activeWorkout.repsInput.toString();
     _voice.text = state.activeWorkout.voiceSimText;
     _syncing = false;
+  }
+
+  /// Runs the voice log through the fixed instruction table and reacts to the
+  /// outcome: rep changes stay on this screen, a finished set opens the timer,
+  /// and an unrecognised line shows the retry hint without touching the set.
+  void _runVoiceCommand(AppState state) {
+    final VoiceCommandResult result = state.applyVoiceCommand(_voice.text);
+    final bool saved = result.outcome == VoiceOutcome.saved;
+    switch (result.outcome) {
+      case VoiceOutcome.adjusted:
+      case VoiceOutcome.saved:
+        _clearVoice(state);
+        setState(() {
+          _voiceError = null;
+          if (saved) _weightError = null;
+        });
+        if (saved) {
+          Navigator.of(context).pushNamed(AfScreen.timer);
+        }
+      case VoiceOutcome.unknown:
+        setState(() => _voiceError = AfStrings.workoutVoiceUnknown);
+      case VoiceOutcome.rejected:
+        setState(() {
+          _voiceError = null;
+          _weightError = result.error;
+        });
+    }
+  }
+
+  /// Empties the voice box after a command, in the widget and in the draft.
+  void _clearVoice(AppState state) {
+    _voice.clear();
+    state.activeWorkout = state.activeWorkout.copyWith(voiceSimText: '');
   }
 
   @override
@@ -208,33 +242,63 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   )
                 else if (workout.inputMethod == 'voice')
                   _ChannelHelper(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        Expanded(
-                          child: AfTextField(
-                            controller: _voice,
-                            style: AfText.muted(t, size: 12),
-                            hint: AfStrings.workoutVoicePlaceholder,
-                            onChanged: (String value) => state.activeWorkout =
-                                state.activeWorkout.copyWith(
-                              voiceSimText: value,
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: AfTextField(
+                                controller: _voice,
+                                style: AfText.muted(t, size: 12),
+                                hint: AfStrings.workoutVoicePlaceholder,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => _runVoiceCommand(state),
+                                onChanged: (String value) =>
+                                    state.activeWorkout =
+                                        state.activeWorkout.copyWith(
+                                  voiceSimText: value,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            AfButton(
+                              label: AfStrings.workoutVoiceRun,
+                              variant: AfButtonVariant.tint,
+                              size: AfButtonSize.compact,
+                              onPressed: () => _runVoiceCommand(state),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        AfButton(
-                          label: AfStrings.workoutParseAdd,
-                          variant: AfButtonVariant.tint,
-                          size: AfButtonSize.compact,
-                          onPressed: () {
-                            final String? error = state.logCurrentSet();
-                            if (error != null) {
-                              setState(() => _weightError = error);
-                              return;
-                            }
-                            setState(() => _weightError = null);
-                            Navigator.of(context).pushNamed(AfScreen.timer);
-                          },
+                        const SizedBox(height: 6),
+                        Text(
+                          AfStrings.workoutVoiceHint,
+                          style: AfText.muted(t, size: 11),
+                        ),
+                        if (_voiceError != null) ...<Widget>[
+                          const SizedBox(height: 8),
+                          AfErrorBanner(
+                            message: _voiceError!,
+                            padding: const EdgeInsets.all(10),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            for (final String example
+                                in AfStrings.voiceCommandExamples)
+                              AfButton(
+                                label: example,
+                                variant: AfButtonVariant.secondary,
+                                size: AfButtonSize.compact,
+                                onPressed: () {
+                                  _voice.text = example;
+                                  _runVoiceCommand(state);
+                                },
+                              ),
+                          ],
                         ),
                       ],
                     ),

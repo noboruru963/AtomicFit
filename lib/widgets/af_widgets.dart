@@ -643,6 +643,8 @@ class AfTextField extends StatelessWidget {
     this.keyboardType,
     this.textAlign,
     this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
     this.style,
     this.emphasised = false,
     this.autofocus = false,
@@ -654,6 +656,8 @@ class AfTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextAlign? textAlign;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
   final TextStyle? style;
   final bool emphasised;
   final bool autofocus;
@@ -667,6 +671,8 @@ class AfTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textAlign: textAlign ?? TextAlign.start,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: textInputAction,
       autofocus: autofocus,
       obscureText: obscureText,
       style: style ??

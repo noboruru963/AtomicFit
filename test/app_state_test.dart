@@ -340,6 +340,87 @@ void main() {
 
     state.dispose();
   });
+
+  test('voice commands adjust the current set without saving it', () async {
+    final AppState state = await _freshState();
+    state.updateRepsInput(8);
+
+    expect(
+      state.applyVoiceCommand('add 10 reps').outcome,
+      VoiceOutcome.adjusted,
+    );
+    expect(state.activeWorkout.repsInput, 18);
+    expect(state.activeWorkout.sets, isEmpty);
+
+    expect(
+      state.applyVoiceCommand('subtract 5 reps').outcome,
+      VoiceOutcome.adjusted,
+    );
+    expect(state.activeWorkout.repsInput, 13);
+
+    expect(
+      state.applyVoiceCommand('set reps to 12').outcome,
+      VoiceOutcome.adjusted,
+    );
+    expect(state.activeWorkout.repsInput, 12);
+    expect(state.activeWorkout.sets, isEmpty);
+
+    state.dispose();
+  });
+
+  test('voice commands keep the reps inside 0..999', () async {
+    final AppState state = await _freshState();
+    state.updateRepsInput(3);
+
+    state.applyVoiceCommand('subtract 40 reps');
+    expect(state.activeWorkout.repsInput, 0);
+
+    state.applyVoiceCommand('add 999 reps');
+    expect(state.activeWorkout.repsInput, 999);
+    state.applyVoiceCommand('add 999 reps');
+    expect(state.activeWorkout.repsInput, 999);
+
+    state.dispose();
+  });
+
+  test('an unknown voice line leaves the set untouched', () async {
+    final AppState state = await _freshState();
+    state.updateRepsInput(8);
+
+    final VoiceCommandResult result = state.applyVoiceCommand('hello there');
+    expect(result.outcome, VoiceOutcome.unknown);
+    expect(result.error, isNull);
+    expect(state.activeWorkout.repsInput, 8);
+    expect(state.activeWorkout.sets, isEmpty);
+
+    state.dispose();
+  });
+
+  test('"finished set" saves through the single write path', () async {
+    final AppState state = await _freshState();
+    state.updateWeightInput('40');
+    state.updateRepsInput(10);
+
+    final VoiceCommandResult result = state.applyVoiceCommand('finished set');
+    expect(result.outcome, VoiceOutcome.saved);
+    expect(state.activeWorkout.sets, hasLength(1));
+    expect(state.activeWorkout.sets.single.weightKg, 40);
+    expect(state.activeWorkout.sets.single.reps, 10);
+
+    state.dispose();
+  });
+
+  test('"finished set" is rejected when the weight is invalid', () async {
+    final AppState state = await _freshState();
+    state.updateWeightInput('heavy');
+
+    final VoiceCommandResult result = state.applyVoiceCommand('finished set');
+    expect(result.outcome, VoiceOutcome.rejected);
+    expect(result.error, isNotNull);
+    expect(state.activeWorkout.sets, isEmpty);
+
+    state.dispose();
+  });
 }
 
 class _FakeRestNotifier implements RestTimerNotifier {

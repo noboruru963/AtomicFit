@@ -791,7 +791,7 @@ class ActiveWorkout {
     required this.restTotalSeconds,
     required this.restSeconds,
     required this.sets,
-    this.voiceSimText = '22.5 kg for 8 reps',
+    this.voiceSimText = 'add 10 reps',
   });
 
   final String programId;
@@ -870,7 +870,7 @@ class ActiveWorkout {
       sets: _asMapList(json['sets'])
           .map(LoggedSet.fromJson)
           .toList(growable: false),
-      voiceSimText: (json['voiceSimText'] ?? '22.5 kg for 8 reps').toString(),
+      voiceSimText: (json['voiceSimText'] ?? 'add 10 reps').toString(),
     );
   }
 }
