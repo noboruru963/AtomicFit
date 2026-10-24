@@ -217,6 +217,11 @@ class _IconAction extends StatelessWidget {
 }
 
 /// The persistent bottom navigation (`#app-bottom-nav`).
+///
+/// The Workout tab is a raised circular action button in the centre, so the
+/// nav is a [Stack]: the bar keeps its own height and the button is painted
+/// above it. The middle slot is always reserved, which keeps the bar height
+/// constant whichever tab is selected.
 class AfBottomNav extends StatelessWidget {
   const AfBottomNav({super.key, required this.current});
 
@@ -231,42 +236,128 @@ class AfBottomNav extends StatelessWidget {
     (id: AfScreen.discover, label: 'Discover', icon: Icons.search_outlined),
   ];
 
+  /// Diameter of the raised Workout button.
+  static const double _centerSize = 66;
+
+  /// How far the Workout button rises above the bar.
+  static const double _centerLift = 30;
+
+  /// Height reserved for the normal tabs, matching the middle slot.
+  static const double _slotHeight = 48;
+
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
-    return Container(
-      decoration: BoxDecoration(
-        color: t.bgCard,
-        border: Border(top: BorderSide(color: t.borderLine)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: <Widget>[
-              for (final ({String id, String label, IconData icon}) tab
-                  in _tabs)
-                Expanded(
-                  child: _NavTab(
-                    label: tab.label,
-                    icon: tab.icon,
-                    selected: tab.id == current,
-                    onTap: () {
-                      if (tab.id == current) return;
-                      Navigator.of(context).pushReplacementNamed(tab.id);
-                    },
-                  ),
-                ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Container(
+          decoration: BoxDecoration(
+            color: t.bgCard,
+            border: Border(top: BorderSide(color: t.borderLine)),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x140F172A),
+                blurRadius: 20,
+                offset: Offset(0, -4),
+              ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: <Widget>[
+                  for (final ({String id, String label, IconData icon}) tab
+                      in _tabs)
+                    Expanded(
+                      child: tab.id == AfScreen.activeWorkout
+                          ? const SizedBox(height: _slotHeight)
+                          : _NavTab(
+                              label: tab.label,
+                              icon: tab.icon,
+                              selected: tab.id == current,
+                              onTap: () {
+                                if (tab.id == current) return;
+                                Navigator.of(context)
+                                    .pushReplacementNamed(tab.id);
+                              },
+                            ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -_centerLift,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: _CenterNavButton(
+              active: current == AfScreen.activeWorkout,
+              onTap: () {
+                if (current == AfScreen.activeWorkout) return;
+                Navigator.of(context)
+                    .pushReplacementNamed(AfScreen.activeWorkout);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The raised circular Workout button in the middle of the bottom nav.
+class _CenterNavButton extends StatelessWidget {
+  const _CenterNavButton({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return Semantics(
+      button: true,
+      selected: active,
+      label: 'Workout',
+      child: Tooltip(
+        message: 'Workout',
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Ink(
+              width: AfBottomNav._centerSize,
+              height: AfBottomNav._centerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[t.accent, t.accentDark],
+                ),
+                border: Border.all(color: t.bgCard, width: 4),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: t.accent.withValues(alpha: 0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.bolt_rounded,
+                color: Colors.white,
+                size: active ? 32 : 30,
+              ),
+            ),
           ),
         ),
       ),
