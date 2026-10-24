@@ -1,20 +1,15 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Build outputs
-dist/
+# Flutter / Dart build artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 build/
-*.tsbuildinfo
-
-# Flutter build artifacts
-.dart_tool/flutter_build/
-.dart_tool/hooks_runner/objective_c/
-android/.kotlin/
+coverage/
+*.g.dart.bak
 
 # IDE
-.vscode/
 .idea/
+.vscode/
+*.iml
 *.swp
 *.swo
 *~
@@ -25,13 +20,8 @@ Thumbs.db
 
 # Logs
 *.log
-npm-debug.log*
 
-# Coverage
-coverage/
-
-# Environment
+# Local environment
 .env
 .env.local
 .env.*.local
-.dart_tool/hooks_runner/ 

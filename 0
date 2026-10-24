@@ -1,1 +1,0 @@
-import re;d=open('lib/screens/settings_screen.dart',encoding='utf8').read();i=d.find('settingsResetSeed');print(d[max(0,i-1500):i+1500] if i else 'NOT FOUND') 
