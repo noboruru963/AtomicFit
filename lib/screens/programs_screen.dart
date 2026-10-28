@@ -214,35 +214,41 @@ class _ProgramCard extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: 8),
-          Row(
+          AfButton(
+            label: AfStrings.programsStart,
+            size: AfButtonSize.medium,
+            expand: true,
+            onPressed: () {
+              state.startProgramWorkout(
+                program.id,
+                program.type == 'Micro' ? 'micro' : 'full',
+              );
+              Navigator.of(context).pushNamed(AfScreen.activeWorkout);
+            },
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
-              Expanded(
-                child: AfButton(
-                  label: AfStrings.programsStart,
-                  size: AfButtonSize.medium,
-                  onPressed: () {
-                    state.startProgramWorkout(
-                      program.id,
-                      program.type == 'Micro' ? 'micro' : 'full',
-                    );
-                    Navigator.of(context).pushNamed(AfScreen.activeWorkout);
-                  },
-                ),
+              AfButton(
+                label: AfStrings.programsEdit,
+                variant: AfButtonVariant.secondary,
+                size: AfButtonSize.compact,
+                onPressed: () =>
+                    _openProgramEditor(context, state, existing: program),
               ),
-              if (!program.active) ...<Widget>[
-                const SizedBox(width: 8),
+              if (!program.active)
                 AfButton(
                   label: AfStrings.programsSetCurrent,
                   variant: AfButtonVariant.secondary,
-                  size: AfButtonSize.medium,
+                  size: AfButtonSize.compact,
                   onPressed: () => state.setActiveProgram(program.id),
                 ),
-              ],
-              const SizedBox(width: 8),
               AfButton(
                 label: AfStrings.programsDelete,
                 variant: AfButtonVariant.danger,
-                size: AfButtonSize.medium,
+                size: AfButtonSize.compact,
                 onPressed: () => _confirmDelete(context, state, program),
               ),
             ],
@@ -319,25 +325,45 @@ class _ProgramCard extends StatelessWidget {
   }
 }
 
-/// The "Create Custom Program" modal (`index.html` lines 2242-2488).
+/// The program editor, used to create a program and to edit an existing one
+/// (`index.html` lines 2242-2488).
+///
+/// The program itself only asks for a name: sets, reps and weight belong to
+/// each exercise row, because one global value cannot describe a real program.
 Future<void> _openProgramEditor(
   BuildContext context,
-  AppState state,
-) async {
-  final TextEditingController name = TextEditingController();
-  final TextEditingController sets = TextEditingController(text: '3');
-  final TextEditingController reps = TextEditingController(text: '10');
-  final TextEditingController weight = TextEditingController(text: '15');
+  AppState state, {
+  Program? existing,
+}) async {
+  final bool editing = existing != null;
+  final TextEditingController name =
+      TextEditingController(text: existing?.name ?? '');
   final TextEditingController search = TextEditingController();
 
-  String type = 'Custom';
+  final List<ProgramExercise> selected = <ProgramExercise>[
+    ...?existing?.exercises,
+  ];
+  // Every input set ever created, so a removed exercise still has its
+  // controllers disposed when the editor closes.
+  final List<_ExerciseInputs> createdInputs = <_ExerciseInputs>[];
+  _ExerciseInputs inputsFor(ProgramExercise exercise) {
+    final _ExerciseInputs entry = _ExerciseInputs(exercise);
+    createdInputs.add(entry);
+    return entry;
+  }
+
+  final Map<String, _ExerciseInputs> inputs = <String, _ExerciseInputs>{
+    for (final ProgramExercise exercise in selected)
+      exercise.name: inputsFor(exercise),
+  };
+
   String category = 'All';
   bool pickerOpen = false;
-  final List<ProgramExercise> selected = <ProgramExercise>[];
 
   await AfDialog.show<void>(
     context,
-    title: AfStrings.programsCreateTitle,
+    title:
+        editing ? AfStrings.programsEditTitle : AfStrings.programsCreateTitle,
     scrollable: true,
     body: StatefulBuilder(
       builder: (BuildContext context, StateSetter setModalState) {
@@ -352,6 +378,27 @@ Future<void> _openProgramEditor(
           return categoryMatch && searchMatch;
         }).toList();
 
+        Widget numberField(
+          String label,
+          TextEditingController controller, {
+          bool decimal = false,
+        }) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(label, style: AfText.muted(t, size: 11)),
+              const SizedBox(height: 3),
+              AfTextField(
+                controller: controller,
+                keyboardType: decimal
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.number,
+                style: AfText.strong(t, size: 13),
+              ),
+            ],
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -364,95 +411,7 @@ Future<void> _openProgramEditor(
               controller: name,
               hint: AfStrings.programsNamePlaceholder,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsTypeLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      DropdownButtonFormField<String>(
-                        initialValue: type,
-                        isExpanded: true,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(
-                            value: 'Custom',
-                            child: Text('Custom'),
-                          ),
-                          DropdownMenuItem<String>(
-                            value: 'Micro',
-                            child: Text('Micro'),
-                          ),
-                        ],
-                        onChanged: (String? value) {
-                          if (value == null) return;
-                          setModalState(() => type = value);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsSetsLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: sets,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsRepsLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: reps,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsWeightLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: weight,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Row(
               children: <Widget>[
                 Text(
@@ -474,6 +433,89 @@ Future<void> _openProgramEditor(
                 ),
               ],
             ),
+            if (selected.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(
+                AfStrings.programsPerExercise,
+                style: AfText.muted(t, size: 11),
+              ),
+              const SizedBox(height: 8),
+              for (final ProgramExercise exercise in selected)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: AfSubtle(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                exercise.name,
+                                style: AfText.strong(t, size: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Tooltip(
+                              message: AfStrings.programsRemoveExercise,
+                              child: GestureDetector(
+                                onTap: () => setModalState(() {
+                                  selected.removeWhere(
+                                    (ProgramExercise e) =>
+                                        e.name == exercise.name,
+                                  );
+                                  inputs.remove(exercise.name);
+                                }),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Text(
+                                    '✕',
+                                    style: TextStyle(
+                                      color: t.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: <Widget>[
+                            Expanded(
+                              child: numberField(
+                                AfStrings.programsSetsLabel,
+                                inputs[exercise.name]!.sets,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: numberField(
+                                AfStrings.programsRepsLabel,
+                                inputs[exercise.name]!.reps,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: numberField(
+                                AfStrings.programsWeightLabel,
+                                inputs[exercise.name]!.weight,
+                                decimal: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
             if (pickerOpen) ...<Widget>[
               const SizedBox(height: 8),
               AfTextField(
@@ -538,16 +580,17 @@ Future<void> _openProgramEditor(
                                   (ProgramExercise e) =>
                                       e.name == exercise.name,
                                 );
+                                inputs.remove(exercise.name);
                               } else {
-                                selected.add(
-                                  ProgramExercise(
-                                    name: exercise.name,
-                                    sets: exercise.defaultSets,
-                                    reps: exercise.defaultReps,
-                                    weightKg: exercise.defaultKg,
-                                    exerciseId: exercise.id,
-                                  ),
+                                final ProgramExercise added = ProgramExercise(
+                                  name: exercise.name,
+                                  sets: exercise.defaultSets,
+                                  reps: exercise.defaultReps,
+                                  weightKg: exercise.defaultKg,
+                                  exerciseId: exercise.id,
                                 );
+                                selected.add(added);
+                                inputs[exercise.name] = inputsFor(added);
                               }
                             });
                           },
@@ -569,7 +612,7 @@ Future<void> _openProgramEditor(
         onPressed: () => Navigator.of(context).pop(),
       ),
       AfButton(
-        label: AfStrings.programsSave,
+        label: editing ? AfStrings.programsSaveChanges : AfStrings.programsSave,
         size: AfButtonSize.compact,
         onPressed: () {
           if (name.text.trim().isEmpty) {
@@ -586,25 +629,72 @@ Future<void> _openProgramEditor(
             );
             return;
           }
-          state.createProgram(
-            name: name.text.trim(),
-            type: type,
-            sets: int.tryParse(sets.text) ?? 3,
-            reps: int.tryParse(reps.text) ?? 10,
-            weightKg: double.tryParse(weight.text) ?? 15,
-            exercises: selected,
-          );
+          final List<ProgramExercise> exercises = <ProgramExercise>[
+            for (final ProgramExercise exercise in selected)
+              inputs[exercise.name]!.apply(exercise),
+          ];
+          if (editing) {
+            state.updateProgram(
+              id: existing.id,
+              name: name.text.trim(),
+              exercises: exercises,
+            );
+          } else {
+            final Program created = state.createProgram(
+              name: name.text.trim(),
+              exercises: exercises,
+            );
+            state.showToast(
+              AfStrings.fill(AfStrings.programsCreatedToast, <String, Object?>{
+                'name': created.name,
+              }),
+              kind: ToastKind.success,
+            );
+          }
           Navigator.of(context).pop();
         },
       ),
     ],
   );
 
+  for (final _ExerciseInputs input in createdInputs) {
+    input.dispose();
+  }
   name.dispose();
-  sets.dispose();
-  reps.dispose();
-  weight.dispose();
   search.dispose();
+}
+
+/// The three number boxes that belong to one selected exercise.
+class _ExerciseInputs {
+  _ExerciseInputs(ProgramExercise exercise)
+      : sets = TextEditingController(text: '${exercise.sets}'),
+        reps = TextEditingController(text: '${exercise.reps}'),
+        weight = TextEditingController(text: _trim(exercise.weightKg));
+
+  final TextEditingController sets;
+  final TextEditingController reps;
+  final TextEditingController weight;
+
+  /// Reads the boxes back into an exercise, keeping the stored value when a box
+  /// is empty or unreadable.
+  ProgramExercise apply(ProgramExercise exercise) {
+    final int? enteredSets = int.tryParse(sets.text.trim());
+    final int? enteredReps = int.tryParse(reps.text.trim());
+    final double? enteredWeight = double.tryParse(weight.text.trim());
+    return exercise.copyWith(
+      sets: enteredSets == null ? exercise.sets : enteredSets.clamp(1, 20),
+      reps: enteredReps == null ? exercise.reps : enteredReps.clamp(1, 999),
+      weightKg: enteredWeight == null
+          ? exercise.weightKg
+          : enteredWeight.clamp(0, 999.9),
+    );
+  }
+
+  void dispose() {
+    sets.dispose();
+    reps.dispose();
+    weight.dispose();
+  }
 }
 
 String _trim(double value) {

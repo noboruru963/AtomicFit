@@ -792,6 +792,7 @@ class ActiveWorkout {
     required this.restSeconds,
     required this.sets,
     this.voiceSimText = 'add 10 reps',
+    this.voiceHistory = const <String>[],
   });
 
   final String programId;
@@ -807,6 +808,10 @@ class ActiveWorkout {
   final List<LoggedSet> sets;
   final String voiceSimText;
 
+  /// The last few commands the user actually sent, newest first. Shown as
+  /// one-tap chips under the microphone so a repeated command costs no typing.
+  final List<String> voiceHistory;
+
   ActiveWorkout copyWith({
     String? programId,
     String? sessionName,
@@ -820,6 +825,7 @@ class ActiveWorkout {
     int? restSeconds,
     List<LoggedSet>? sets,
     String? voiceSimText,
+    List<String>? voiceHistory,
   }) {
     return ActiveWorkout(
       programId: programId ?? this.programId,
@@ -834,6 +840,7 @@ class ActiveWorkout {
       restSeconds: restSeconds ?? this.restSeconds,
       sets: sets ?? this.sets,
       voiceSimText: voiceSimText ?? this.voiceSimText,
+      voiceHistory: voiceHistory ?? this.voiceHistory,
     );
   }
 
@@ -850,6 +857,7 @@ class ActiveWorkout {
         'restSeconds': restSeconds,
         'sets': sets.map((LoggedSet s) => s.toJson()).toList(),
         'voiceSimText': voiceSimText,
+        'voiceHistory': voiceHistory,
       };
 
   factory ActiveWorkout.fromJson(Map<String, dynamic> json) {
@@ -871,6 +879,7 @@ class ActiveWorkout {
           .map(LoggedSet.fromJson)
           .toList(growable: false),
       voiceSimText: (json['voiceSimText'] ?? 'add 10 reps').toString(),
+      voiceHistory: _asStringList(json['voiceHistory']),
     );
   }
 }

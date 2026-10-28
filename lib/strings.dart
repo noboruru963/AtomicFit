@@ -222,7 +222,14 @@ class AfStrings {
   static const String programsSelectedExercises =
       'Selected Exercises ({count})';
   static const String programsCreateTitle = 'Create Custom Program';
+  static const String programsEditTitle = 'Edit Program';
+  static const String programsEdit = 'Edit';
   static const String programsSave = 'Save Program';
+  static const String programsSaveChanges = 'Save Changes';
+  static const String programsUpdatedToast = '"{name}" updated.';
+  static const String programsCreatedToast = '"{name}" created.';
+  static const String programsPerExercise = 'Sets · Reps · Weight (kg)';
+  static const String programsRemoveExercise = 'Remove exercise';
   static const String programsNameRequired = 'Please enter a program name.';
   static const String programsExerciseRequired =
       'Please select at least one exercise from Discover.';
@@ -246,6 +253,23 @@ class AfStrings {
       'No sets logged yet. Tap "Add Set" above to record your first set.';
   static const String workoutInputChannel =
       'Input channel: {method} (Change in Settings)';
+  static const String workoutOpenExerciseInfo = 'Exercise info';
+  static const String workoutRecentCommands = 'Recent commands';
+  static const String workoutTapToExpand = 'Tap a group to see its sets';
+  static const String workoutGroupedSets = '{reps}';
+  static const String workoutRemoveGroup = 'Remove these logged sets';
+  static const String workoutRemoveGroupTitle = 'Remove this group?';
+  static const String workoutRemoveGroupBody =
+      'This removes {count} logged sets for {exercise}.';
+  static const String remove = 'Remove';
+  static const String workoutAutoCountDemo = 'Auto-count demo';
+  static const String workoutAutoCountHide = 'Hide auto-count';
+  static const String workoutLockscreenConcept = 'Lock-screen concept';
+  static const String workoutLockscreenConceptTitle = 'Lock-screen quick add';
+  static const String workoutLockscreenConceptBody =
+      'On a real device this bar lives on the lock screen: +1 rep and +1 set '
+      'without unlocking. In this prototype the same buttons live on the '
+      'workout screen.';
   static const String workoutFinish = 'Finish Workout';
   static const String workoutSetNumber = 'Set {number}';
   static const String workoutSetSummary = '{kg} kg × {reps} reps';
@@ -259,6 +283,27 @@ class AfStrings {
       'Say or type a command: "add 10 reps" · "subtract 5 reps" · '
       '"set reps to 12" · "finished set"';
   static const String workoutVoiceRun = 'Run';
+  static const String workoutVoiceSpeak = '🎙️ Speak';
+  static const String workoutVoiceStop = '⏹ Stop';
+  static const String workoutVoiceListening =
+      'Listening… say "add 10 reps", "set reps to 12" or "finished set".';
+  static const String workoutVoiceSpeakTooltip = 'Speak a command';
+  static const String workoutVoiceStopTooltip = 'Stop listening';
+  static const String workoutMicExplainTitle = 'Microphone';
+  static const String workoutMicExplainBody =
+      'AtomFit listens only while you hold the mic open, turns what you say '
+      'into a set, and never stores the audio.';
+  static const String workoutMicExplainContinue = 'Continue';
+  static const String workoutMicExplainCancel = 'Not now';
+  static const String workoutMicDenied =
+      'Microphone access is off. Allow it in Android settings, or type the '
+      'command instead.';
+  static const String workoutMicUnavailable =
+      'Speech recognition is not available on this device. Type the command '
+      'instead.';
+  static const String workoutMicFailed =
+      'The microphone did not start. Try again, or type the command instead.';
+  static const String workoutMicEmpty = 'I did not hear anything. Try again.';
   static const String workoutVoiceUnknown =
       'I did not catch that. Try "add 10 reps", "subtract 5 reps", '
       '"set reps to 12" or "finished set".';
@@ -334,14 +379,31 @@ class AfStrings {
 
   // ------------------------------------------------------------------ history
   static const String historySearchPlaceholder = 'Search by program name';
-  static const String historyStitchBanner =
-      'Workout Stitching Available ({count} Micro Sessions)';
-  static const String historyStitchBannerBody =
-      'Combine fragmented micro-workouts into one unified Stitched session.';
-  static const String historyStitchButton = 'Stitch Micros';
-  static const String historyStitchedFrom =
-      'Stitched from {count} micro-sessions:';
+  static const String historyStitchEnter = 'Stitch sessions';
+  static const String historyStitchCancel = 'Cancel';
+  static const String historyStitchHint =
+      'Pick two sessions from the same day to combine them into one.';
+  static const String historyStitchSelected = '{count}/2 selected';
+  static const String historyStitchAction = 'Stitch {count}';
+  static const String historyStitchSameSession = 'Pick two different sessions.';
+  static const String historyStitchStitched =
+      'A stitched session cannot be stitched again.';
+  static const String historyStitchDifferentDay =
+      'Both sessions must be from the same day.';
+  static const String historyStitchPreviewTitle = 'Stitch these two?';
+  static const String historyStitchPreviewBody =
+      'The combined session keeps every set. Your history shows one stitched '
+      'card with both sessions inside, and Unstitch puts them back.';
+  static const String historyStitchConfirm = 'Stitch';
+  static const String historyStitchBreakdown =
+      '{sets} sets · {reps} reps · {volume} kg · {duration} min';
+  static const String historyStitchedFrom = 'Stitched from {count} sessions:';
   static const String historyUnstitch = 'Unstitch';
+  static const String historyUnstitchTitle = 'Unstitch this session?';
+  static const String historyUnstitchBody =
+      'The two original sessions come back as they were, with their own sets '
+      'and totals. This cannot be undone.';
+  static const String historyUnstitchConfirm = 'Unstitch';
   static const String historyDetail = 'Detail';
   static const String historyDelete = 'Delete';
   static const String historyEmpty = 'No workouts found';
@@ -355,8 +417,14 @@ class AfStrings {
   static const String historyDeleteBody =
       'This removes the session from your history. This cannot be undone.';
   static const String historyUnstitchedToast =
-      'Unstitched into {count} individual Micro sessions!';
-  static const String historyStitchedToast = 'Stitched {count} micro sessions.';
+      'Unstitched into {count} individual sessions.';
+  static const String historyStitchedToast = 'Stitched {count} sessions.';
+  static const String historyStitchIneligible =
+      'Those two sessions cannot be stitched.';
+  static const String historyStitchTwoOnly =
+      'Two sessions are already picked. Remove one to change the pair.';
+  static const String historyStitchPicked = '✓ Picked for stitching';
+  static const String historyStitchTapToPick = 'Tap to pick this session';
 
   // ----------------------------------------------------------------- discover
   static const String discoverCustomTitle = 'Add Custom Exercise';
@@ -432,6 +500,9 @@ class AfStrings {
   static const String settingsHapticTitle = 'Haptic Rest Timer Alerts';
   static const String settingsHapticDesc =
       'Vibrate when rest timer reaches 00:00';
+  static const String settingsHapticTest = 'Test vibration';
+  static const String settingsHapticTestToast =
+      'Check your phone: three pulses should have played.';
   static const String settingsAdaptive = 'Adaptive Engine & State';
   static const String settingsTriggerQuiz = 'Trigger Inactivity Quiz';
   static const String settingsResetSeed = 'Reset Seeded Data';

@@ -28,6 +28,7 @@ import 'screens/settings_screen.dart';
 import 'screens/workout_complete_screen.dart';
 import 'services/notifications.dart';
 import 'services/rest_alerts.dart';
+import 'services/speech_to_text_source.dart';
 import 'state/app_state.dart';
 import 'strings.dart';
 import 'theme/app_theme.dart';
@@ -77,6 +78,9 @@ Future<void> _boot() async {
     state.reminders = AfNotifications.instance;
     await state.reconcileReminders();
     await RestAlerts.instance.warmUp();
+    // The microphone behind the voice log. It asks for access on first use and
+    // reports a refusal back to the screen, which falls back to typing.
+    state.speech = SpeechToTextSource();
 
     runApp(AtomFitApp(state: state));
   } catch (error, stackTrace) {

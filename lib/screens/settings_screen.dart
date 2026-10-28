@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app/shell.dart';
+import '../services/rest_alerts.dart';
 import '../state/app_state.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
@@ -15,92 +18,12 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
     final AppState state = AfAppScope.of(context);
-    final String method = state.activeWorkout.inputMethod;
-
-    const List<({String id, String label})> modes =
-        <({String id, String label})>[
-      (id: 'manual', label: AfStrings.settingsManual),
-      (id: 'sensor', label: AfStrings.settingsSensor),
-      (id: 'voice', label: AfStrings.settingsVoice),
-      (id: 'lockscreen', label: AfStrings.settingsLockscreen),
-    ];
 
     return AfScaffold(
       screenId: AfScreen.settings,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          // -------------------------------------------------- input channel
-          AfCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            AfStrings.settingsInputChannel,
-                            style: AfText.strong(t, size: 14),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AfStrings.settingsInputChannelBody,
-                            style: AfText.muted(t, size: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    AfBadge(
-                      label: AfStrings.fill(
-                        AfStrings.settingsActiveChannel,
-                        <String, Object?>{'method': method},
-                      ),
-                      fontSize: 10,
-                      uppercase: true,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Column(
-                  children: <Widget>[
-                    for (int row = 0; row < 2; row++)
-                      Padding(
-                        padding: EdgeInsets.only(bottom: row == 1 ? 0 : 8),
-                        child: Row(
-                          children: <Widget>[
-                            for (int column = 0;
-                                column < 2;
-                                column++) ...<Widget>[
-                              if (column == 1) const SizedBox(width: 8),
-                              Expanded(
-                                child: AfButton(
-                                  label: modes[row * 2 + column].label,
-                                  variant: method == modes[row * 2 + column].id
-                                      ? AfButtonVariant.primary
-                                      : AfButtonVariant.secondary,
-                                  size: AfButtonSize.medium,
-                                  onPressed: () => state.switchInputMethod(
-                                    modes[row * 2 + column].id,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
           // --------------------------------------------------------- theme
           AfCard(
             padding: const EdgeInsets.all(16),
@@ -226,6 +149,22 @@ class SettingsScreen extends StatelessWidget {
                     value: state.settings.hapticFeedback,
                     onChanged: (_) =>
                         state.toggleDeviceSetting('hapticFeedback'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: AfButton(
+                    label: AfStrings.settingsHapticTest,
+                    variant: AfButtonVariant.secondary,
+                    size: AfButtonSize.compact,
+                    onPressed: () {
+                      unawaited(RestAlerts.instance.vibrate());
+                      state.showToast(
+                        AfStrings.settingsHapticTestToast,
+                        kind: ToastKind.info,
+                      );
+                    },
                   ),
                 ),
               ],

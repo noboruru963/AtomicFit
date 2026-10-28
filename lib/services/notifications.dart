@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -50,7 +51,9 @@ class AfNotifications implements RestTimerNotifier, WorkoutReminderScheduler {
   static const int _reminderBaseId = 2000;
 
   static const String _restProgressChannel = 'rest_timer_progress';
-  static const String _restFinishedChannel = 'rest_timer';
+  // Android channels are immutable once created, so the vibration pattern
+  // needs a new id to reach installs that already have the old channel.
+  static const String _restFinishedChannel = 'rest_timer_v2';
   static const String _reminderChannel = 'workout_reminder';
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -205,7 +208,7 @@ class AfNotifications implements RestTimerNotifier, WorkoutReminderScheduler {
     }
   }
 
-  NotificationDetails _finishedDetails() => const NotificationDetails(
+  NotificationDetails _finishedDetails() => NotificationDetails(
         android: AndroidNotificationDetails(
           _restFinishedChannel,
           'Rest timer',
@@ -213,6 +216,10 @@ class AfNotifications implements RestTimerNotifier, WorkoutReminderScheduler {
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.alarm,
+          // Background rest has to be felt too: a short vibration pattern on
+          // the channel, independent of whether the in-app haptics fired.
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList(<int>[0, 400, 200, 400]),
         ),
       );
 

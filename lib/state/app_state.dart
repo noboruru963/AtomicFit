@@ -12,6 +12,8 @@ import '../models/app_account.dart';
 import '../models/app_models.dart';
 import '../services/personal_details_validation.dart';
 import '../services/notifications.dart';
+import '../services/rest_alerts.dart';
+import '../services/speech_source.dart';
 import '../strings.dart';
 import 'rules.dart';
 import 'voice_commands.dart';
@@ -128,6 +130,15 @@ class AppState extends ChangeNotifier {
   /// Mirrors the countdown into the OS notification. Left null in tests, which
   /// makes every notification call a no-op.
   RestTimerNotifier? restTimerNotifications;
+
+  /// The microphone behind the voice log. Boot replaces it with the real
+  /// recognizer; tests leave the [UnavailableSpeechSource] default in place or
+  /// inject their own fake.
+  SpeechSource speech = const UnavailableSpeechSource();
+
+  /// Whether the microphone explanation has been shown. The OS only prompts
+  /// once, so this lives for the session and is not persisted.
+  bool micExplained = false;
 
   // ------------------------------------------------------------------ toast
   String? toastText;
@@ -741,11 +752,8 @@ class AppState extends ChangeNotifier {
 
   Program createProgram({
     required String name,
-    required String type,
-    required int sets,
-    required int reps,
-    required double weightKg,
     required List<ProgramExercise> exercises,
+    String type = 'Custom',
   }) {
     final String now = _now.toUtc().toIso8601String();
     final Program program = Program(
@@ -754,17 +762,13 @@ class AppState extends ChangeNotifier {
       name: name,
       splitGroup: type,
       type: type,
-      duration: type == 'Micro' ? '8 min' : '35 min',
+      duration: _programDuration(exercises),
       frequency: '3 days/wk',
       difficulty: 'Custom',
       active: true,
-      exercises: exercises
-          .map((ProgramExercise e) => e.copyWith(
-                sets: sets,
-                reps: reps,
-                weightKg: weightKg,
-              ))
-          .toList(),
+      // Each exercise carries its own sets, reps and weight from the editor;
+      // nothing is overwritten with one global value.
+      exercises: exercises,
       createdAtUtc: now,
       updatedAtUtc: now,
     );
@@ -776,6 +780,76 @@ class AppState extends ChangeNotifier {
     unawaited(persist());
     notifyListeners();
     return program;
+  }
+
+  /// Saves an edit of an existing program in place.
+  ///
+  /// The id and creation time survive, so history and schedules that point at
+  /// the program keep working. When the edited program is the active one the
+  /// workout draft is refreshed, which is what makes new weights and reps show
+  /// up in the workout screen straight away.
+  Program updateProgram({
+    required String id,
+    required String name,
+    required List<ProgramExercise> exercises,
+  }) {
+    final int index = programs.indexWhere((Program p) => p.id == id);
+    if (index < 0) {
+      return createProgram(name: name, exercises: exercises);
+    }
+    final Program before = programs[index];
+    final Program updated = before.copyWith(
+      name: name,
+      exercises: exercises,
+      duration: _programDuration(exercises),
+    );
+    programs = <Program>[
+      for (int i = 0; i < programs.length; i++)
+        if (i == index) updated else programs[i],
+    ];
+
+    if (before.active) {
+      final ActiveWorkout draft = activeWorkout;
+      final bool keepsExercise = exercises.any(
+        (ProgramExercise e) => e.name == draft.currentExercise,
+      );
+      activeWorkout = draft.copyWith(
+        sessionName: name,
+        exercises: exercises,
+        currentExercise: keepsExercise
+            ? draft.currentExercise
+            : (exercises.isEmpty ? '' : exercises.first.name),
+        weightInput: keepsExercise || exercises.isEmpty
+            ? draft.weightInput
+            : _weightText(exercises.first),
+        repsInput: keepsExercise || exercises.isEmpty
+            ? draft.repsInput
+            : exercises.first.reps,
+      );
+    }
+
+    unawaited(persist());
+    notifyListeners();
+    showToast(
+      AfStrings.fill(AfStrings.programsUpdatedToast, <String, Object?>{
+        'name': name,
+      }),
+    );
+    return updated;
+  }
+
+  /// A rough duration from the number of planned sets (3 minutes each).
+  String _programDuration(List<ProgramExercise> exercises) {
+    final int sets = exercises.fold<int>(
+      0,
+      (int total, ProgramExercise exercise) => total + exercise.sets,
+    );
+    return '${(sets * 3).clamp(10, 90)} min';
+  }
+
+  String _weightText(ProgramExercise exercise) {
+    final String text = exercise.weightKg.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
   }
 
   // -------------------------------------------------------------- workout
@@ -911,8 +985,16 @@ class AppState extends ChangeNotifier {
   }
 
   void removeLoggedSet(String setId) {
-    final List<LoggedSet> remaining =
-        activeWorkout.sets.where((LoggedSet s) => s.id != setId).toList();
+    removeLoggedSets(<String>[setId]);
+  }
+
+  /// Removes several logged sets at once, for deleting a whole exercise group.
+  void removeLoggedSets(Iterable<String> setIds) {
+    final Set<String> removing = setIds.toSet();
+    if (removing.isEmpty) return;
+    final List<LoggedSet> remaining = activeWorkout.sets
+        .where((LoggedSet s) => !removing.contains(s.id))
+        .toList();
     activeWorkout = activeWorkout.copyWith(sets: remaining);
     unawaited(persist());
     notifyListeners();
@@ -926,6 +1008,7 @@ class AppState extends ChangeNotifier {
     if (command == null) {
       return const VoiceCommandResult(VoiceOutcome.unknown);
     }
+    _rememberVoiceCommand(text);
     switch (command.action) {
       case VoiceAction.addReps:
         return _shiftReps(command.reps);
@@ -950,6 +1033,22 @@ class AppState extends ChangeNotifier {
         }
         return const VoiceCommandResult(VoiceOutcome.saved);
     }
+  }
+
+  /// Keeps the newest three recognised commands on the draft, newest first.
+  ///
+  /// Only lines the instruction table understood are stored, so a misheard
+  /// "hello there" never becomes a suggestion.
+  void _rememberVoiceCommand(String text) {
+    final String command = text.trim();
+    if (command.isEmpty) return;
+    final List<String> history = <String>[
+      command,
+      ...activeWorkout.voiceHistory.where(
+        (String previous) => previous.toLowerCase() != command.toLowerCase(),
+      ),
+    ].take(3).toList(growable: false);
+    activeWorkout = activeWorkout.copyWith(voiceHistory: history);
   }
 
   /// Applies a relative rep change, clamped to 0..[kVoiceMaxReps].
@@ -1104,20 +1203,52 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Combines the first two micro sessions into one stitched session.
-  WorkoutSession? stitchMicroSessions() {
-    final List<WorkoutSession> micros =
-        history.where((WorkoutSession s) => s.type == 'micro').take(2).toList();
-    if (micros.length < 2) return null;
+  /// Whether two sessions may become one stitched parent.
+  ///
+  /// The draft rule (TBD-17 default) keeps it strict: two different sessions,
+  /// neither already stitched, started on the same local calendar day and
+  /// either complete or micro. Anything else stays a separate workout.
+  bool canStitch(WorkoutSession a, WorkoutSession b) {
+    if (a.id == b.id) return false;
+    if (a.isStitched || b.isStitched) return false;
+    return _sameLocalDay(a, b);
+  }
 
-    final WorkoutSession first = micros[0];
-    final WorkoutSession second = micros[1];
+  /// Why [b] cannot join [a], for the "why is this disabled" hint.
+  String? stitchBlockedReason(WorkoutSession a, WorkoutSession b) {
+    if (a.id == b.id) return AfStrings.historyStitchSameSession;
+    if (a.isStitched || b.isStitched) return AfStrings.historyStitchStitched;
+    if (!_sameLocalDay(a, b)) return AfStrings.historyStitchDifferentDay;
+    return null;
+  }
+
+  DateTime? _sessionDay(WorkoutSession session) {
+    final DateTime? parsed = DateTime.tryParse(session.startedAtUtc);
+    if (parsed == null) return null;
+    final DateTime local = parsed.isUtc ? parsed.toLocal() : parsed;
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  bool _sameLocalDay(WorkoutSession a, WorkoutSession b) {
+    final DateTime? dayA = _sessionDay(a);
+    final DateTime? dayB = _sessionDay(b);
+    if (dayA != null && dayB != null) return dayA == dayB;
+    return a.dayOfMonth == b.dayOfMonth;
+  }
+
+  /// Combines the two selected sessions into one stitched parent.
+  ///
+  /// The children keep every set they had; the parent only references them, so
+  /// each set still counts once in History and the calendar. Returns `null`
+  /// when the selection is not eligible.
+  WorkoutSession? stitchSessions(List<String> sessionIds) {
+    if (sessionIds.length != 2) return null;
+    final WorkoutSession? first = _sessionById(sessionIds[0]);
+    final WorkoutSession? second = _sessionById(sessionIds[1]);
+    if (first == null || second == null) return null;
+    if (!canStitch(first, second)) return null;
+
     final String now = _now.toUtc().toIso8601String();
-    final List<LoggedSet> combined = <LoggedSet>[
-      ...first.setsDetail,
-      ...second.setsDetail,
-    ];
-
     final WorkoutSession stitched = WorkoutSession(
       id: 's_stitched_${DateTime.now().millisecondsSinceEpoch}',
       userId: SeedData.userId,
@@ -1130,8 +1261,8 @@ class AppState extends ChangeNotifier {
       reps: first.reps + second.reps,
       volume: double.parse((first.volume + second.volume).toStringAsFixed(1)),
       setsCount: first.setsCount + second.setsCount,
-      methods: const <String>['manual', 'lockscreen'],
-      setsDetail: combined,
+      methods: <String>{...first.methods, ...second.methods}.toList(),
+      setsDetail: <LoggedSet>[...first.setsDetail, ...second.setsDetail],
       children: <WorkoutSession>[first, second],
       createdAtUtc: now,
       updatedAtUtc: now,
@@ -1145,8 +1276,19 @@ class AppState extends ChangeNotifier {
     ];
     unawaited(persist());
     notifyListeners();
-    showToast('Stitched ${micros.length} micro sessions.');
+    showToast(
+      AfStrings.fill(AfStrings.historyStitchedToast, <String, Object?>{
+        'count': 2,
+      }),
+    );
     return stitched;
+  }
+
+  WorkoutSession? _sessionById(String id) {
+    for (final WorkoutSession session in history) {
+      if (session.id == id) return session;
+    }
+    return null;
   }
 
   /// Replaces a stitched session with its children.
@@ -1168,7 +1310,11 @@ class AppState extends ChangeNotifier {
     ];
     unawaited(persist());
     notifyListeners();
-    showToast('Unstitched into ${children.length} individual Micro sessions!');
+    showToast(
+      AfStrings.fill(AfStrings.historyUnstitchedToast, <String, Object?>{
+        'count': children.length,
+      }),
+    );
     return children.length;
   }
 
@@ -1774,6 +1920,14 @@ class AppState extends ChangeNotifier {
         restEndTime = null;
         activeWorkout = activeWorkout.copyWith(restSeconds: 0);
         restTimerNotifications?.showFinished(exercise: _restExerciseLabel);
+        // Feedback lives here rather than on the screen so it still fires when
+        // the app is backgrounded or the user navigated away.
+        if (settings.bellSound) {
+          unawaited(RestAlerts.instance.playBell());
+        }
+        if (settings.hapticFeedback) {
+          unawaited(RestAlerts.instance.vibrate());
+        }
         onRestTimerFinished?.call();
       }
       notifyListeners();

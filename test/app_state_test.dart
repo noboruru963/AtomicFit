@@ -233,26 +233,125 @@ void main() {
     expect(state.showQuizBannerOnHome, isFalse);
   });
 
-  test('stitching combines two micro sessions and unstitch restores them',
+  test('stitching combines two same-day sessions and unstitch restores them',
       () async {
     final AppState state = await _freshState();
-    // The seeded history holds a single micro session, so a second one is
-    // created the way the app does it: finish a micro program.
-    state.startProgramWorkout('p4', 'micro');
-    state.updateWeightInput('12');
-    state.updateRepsInput(10);
-    state.logCurrentSet();
-    state.finishActiveWorkout();
+    // Two micro sessions created the way the app does it: finish a micro
+    // program twice. Both start today, so they are eligible for a stitch.
+    for (int i = 0; i < 2; i++) {
+      state.startProgramWorkout('p4', 'micro');
+      state.updateWeightInput('12');
+      state.updateRepsInput(10);
+      state.logCurrentSet();
+      state.finishActiveWorkout();
+    }
+
+    final List<WorkoutSession> micros = state.history
+        .where((WorkoutSession s) => s.type == 'micro')
+        .take(2)
+        .toList();
+    expect(micros, hasLength(2));
+    expect(state.canStitch(micros[0], micros[1]), isTrue);
 
     final int before = state.history.length;
-    final WorkoutSession? stitched = state.stitchMicroSessions();
+    final WorkoutSession? stitched = state.stitchSessions(
+      <String>[micros[0].id, micros[1].id],
+    );
     expect(stitched, isNotNull);
     expect(stitched!.children, hasLength(2));
     expect(stitched.type, 'stitched');
+    // Children keep their own sets; the parent only adds the totals.
+    expect(stitched.setsDetail,
+        hasLength(micros[0].setsDetail.length + micros[1].setsDetail.length));
+    expect(stitched.reps, micros[0].reps + micros[1].reps);
     expect(state.history.length, before - 1);
 
     state.unstitchSession(stitched.id);
     expect(state.history.length, before);
+    expect(
+      state.history.where((WorkoutSession s) => s.type == 'micro'),
+      hasLength(micros.length + 1),
+    );
+  });
+
+  test('sessions from different days cannot be stitched', () async {
+    final AppState state = await _freshState();
+    final WorkoutSession micro =
+        state.history.firstWhere((WorkoutSession s) => s.type == 'micro');
+    final WorkoutSession older = state.history.firstWhere(
+      (WorkoutSession s) =>
+          !s.isStitched && s.id != micro.id && s.dayOfMonth != micro.dayOfMonth,
+    );
+
+    expect(state.canStitch(micro, older), isFalse);
+    expect(state.stitchBlockedReason(micro, older), isNotNull);
+    expect(state.stitchSessions(<String>[micro.id, older.id]), isNull);
+  });
+
+  test('voice commands keep the last three recognised lines', () async {
+    final AppState state = await _freshState();
+    state.applyVoiceCommand('add 10 reps');
+    state.applyVoiceCommand('subtract 5 reps');
+    state.applyVoiceCommand('set reps to 12');
+    state.applyVoiceCommand('add 1 reps');
+
+    expect(state.activeWorkout.voiceHistory, <String>[
+      'add 1 reps',
+      'set reps to 12',
+      'subtract 5 reps',
+    ]);
+
+    // An unrecognised line is not remembered and leaves the list alone.
+    expect(
+      state.applyVoiceCommand('hello there').outcome,
+      VoiceOutcome.unknown,
+    );
+    expect(state.activeWorkout.voiceHistory, hasLength(3));
+  });
+
+  test('editing a program keeps its id and updates the exercise targets',
+      () async {
+    final AppState state = await _freshState();
+    final Program before = state.getActiveProgram()!;
+    final ProgramExercise first = before.exercises.first;
+    final List<ProgramExercise> edited = <ProgramExercise>[
+      first.copyWith(sets: 4, reps: 12, weightKg: 22.5),
+      ...before.exercises.skip(1),
+    ];
+
+    final Program updated = state.updateProgram(
+      id: before.id,
+      name: 'Push Day Edited',
+      exercises: edited,
+    );
+
+    expect(updated.id, before.id);
+    expect(updated.name, 'Push Day Edited');
+    expect(
+      state.getActiveProgram()!.exercises.first.weightKg,
+      22.5,
+    );
+    expect(state.getActiveProgram()!.exercises.first.sets, 4);
+    // The workout draft follows the edit so the screen shows the new target.
+    expect(state.activeWorkout.sessionName, 'Push Day Edited');
+    expect(state.currentTarget?.weightKg, 22.5);
+  });
+
+  test('creating a program no longer overwrites per-exercise values', () async {
+    final AppState state = await _freshState();
+    final Program created = state.createProgram(
+      name: 'My Split',
+      exercises: const <ProgramExercise>[
+        ProgramExercise(name: 'Lat pulldown', sets: 4, reps: 12, weightKg: 25),
+        ProgramExercise(name: 'Chest press', sets: 3, reps: 8, weightKg: 40),
+      ],
+    );
+
+    expect(created.exercises.first.sets, 4);
+    expect(created.exercises.first.reps, 12);
+    expect(created.exercises.first.weightKg, 25);
+    expect(created.exercises.last.weightKg, 40);
+    expect(state.getActiveProgram()?.id, created.id);
   });
 
   test('switching the input channel is persisted on the draft', () async {

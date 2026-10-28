@@ -35,11 +35,17 @@ class RestAlerts {
     }
   }
 
+  /// A short three-pulse buzz, so the rest-over moment is felt and not only
+  /// heard. Two heavy impacts read as a double tap on most phones, so the
+  /// pattern adds a third pulse with a visible gap.
   Future<void> vibrate() async {
     try {
-      await HapticFeedback.heavyImpact();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await HapticFeedback.heavyImpact();
+      for (int pulse = 0; pulse < 3; pulse++) {
+        await HapticFeedback.heavyImpact();
+        if (pulse < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 220));
+        }
+      }
     } catch (error) {
       debugPrint('RestAlerts: vibration failed ($error)');
     }

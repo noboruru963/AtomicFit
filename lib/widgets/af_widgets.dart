@@ -235,19 +235,27 @@ class AfWorkoutButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.emphasised = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final Widget? icon;
 
+  /// Fills the button with the brand blue (white label) instead of the neutral
+  /// grey, used for the rep steppers and the Add Set action.
+  final bool emphasised;
+
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final Color background = emphasised ? t.accent : t.workoutBtnBg;
+    final Color foreground = emphasised ? Colors.white : t.workoutBtnText;
+    final Color border = emphasised ? t.accent : t.workoutBtnBorder;
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: t.workoutBtnBg,
+        color: background,
         borderRadius: BorderRadius.circular(t.radiusWorkout),
         child: InkWell(
           onTap: onPressed,
@@ -256,7 +264,7 @@ class AfWorkoutButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18.4),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(t.radiusWorkout),
-              border: Border.all(color: t.workoutBtnBorder),
+              border: Border.all(color: border),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -265,7 +273,7 @@ class AfWorkoutButton extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: t.workoutBtnText,
+                    color: foreground,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     height: 1.4,

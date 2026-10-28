@@ -7,6 +7,17 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Fire rest-timer and workout reminders on time. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Voice log: turn what the user says into a set (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Rest-over haptics and the vibrating notification channel. -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- Android 11+ package visibility for the speech recognizer service. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
     
     <application
         android:label="AtomFit"

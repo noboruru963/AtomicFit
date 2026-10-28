@@ -5,10 +5,13 @@ import 'package:atomfit/app/shell.dart';
 import 'package:atomfit/data/store.dart';
 import 'package:atomfit/main.dart';
 import 'package:atomfit/screens/home_screen.dart';
+import 'package:atomfit/services/speech_source.dart';
 import 'package:atomfit/state/app_state.dart';
+import 'package:atomfit/strings.dart';
 import 'package:atomfit/widgets/af_widgets.dart';
 
 import 'helpers/fonts.dart';
+import 'support/fake_speech_source.dart';
 
 class _MemoryStore implements AtomFitStore {
   Map<String, dynamic>? data;
@@ -111,11 +114,15 @@ void main() {
     expect(find.text('Current Exercise'), findsOneWidget);
 
     // "+1 reps" bumps the rep counter (Push Day starts at 8 reps).
+    await tester.ensureVisible(find.text('+1 reps'));
+    await tester.pump();
     await tester.tap(find.text('+1 reps'));
     await tester.pump();
     expect(state.activeWorkout.repsInput, 9);
 
     // "Add Set" stores the set and opens the rest timer.
+    await tester.ensureVisible(find.text('Add Set'));
+    await tester.pump();
     await tester.tap(find.text('Add Set'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -197,6 +204,107 @@ void main() {
     expect(state.activeWorkout.sets, hasLength(1));
     expect(state.activeWorkout.sets.single.reps, 12);
     expect(find.text('REST COUNTDOWN'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
+
+  testWidgets('the microphone turns speech into reps and a saved set',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final FakeSpeechSource speech = FakeSpeechSource();
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    state.speech = speech;
+    state.updateRepsInput(8);
+    state.switchInputMethod('voice');
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.activeWorkout);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // The first tap explains what the microphone is for, then opens it.
+    await tester.tap(find.text(AfStrings.workoutVoiceSpeak));
+    await tester.pumpAndSettle();
+    expect(find.text(AfStrings.workoutMicExplainBody), findsOneWidget);
+    await tester.tap(find.text(AfStrings.workoutMicExplainContinue));
+    await tester.pumpAndSettle();
+
+    expect(speech.starts, 1);
+    expect(find.text(AfStrings.workoutVoiceStop), findsOneWidget);
+
+    // Partial words fill the box but do not run anything yet.
+    speech.say('add ten', isFinal: false);
+    await tester.pump();
+    expect(find.text('add ten'), findsOneWidget);
+    expect(state.activeWorkout.repsInput, 8);
+
+    speech.say('add 10 reps');
+    await tester.pump();
+    expect(state.activeWorkout.repsInput, 18);
+    expect(state.activeWorkout.sets, isEmpty);
+    expect(find.text(AfStrings.workoutVoiceSpeak), findsOneWidget);
+
+    // Spoken "finished set" saves the set and opens the rest timer.
+    await tester.tap(find.text(AfStrings.workoutVoiceSpeak));
+    await tester.pumpAndSettle();
+    expect(speech.starts, 2);
+    speech.say('finished set');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(state.activeWorkout.sets, hasLength(1));
+    expect(state.activeWorkout.sets.single.reps, 18);
+    expect(find.text('REST COUNTDOWN'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
+
+  testWidgets('a refused microphone keeps the typed commands working',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final FakeSpeechSource speech =
+        FakeSpeechSource(status: SpeechStartStatus.permissionDenied);
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    state.speech = speech;
+    state.updateRepsInput(8);
+    state.switchInputMethod('voice');
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.activeWorkout);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text(AfStrings.workoutVoiceSpeak));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AfStrings.workoutMicExplainContinue));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AfStrings.workoutMicDenied), findsOneWidget);
+    expect(find.text(AfStrings.workoutVoiceSpeak), findsOneWidget);
+
+    // Typing still logs, which is the whole point of the fallback.
+    final Finder chip = find.widgetWithText(AfButton, 'add 10 reps');
+    await tester.ensureVisible(chip);
+    await tester.tap(chip);
+    await tester.pump();
+    expect(state.activeWorkout.repsInput, 18);
 
     await tester.pump(const Duration(seconds: 3));
     state.dispose();

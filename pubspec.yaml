@@ -29,6 +29,8 @@ dependencies:
   flutter_timezone: ^5.0.0
   # Debug-only "HTML reference" screen (loads index.html in a WebView).
   webview_flutter: ^4.10.0
+  # Microphone speech-to-text for the voice log (Android SpeechRecognizer).
+  speech_to_text: ^7.0.0
 
 dev_dependencies:
   flutter_test:
