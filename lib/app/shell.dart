@@ -40,6 +40,7 @@ class AfScreen {
   static const String home = 'home';
   static const String programs = 'programs';
   static const String activeWorkout = 'active-workout';
+  static const String lockScreenWidget = 'lock-screen-widget';
   static const String timer = 'timer';
   static const String workoutComplete = 'workout-complete';
   static const String history = 'history';

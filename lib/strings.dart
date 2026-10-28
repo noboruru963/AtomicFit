@@ -94,7 +94,7 @@ class AfStrings {
       'Take a short quiz to adjust your program load.';
   static const String homeQuizButton = 'Quiz';
   static const String homeDismiss = '✕';
-  static const String homeWorkoutsLogged = 'Workouts logged: {count}';
+  static const String homeWorkoutsLogged = 'Workouts logged:';
   static const String homeHistoryLink = 'History →';
   static const String homeMyPrograms = 'My Programs';
   static const String homeManageAll = 'Manage all ({count})';
@@ -171,6 +171,10 @@ class AfStrings {
       'Choose a time and a program. You will get a reminder on the day.';
   static const String scheduleDate = 'Date';
   static const String scheduleTime = 'Time';
+  static const String scheduleHour = 'Hour (0-23)';
+  static const String scheduleMinute = 'Minute (0-59)';
+  static const String scheduleHourError = 'Hour must be between 0 and 23.';
+  static const String scheduleMinuteError = 'Minutes must be between 0 and 59.';
   static const String scheduleProgram = 'Program';
   static const String scheduleSave = 'Schedule';
   static const String scheduleCancel = 'Cancel';
@@ -264,12 +268,20 @@ class AfStrings {
   static const String remove = 'Remove';
   static const String workoutAutoCountDemo = 'Auto-count demo';
   static const String workoutAutoCountHide = 'Hide auto-count';
-  static const String workoutLockscreenConcept = 'Lock-screen concept';
-  static const String workoutLockscreenConceptTitle = 'Lock-screen quick add';
-  static const String workoutLockscreenConceptBody =
-      'On a real device this bar lives on the lock screen: +1 rep and +1 set '
-      'without unlocking. In this prototype the same buttons live on the '
-      'workout screen.';
+  static const String workoutLockscreenConcept = '🔒 Lock screen widget';
+  static const String lockWidgetLabel = 'LOCK SCREEN';
+  static const String lockWidgetSet = 'Set {n} of {total}';
+  static const String lockWidgetReps = 'reps';
+  static const String lockWidgetAddSet = 'Add set';
+  static const String lockWidgetNext = 'Next exercise';
+  static const String lockWidgetRest = 'Rest';
+  static const String lockWidgetRestOver = 'Rest over — next set ready';
+  static const String lockWidgetSkip = 'Skip rest';
+  static const String lockWidgetOpen = 'Open widget';
+  static const String lockWidgetPreviewNote =
+      'In-app preview of the lock-screen panel.';
+  static const String lockWidgetEmpty =
+      'Start a workout to use the lock screen widget.';
   static const String workoutFinish = 'Finish Workout';
   static const String workoutSetNumber = 'Set {number}';
   static const String workoutSetSummary = '{kg} kg × {reps} reps';
@@ -475,6 +487,18 @@ class AfStrings {
   static const String settingsTheme = 'Theme & Appearance';
   static const String settingsThemeBody =
       'Switch between Light Mode and Dark Mode';
+  static const String settingsSectionAppearance = 'Appearance';
+  static const String settingsSectionAppearanceBody = 'Light mode or dark mode';
+  static const String settingsSectionDevice = 'Device';
+  static const String settingsSectionDeviceBody =
+      'Notifications, sensors, lock screen and haptics';
+  static const String settingsSectionPreferences = 'Preferences';
+  static const String settingsSectionPreferencesBody =
+      'Timer sound and the adaptive engine';
+  static const String settingsSectionAbout = 'About us';
+  static const String settingsSectionAboutBody =
+      'Version, credits and exercise data';
+  static const String settingsBack = 'All settings';
   static const String settingsLightActive = 'Light Active';
   static const String settingsDarkActive = 'Dark Active';
   static const String settingsLightMode = '☀️ Light Mode';

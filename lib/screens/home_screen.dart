@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/shell.dart';
 import '../models/app_models.dart';
@@ -79,55 +80,28 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  active == null || active.exercises.isEmpty
-                      ? AfStrings.homeNoExercises
-                      : active.exercises
-                          .map((ProgramExercise e) => e.name)
-                          .join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AfText.muted(t),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AfButton(
-                        label: draftSets > 0 && sameProgram
-                            ? AfStrings.fill(
-                                AfStrings.homeContinueProgram,
-                                <String, Object?>{
-                                  'program': active.name,
-                                  'sets': draftSets,
-                                },
-                              )
-                            : AfStrings.fill(
-                                AfStrings.homeStartProgram,
-                                <String, Object?>{
-                                  'program': active?.name ?? '',
-                                },
-                              ),
-                        size: AfButtonSize.medium,
-                        onPressed: () {
-                          if (active == null) return;
-                          state.startProgramWorkout(active.id, 'full');
-                          Navigator.of(context)
-                              .pushNamed(AfScreen.activeWorkout);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    AfButton(
-                      label: AfStrings.homeEmptyWorkout,
-                      variant: AfButtonVariant.secondary,
-                      size: AfButtonSize.medium,
-                      onPressed: () {
-                        state.startEmptyWorkout();
-                        Navigator.of(context).pushNamed(AfScreen.activeWorkout);
-                      },
-                    ),
-                  ],
+                AfButton(
+                  label: draftSets > 0 && sameProgram
+                      ? AfStrings.fill(
+                          AfStrings.homeContinueProgram,
+                          <String, Object?>{
+                            'program': active.name,
+                            'sets': draftSets,
+                          },
+                        )
+                      : AfStrings.fill(
+                          AfStrings.homeStartProgram,
+                          <String, Object?>{
+                            'program': active?.name ?? '',
+                          },
+                        ),
+                  size: AfButtonSize.medium,
+                  expand: true,
+                  onPressed: () {
+                    if (active == null) return;
+                    state.startProgramWorkout(active.id, 'full');
+                    Navigator.of(context).pushNamed(AfScreen.activeWorkout);
+                  },
                 ),
               ],
             ),
@@ -201,10 +175,7 @@ class HomeScreen extends StatelessWidget {
                             TextSpan(
                               children: <InlineSpan>[
                                 TextSpan(
-                                  text:
-                                      '${AfStrings.fill(AfStrings.homeWorkoutsLogged, <String, Object?>{
-                                        'count': state.history.length
-                                      })} ',
+                                  text: '${AfStrings.homeWorkoutsLogged} ',
                                   style: AfText.muted(t),
                                 ),
                                 TextSpan(
@@ -789,52 +760,15 @@ class _ScheduleSheet extends StatefulWidget {
 }
 
 class _ScheduleSheetState extends State<_ScheduleSheet> {
-  /// Minute granularity of the picker.
-  static const List<int> _minutes = <int>[
-    0,
-    5,
-    10,
-    15,
-    20,
-    25,
-    30,
-    35,
-    40,
-    45,
-    50,
-    55,
-  ];
-
-  static const List<int> _hours = <int>[
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-  ];
-
   late int _hour;
   late int _minute;
   late String _programId;
+  late final TextEditingController _hourCtrl;
+  late final TextEditingController _minuteCtrl;
+
+  /// Set when the typed time is out of range, so the sheet can explain why
+  /// the Schedule button is disabled.
+  String? _timeError;
 
   @override
   void initState() {
@@ -846,9 +780,40 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
     // Today: the next full hour. A later day: the usual evening slot.
     _hour = isToday ? (now.hour + 1).clamp(0, 23) : 18;
     _minute = isToday && now.hour >= 23 ? 55 : 0;
+    _hourCtrl = TextEditingController(text: _two(_hour));
+    _minuteCtrl = TextEditingController(text: _two(_minute));
     _programId = widget.state.programs.isEmpty
         ? ''
         : widget.state.getActiveProgram()?.id ?? widget.state.programs.first.id;
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    super.dispose();
+  }
+
+  static String _two(int value) => value.toString().padLeft(2, '0');
+
+  /// Reads the two number boxes and keeps the planned time in step with them.
+  ///
+  /// Out-of-range values never reach the schedule: the sheet shows the rule
+  /// that was broken instead (0-23 hours, 0-59 minutes).
+  void _onTimeChanged() {
+    final int? hour = int.tryParse(_hourCtrl.text.trim());
+    final int? minute = int.tryParse(_minuteCtrl.text.trim());
+    String? error;
+    if (hour == null || hour < 0 || hour > 23) {
+      error = AfStrings.scheduleHourError;
+    } else if (minute == null || minute < 0 || minute > 59) {
+      error = AfStrings.scheduleMinuteError;
+    }
+    setState(() {
+      _timeError = error;
+      if (hour != null && hour >= 0 && hour <= 23) _hour = hour;
+      if (minute != null && minute >= 0 && minute <= 59) _minute = minute;
+    });
   }
 
   DateTime get _plannedTime => DateTime(
@@ -859,7 +824,8 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
         _minute,
       );
 
-  bool get _isPast => !_plannedTime.isAfter(DateTime.now());
+  bool get _isPast =>
+      _timeError == null && !_plannedTime.isAfter(DateTime.now());
 
   Program? get _program {
     for (final Program program in widget.state.programs) {
@@ -870,7 +836,7 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
 
   void _submit() {
     final Program? program = _program;
-    if (program == null) return;
+    if (program == null || _timeError != null) return;
     widget.state.scheduleWorkout(
       date: widget.date,
       hour: _hour,
@@ -944,19 +910,18 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(AfStrings.scheduleTime,
+                      Text(AfStrings.scheduleHour,
                           style: AfText.muted(t, size: 11)),
                       const SizedBox(height: 4),
-                      AfDropdown(
-                        value: _hour.toString().padLeft(2, '0'),
-                        items: _hours
-                            .map((int h) => h.toString().padLeft(2, '0'))
-                            .toList(growable: false),
-                        onChanged: (String value) {
-                          final int? parsed = int.tryParse(value);
-                          if (parsed == null) return;
-                          setState(() => _hour = parsed);
-                        },
+                      AfTextField(
+                        controller: _hourCtrl,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        onChanged: (_) => _onTimeChanged(),
                       ),
                     ],
                   ),
@@ -966,24 +931,36 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(' ', style: AfText.muted(t, size: 11)),
+                      Text(AfStrings.scheduleMinute,
+                          style: AfText.muted(t, size: 11)),
                       const SizedBox(height: 4),
-                      AfDropdown(
-                        value: _minute.toString().padLeft(2, '0'),
-                        items: _minutes
-                            .map((int m) => m.toString().padLeft(2, '0'))
-                            .toList(growable: false),
-                        onChanged: (String value) {
-                          final int? parsed = int.tryParse(value);
-                          if (parsed == null) return;
-                          setState(() => _minute = parsed);
-                        },
+                      AfTextField(
+                        controller: _minuteCtrl,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        onChanged: (_) => _onTimeChanged(),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
+            if (_timeError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _timeError!,
+                  style: TextStyle(
+                    color: t.danger,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             Text(AfStrings.scheduleProgram, style: AfText.muted(t, size: 11)),
             const SizedBox(height: 4),
@@ -1032,7 +1009,9 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
                   child: AfButton(
                     label: AfStrings.scheduleSave,
                     size: AfButtonSize.medium,
-                    onPressed: hasPrograms && !_isPast ? _submit : null,
+                    onPressed: hasPrograms && _timeError == null && !_isPast
+                        ? _submit
+                        : null,
                   ),
                 ),
               ],

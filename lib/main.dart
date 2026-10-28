@@ -15,6 +15,7 @@ import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/html_reference_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/lockscreen_widget_screen.dart';
 import 'screens/personal_details_screen.dart';
 import 'screens/programs_screen.dart';
 import 'screens/profile_screen.dart';
@@ -134,6 +135,8 @@ class AtomFitApp extends StatelessWidget {
               AfScreen.activeWorkout: (BuildContext context) =>
                   const ActiveWorkoutScreen(),
               AfScreen.timer: (BuildContext context) => const RestTimerScreen(),
+              AfScreen.lockScreenWidget: (BuildContext context) =>
+                  const LockScreenWidgetScreen(),
               AfScreen.workoutComplete: (BuildContext context) =>
                   const WorkoutCompleteScreen(),
               AfScreen.history: (BuildContext context) => const HistoryScreen(),

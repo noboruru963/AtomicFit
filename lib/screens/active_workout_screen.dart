@@ -230,24 +230,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     Navigator.of(context).pushNamed(AfScreen.discoverDetail);
   }
 
-  /// Shows the lock-screen concept. The buttons live here in the prototype;
-  /// on a real device the same actions sit on the lock screen.
-  Future<void> _showLockscreenConcept(AppState state) async {
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text(AfStrings.workoutLockscreenConceptTitle),
-        content: const Text(AfStrings.workoutLockscreenConceptBody),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(AfStrings.close),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
@@ -491,24 +473,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                           padding: const EdgeInsets.all(10),
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          for (final String example
-                              in AfStrings.voiceCommandExamples)
-                            AfButton(
-                              label: example,
-                              variant: AfButtonVariant.secondary,
-                              size: AfButtonSize.compact,
-                              onPressed: () {
-                                _voice.text = example;
-                                _runVoiceCommand(state);
-                              },
-                            ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -532,7 +496,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                       label: AfStrings.workoutLockscreenConcept,
                       variant: AfButtonVariant.secondary,
                       size: AfButtonSize.compact,
-                      onPressed: () => _showLockscreenConcept(state),
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(AfScreen.lockScreenWidget),
                     ),
                   ],
                 ),

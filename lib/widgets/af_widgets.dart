@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
@@ -657,6 +658,7 @@ class AfTextField extends StatelessWidget {
     this.emphasised = false,
     this.autofocus = false,
     this.obscureText = false,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -670,6 +672,7 @@ class AfTextField extends StatelessWidget {
   final bool emphasised;
   final bool autofocus;
   final bool obscureText;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -683,6 +686,7 @@ class AfTextField extends StatelessWidget {
       textInputAction: textInputAction,
       autofocus: autofocus,
       obscureText: obscureText,
+      inputFormatters: inputFormatters,
       style: style ??
           (emphasised
               ? theme.textTheme.titleMedium?.copyWith(fontSize: 18)
