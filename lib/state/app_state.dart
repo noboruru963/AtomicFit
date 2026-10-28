@@ -45,6 +45,10 @@ class VoiceCommandResult {
   final String? error;
 }
 
+/// The demo line older drafts kept in the voice box. It is dropped on restore
+/// so a resumed workout starts with an empty input.
+const String _legacyVoiceText = 'add 10 reps';
+
 /// The application state, ported 1:1 from the web prototype's global
 /// `appState` object (`index.html` lines 667-764) plus its handlers.
 ///
@@ -315,7 +319,11 @@ class AppState extends ChangeNotifier {
         restTotalSeconds: restored.restTotalSeconds,
         restSeconds: restored.restSeconds,
         sets: restored.sets,
-        voiceSimText: restored.voiceSimText,
+        // Older drafts carried a demo line in the voice box; it is not
+        // something the user typed, so it starts empty again.
+        voiceSimText: restored.voiceSimText == _legacyVoiceText
+            ? ''
+            : restored.voiceSimText,
       );
     } else {
       final Program? active = getActiveProgram();
@@ -940,7 +948,11 @@ class AppState extends ChangeNotifier {
 
   /// The single write path for sets (manual, sensor, voice and lockscreen all
   /// funnel through here). Returns an error message when the set was rejected.
-  String? logCurrentSet() {
+  ///
+  /// [inputMethod] records how the set was produced; it defaults to `manual`
+  /// because the screen buttons are the normal path now that the channel
+  /// selector is gone.
+  String? logCurrentSet({String inputMethod = 'manual'}) {
     if (activeWorkout.currentExercise.isEmpty) {
       return 'Please add or select an exercise first.';
     }
@@ -961,7 +973,7 @@ class AppState extends ChangeNotifier {
       weightKg: weight,
       reps: reps,
       restS: activeWorkout.restTotalSeconds,
-      inputMethod: activeWorkout.inputMethod,
+      inputMethod: inputMethod,
       loggedAtUtc: now,
       createdAtUtc: now,
       updatedAtUtc: now,
@@ -1027,7 +1039,7 @@ class AppState extends ChangeNotifier {
       case VoiceAction.finishSet:
         // Goes through the single Save-Set path, so the same validation and
         // the same idempotent write apply as manual logging.
-        final String? error = logCurrentSet();
+        final String? error = logCurrentSet(inputMethod: 'voice');
         if (error != null) {
           return VoiceCommandResult(VoiceOutcome.rejected, error: error);
         }

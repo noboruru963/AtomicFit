@@ -791,7 +791,7 @@ class ActiveWorkout {
     required this.restTotalSeconds,
     required this.restSeconds,
     required this.sets,
-    this.voiceSimText = 'add 10 reps',
+    this.voiceSimText = '',
     this.voiceHistory = const <String>[],
   });
 
@@ -878,7 +878,7 @@ class ActiveWorkout {
       sets: _asMapList(json['sets'])
           .map(LoggedSet.fromJson)
           .toList(growable: false),
-      voiceSimText: (json['voiceSimText'] ?? 'add 10 reps').toString(),
+      voiceSimText: (json['voiceSimText'] ?? '').toString(),
       voiceHistory: _asStringList(json['voiceHistory']),
     );
   }

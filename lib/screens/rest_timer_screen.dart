@@ -60,8 +60,22 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
     state.showToast(AfStrings.timerCompleteToast);
 
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed(AfScreen.activeWorkout);
+      _leaveTimer();
     }
+  }
+
+  /// Returns to the workout screen that opened the timer.
+  ///
+  /// The timer is always pushed from the active workout, so popping keeps that
+  /// screen (scroll position, typed values, logged sets) exactly as it was.
+  /// The replacement is only a fallback for a timer opened without a stack.
+  void _leaveTimer() {
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushReplacementNamed(AfScreen.activeWorkout);
   }
 
   @override
@@ -261,8 +275,7 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
             size: AfButtonSize.large,
             fontSize: 16,
             expand: true,
-            onPressed: () => Navigator.of(context)
-                .pushReplacementNamed(AfScreen.activeWorkout),
+            onPressed: _leaveTimer,
           ),
         ],
       ),

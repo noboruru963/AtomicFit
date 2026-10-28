@@ -209,6 +209,44 @@ void main() {
     state.dispose();
   });
 
+  testWidgets('a recent command fills the box instead of running again',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    state.updateRepsInput(8);
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.activeWorkout);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // "add 3 reps" is not one of the samples, so its chip is unique.
+    state.applyVoiceCommand('add 3 reps');
+    await tester.pump();
+    expect(state.activeWorkout.repsInput, 11);
+
+    final Finder recent = find.widgetWithText(AfButton, 'add 3 reps');
+    await tester.ensureVisible(recent);
+    await tester.tap(recent);
+    await tester.pump();
+
+    // The box now holds the line, but nothing was applied or saved.
+    expect(state.activeWorkout.repsInput, 11);
+    expect(state.activeWorkout.voiceSimText, 'add 3 reps');
+    expect(state.activeWorkout.sets, isEmpty);
+
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
+
   testWidgets('the microphone turns speech into reps and a saved set',
       (WidgetTester tester) async {
     await loadAppFonts();

@@ -470,8 +470,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                 variant: AfButtonVariant.secondary,
                                 size: AfButtonSize.compact,
                                 onPressed: () {
+                                  // Tapping fills the box so the user can
+                                  // adjust the line before sending it.
                                   _voice.text = previous;
-                                  _runVoiceCommand(state);
+                                  _voice.selection = TextSelection.collapsed(
+                                    offset: previous.length,
+                                  );
+                                  state.activeWorkout = state.activeWorkout
+                                      .copyWith(voiceSimText: previous);
+                                  setState(() => _voiceError = null);
                                 },
                               ),
                           ],
