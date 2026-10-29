@@ -270,6 +270,7 @@ class AfStrings {
   static const String workoutAutoCountHide = 'Hide auto-count';
   static const String workoutLockscreenConcept = '🔒 Lock screen widget';
   static const String lockWidgetLabel = 'LOCK SCREEN';
+  static const String lockWidgetBrand = 'ATOMFIT';
   static const String lockWidgetSet = 'Set {n} of {total}';
   static const String lockWidgetReps = 'reps';
   static const String lockWidgetAddSet = 'Add set';

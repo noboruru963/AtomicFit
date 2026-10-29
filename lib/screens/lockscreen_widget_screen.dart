@@ -176,7 +176,7 @@ class _WidgetPanel extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              const AfBadge(label: AfStrings.appTitle, fontSize: 10),
+              const AfBadge(label: AfStrings.lockWidgetBrand, fontSize: 10),
               const Spacer(),
               Text(
                 AfStrings.fill(AfStrings.lockWidgetSet, <String, Object?>{
