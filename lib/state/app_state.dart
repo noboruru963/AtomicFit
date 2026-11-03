@@ -846,6 +846,47 @@ class AppState extends ChangeNotifier {
     return updated;
   }
 
+  /// Moves one exercise inside a program and saves the new order.
+  ///
+  /// [oldIndex] and [newIndex] come straight from `ReorderableListView`'s
+  /// `onReorderItem`, which already reports the destination index after the
+  /// dragged row is removed.
+  ///
+  /// Reordering the active program also reorders the workout draft, so the
+  /// workout screen and its exercise picker follow the new order right away.
+  Program? reorderProgramExercises({
+    required String programId,
+    required int oldIndex,
+    required int newIndex,
+  }) {
+    final int index = programs.indexWhere((Program p) => p.id == programId);
+    if (index < 0) return null;
+    final Program before = programs[index];
+    final List<ProgramExercise> exercises = <ProgramExercise>[
+      ...before.exercises,
+    ];
+    if (oldIndex < 0 || oldIndex >= exercises.length) return null;
+    if (newIndex == oldIndex || newIndex < 0 || newIndex >= exercises.length) {
+      return null;
+    }
+
+    exercises.insert(newIndex, exercises.removeAt(oldIndex));
+    final Program updated = before.copyWith(exercises: exercises);
+    programs = <Program>[
+      for (int i = 0; i < programs.length; i++)
+        if (i == index) updated else programs[i],
+    ];
+    if (before.active) {
+      // The draft keeps its logged sets and the selected exercise; only the
+      // planned order changes.
+      activeWorkout = activeWorkout.copyWith(exercises: exercises);
+    }
+    unawaited(persist());
+    notifyListeners();
+    showToast(AfStrings.programsReorderToast);
+    return updated;
+  }
+
   /// A rough duration from the number of planned sets (3 minutes each).
   String _programDuration(List<ProgramExercise> exercises) {
     final int sets = exercises.fold<int>(

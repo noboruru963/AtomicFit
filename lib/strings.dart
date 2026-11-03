@@ -234,6 +234,10 @@ class AfStrings {
   static const String programsCreatedToast = '"{name}" created.';
   static const String programsPerExercise = 'Sets · Reps · Weight (kg)';
   static const String programsRemoveExercise = 'Remove exercise';
+  static const String programsReorderHint =
+      'Hold the handle and drag to change the exercise order.';
+  static const String programsReorderTooltip = 'Reorder exercise';
+  static const String programsReorderToast = 'Exercise order saved.';
   static const String programsNameRequired = 'Please enter a program name.';
   static const String programsExerciseRequired =
       'Please select at least one exercise from Discover.';

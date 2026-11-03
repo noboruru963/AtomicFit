@@ -337,6 +337,91 @@ void main() {
     expect(state.currentTarget?.weightKg, 22.5);
   });
 
+  test('dragging an exercise reorders the program and survives a restart',
+      () async {
+    final _MemoryStore store = _MemoryStore();
+    final AppState state = AppState(store: store);
+    await state.load();
+    final Program before = state.getActiveProgram()!;
+    final String first = before.exercises.first.name;
+    final String second = before.exercises[1].name;
+
+    // `onReorderItem` already reports the index after the row was removed.
+    final Program? updated = state.reorderProgramExercises(
+      programId: before.id,
+      oldIndex: 0,
+      newIndex: 1,
+    );
+
+    expect(updated, isNotNull);
+    expect(state.getActiveProgram()!.exercises.first.name, second);
+    expect(state.getActiveProgram()!.exercises[1].name, first);
+
+    await state.persist();
+    final AppState reopened = AppState(store: store);
+    await reopened.load();
+    expect(reopened.getActiveProgram()!.exercises.first.name, second);
+  });
+
+  test('reordering the active program reorders the workout draft too',
+      () async {
+    final AppState state = await _freshState();
+    final Program before = state.getActiveProgram()!;
+    final String current = state.activeWorkout.currentExercise;
+    final String second = before.exercises[1].name;
+
+    state.reorderProgramExercises(
+      programId: before.id,
+      oldIndex: 0,
+      newIndex: 1,
+    );
+
+    expect(state.activeWorkout.exercises.first.name, second);
+    // The exercise being logged stays selected, only the order moved.
+    expect(state.activeWorkout.currentExercise, current);
+  });
+
+  test('a reorder that changes nothing leaves the program alone', () async {
+    final AppState state = await _freshState();
+    final Program before = state.getActiveProgram()!;
+    final List<String> order = before.exercises
+        .map((ProgramExercise e) => e.name)
+        .toList(growable: false);
+
+    expect(
+      state.reorderProgramExercises(
+        programId: before.id,
+        oldIndex: 0,
+        newIndex: 0,
+      ),
+      isNull,
+    );
+    expect(
+      state.reorderProgramExercises(
+        programId: before.id,
+        oldIndex: 0,
+        newIndex: 99,
+      ),
+      isNull,
+    );
+    expect(
+      state.reorderProgramExercises(
+        programId: 'p_missing',
+        oldIndex: 0,
+        newIndex: 1,
+      ),
+      isNull,
+    );
+    expect(
+      state
+          .getActiveProgram()!
+          .exercises
+          .map((ProgramExercise e) => e.name)
+          .toList(),
+      order,
+    );
+  });
+
   test('creating a program no longer overwrites per-exercise values', () async {
     final AppState state = await _freshState();
     final Program created = state.createProgram(

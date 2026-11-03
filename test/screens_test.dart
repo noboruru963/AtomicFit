@@ -479,4 +479,127 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     state.dispose();
   });
+
+  testWidgets('dragging an exercise handle reorders the program',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.programs);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final program = state.getActiveProgram()!;
+    final String first = program.exercises.first.name;
+    final String second = program.exercises[1].name;
+
+    final Finder card = find
+        .ancestor(
+          of: find.text('1. $first'),
+          matching: find.byType(AfCard),
+        )
+        .first;
+    final Finder handles = find.descendant(
+      of: card,
+      matching: find.byTooltip(AfStrings.programsReorderTooltip),
+    );
+    expect(handles, findsNWidgets(program.exercises.length));
+
+    // Drag the second exercise above the first one.
+    await tester.ensureVisible(handles.at(1));
+    await tester.pumpAndSettle();
+    final TestGesture gesture =
+        await tester.startGesture(tester.getCenter(handles.at(1)));
+    for (int step = 0; step < 4; step++) {
+      await gesture.moveBy(const Offset(0, -18));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(state.getActiveProgram()!.exercises.first.name, second);
+    expect(find.text('1. $second'), findsWidgets);
+    expect(find.text('2. $first'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    // Let the "order saved" toast time out before the tree goes away.
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
+
+  testWidgets('the program editor saves a dragged exercise order',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = AppState(store: _MemoryStore());
+    await state.load();
+    state.isLoggedIn = true;
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.programs);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final program = state.getActiveProgram()!;
+    final String first = program.exercises.first.name;
+    final String second = program.exercises[1].name;
+
+    final Finder card = find
+        .ancestor(
+          of: find.text('1. $first'),
+          matching: find.byType(AfCard),
+        )
+        .first;
+    final Finder editButton =
+        find.descendant(of: card, matching: find.text(AfStrings.programsEdit));
+    await tester.ensureVisible(editButton);
+    await tester.pumpAndSettle();
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+
+    // The dialog lists the same exercises with their own drag handles.
+    final Finder handles = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byTooltip(AfStrings.programsReorderTooltip),
+    );
+    expect(handles, findsNWidgets(program.exercises.length));
+
+    await tester.ensureVisible(handles.at(1));
+    await tester.pumpAndSettle();
+    final TestGesture gesture =
+        await tester.startGesture(tester.getCenter(handles.at(1)));
+    for (int step = 0; step < 4; step++) {
+      await gesture.moveBy(const Offset(0, -18));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Nothing is stored until the dialog is saved.
+    expect(state.getActiveProgram()!.exercises.first.name, first);
+
+    await tester.ensureVisible(find.text(AfStrings.programsSaveChanges));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AfStrings.programsSaveChanges));
+    await tester.pumpAndSettle();
+
+    expect(state.getActiveProgram()!.exercises.first.name, second);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+    state.dispose();
+  });
 }
