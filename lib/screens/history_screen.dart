@@ -8,6 +8,13 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderHistoryScreen()` (`index.html` lines 3486-3569).
+///
+/// Lists `state.history` newest first, filtered by type and searched by name.
+/// Selection mode stitches exactly two eligible sessions; the detail dialog
+/// shows one session, its note and an editor for it.
+///
+/// The filter and the search text live on `AppState` (not here), so they
+/// survive a rebuild; the search controller is local and must be disposed.
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 

@@ -16,6 +16,10 @@ import '../widgets/af_widgets.dart';
 /// The hub lists the sections; nothing else is shown until the user opens one:
 /// Appearance, Device, Preferences, About us. Log out stays on the hub so it
 /// is one tap away from anywhere in settings.
+///
+/// "Reset demo data" only exists in debug builds (`kDebugMode`) and always asks
+/// for confirmation — it is the fastest way back to a known state while testing
+/// on a phone.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 

@@ -146,6 +146,11 @@ VoiceCommand? _withReps(VoiceAction action, RegExpMatch? match) {
 
 /// Parses one voice-log line. Returns `null` when the instruction is not in
 /// the table (the caller shows the retry hint and changes nothing).
+///
+/// Order matters: the exact-count patterns run before add/subtract, so a line
+/// like "set 12 reps" can never be read as "add 12". To support a new phrase,
+/// add the word to the matching table above and a case to
+/// `test/state/voice_commands_test.dart` — no other code needs to change.
 VoiceCommand? parseVoiceCommand(String raw) {
   final String text = normalizeVoiceText(raw);
   if (text.isEmpty) return null;

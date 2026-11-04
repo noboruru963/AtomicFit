@@ -8,6 +8,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizAdjustedScreen()` (`index.html` lines 1936-1975).
+///
+/// The preview of the quiz result. Nothing is applied until **Accept program**
+/// calls `acceptAdjustedProgram()`; **Keep my old program** leaves the Current
+/// program untouched. Both are deterministic results of
+/// `computeQuizAdjustment` — this screen only presents them.
 class QuizAdjustedProgramScreen extends StatelessWidget {
   const QuizAdjustedProgramScreen({super.key});
 

@@ -54,6 +54,17 @@ const String _legacyVoiceText = 'add 10 reps';
 ///
 /// Screens read from this object and call the methods below; nothing else
 /// mutates application data.
+///
+/// Every mutating method follows the same shape: change the field, call
+/// [persist] (usually through `unawaited`), then [notifyListeners] and — when
+/// the user needs feedback — [showToast].
+///
+/// Debugging pointers:
+/// * a screen that does not update usually misses `notifyListeners()`;
+/// * a change that disappears after a restart is missing from [persist] or
+///   from `SqliteStore.write`;
+/// * "nothing happens" on a tap is often an early return guarded by
+///   [activeWorkout] being empty or a validation error string.
 class AppState extends ChangeNotifier {
   AppState({
     required this.store,
@@ -334,6 +345,13 @@ class AppState extends ChangeNotifier {
   }
 
   /// Writes the current state back to the store.
+  ///
+  /// Every mutating method calls this (usually through `unawaited`), so the
+  /// document is always the whole state. If a field is missing from this map,
+  /// it is not persisted — add it here **and** in `SqliteStore.write`.
+  ///
+  /// The write is tracked in [_pendingWrite] so tests can await it and a slow
+  /// write cannot overwrite a newer one.
   Future<void> persist() async {
     final Future<void> write = store.write(<String, dynamic>{
       'schemaVersion': 1,
@@ -668,6 +686,12 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Loads [programId] into the draft and makes it the Current program.
+  ///
+  /// [mode] is `full` or `micro`; an empty string infers it from the program
+  /// type. Already logged sets are kept when the same program is re-opened and
+  /// cleared when the user switches program, so "start again" needs an
+  /// explicit discard.
   void startProgramWorkout(String programId, String mode) {
     Program? found;
     for (final Program program in programs) {
@@ -696,6 +720,9 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Starts an empty workout: no planned exercises, so the user adds them one
+  /// by one. It is stored as a micro session, because it has no program behind
+  /// it and is finished as a partial workout.
   void startEmptyWorkout() {
     activeWorkout = const ActiveWorkout(
       programId: 'p_empty',
@@ -758,6 +785,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Creates a program from the editor and makes it the Current program.
+  ///
+  /// The new program is prepended to [programs] and every other program is
+  /// marked inactive (there is exactly one Current program). The draft is
+  /// rebuilt from it, so the Workout tab shows the new exercises immediately.
   Program createProgram({
     required String name,
     required List<ProgramExercise> exercises,
@@ -993,6 +1025,11 @@ class AppState extends ChangeNotifier {
   /// [inputMethod] records how the set was produced; it defaults to `manual`
   /// because the screen buttons are the normal path now that the channel
   /// selector is gone.
+  ///
+  /// The set lands in the draft (`activeWorkout.sets`) — it only becomes part
+  /// of a history record in [finishActiveWorkout]. That is why discarding a
+  /// workout loses its sets, and why a micro session is just a finish with
+  /// fewer sets. A successful save also resets the rest timer.
   String? logCurrentSet({String inputMethod = 'manual'}) {
     if (activeWorkout.currentExercise.isEmpty) {
       return 'Please add or select an exercise first.';
@@ -1141,6 +1178,15 @@ class AppState extends ChangeNotifier {
   }
 
   /// Finishes the workout and stores the session in history.
+  ///
+  /// Side effects, in order: the session is prepended to [history], the
+  /// summary the complete screen reads is set, progression may bump the
+  /// program, and the draft's sets are cleared (the program and inputs stay,
+  /// so the next workout starts where this one ended). Returns `null` and
+  /// shows a toast when no set was logged.
+  ///
+  /// The note is not written here: the complete screen calls
+  /// [setSessionNote] with the id from [WorkoutSummary.sessionId].
   WorkoutSession? finishActiveWorkout() {
     if (activeWorkout.sets.isEmpty) {
       showToast(
@@ -1251,6 +1297,11 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- history
 
+  /// Removes a session from History.
+  ///
+  /// Deleting a stitched parent also removes its children: they only live
+  /// inside the parent record, so there is nothing left to show afterwards.
+  /// Unstitch first if the children should stay.
   void deleteSession(String sessionId) {
     history = history.where((WorkoutSession s) => s.id != sessionId).toList();
     unawaited(persist());
@@ -1295,6 +1346,10 @@ class AppState extends ChangeNotifier {
   /// The children keep every set they had; the parent only references them, so
   /// each set still counts once in History and the calendar. Returns `null`
   /// when the selection is not eligible.
+  ///
+  /// The parent is a new record without a note of its own: notes stay on the
+  /// children, and [unstitchSession] throws the parent (and any note added to
+  /// it) away.
   WorkoutSession? stitchSessions(List<String> sessionIds) {
     if (sessionIds.length != 2) return null;
     final WorkoutSession? first = sessionById(sessionIds[0]);
@@ -1381,6 +1436,11 @@ class AppState extends ChangeNotifier {
   }
 
   /// Replaces a stitched session with its children.
+  ///
+  /// Returns the number of sessions that came back (2 for a real parent, 0
+  /// when the id is unknown). A parent restored from an old record that lost
+  /// its children is split into two synthetic halves so the user never ends up
+  /// with nothing.
   int unstitchSession(String sessionId) {
     final int index =
         history.indexWhere((WorkoutSession s) => s.id == sessionId);
@@ -1588,6 +1648,11 @@ class AppState extends ChangeNotifier {
   QuizAdjustment computedQuizAdjustment() => computeQuizAdjustment(quizAnswers);
 
   /// Applies the adjusted weights to the active program.
+  ///
+  /// The adjustment is written straight into the Current program (there is no
+  /// separate version record in this build), the draft is rebuilt from it, and
+  /// the Home banner is hidden. **Keep my old program** on the preview screen
+  /// is the only way back, so nothing is applied before the user taps Accept.
   void acceptAdjustedProgram() {
     final QuizAdjustment adjustment = computedQuizAdjustment();
     final Program? active = getActiveProgram();
@@ -1958,6 +2023,10 @@ class AppState extends ChangeNotifier {
   }
 
   /// Restores the seeded demo data.
+  ///
+  /// Only reachable from Settings in debug builds (`kDebugMode`), after the
+  /// confirmation dialog. It rewrites the in-memory demo data and persists it,
+  /// so the next launch is back to the seed as well.
   void resetDemoState() {
     final DateTime now = _now;
     catalogue = SeedData.catalogue(now);
@@ -1988,6 +2057,13 @@ class AppState extends ChangeNotifier {
 
   bool get isTimerRunning => restRunning;
 
+  /// Starts (or resumes) the countdown.
+  ///
+  /// Only the end time is stored; the 250 ms ticker just refreshes the UI, so
+  /// the remaining time stays correct after the app was in the background.
+  /// Reaching zero fires the bell, the vibration and [onRestTimerFinished]
+  /// here (not on the screen), so the feedback still happens when the user
+  /// navigated away.
   void startRestTimerCountdown() {
     timerRunId += 1;
     restRunning = true;

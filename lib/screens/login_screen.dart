@@ -7,6 +7,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderLoginScreen()` (`index.html` lines 1456-1489).
+///
+/// Local accounts only: `AppState.login` compares the salted hash and returns
+/// an error string, which the screen shows under the fields. A successful
+/// login replaces the route with Home, or with the personal-details step when
+/// that account never finished it.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 

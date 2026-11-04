@@ -470,6 +470,11 @@ class Exercise with RecordEnvelope {
 }
 
 /// A single exercise inside a program, with its own targets.
+///
+/// These numbers are what the Active workout pre-fills: `sets` planned sets of
+/// `reps` at `weightKg`. Progression edits them after a fully completed session
+/// (see `progressExercise` in `rules.dart`), so they are the program's current
+/// prescription, not a log of what happened.
 class ProgramExercise {
   const ProgramExercise({
     required this.name,
@@ -520,6 +525,11 @@ class ProgramExercise {
 }
 
 /// Training program. Mirrors `DEFAULT_PROGRAMS` entries.
+///
+/// [active] marks the Current program; [AppState.setActiveProgram] keeps
+/// exactly one active program and clears the flag on the others. [type] is the
+/// label shown in the UI (`Built-in`, `Custom`, …) and the exercise order is
+/// the order the user dragged the rows into.
 class Program with RecordEnvelope {
   const Program({
     required this.id,
@@ -614,6 +624,11 @@ class Program with RecordEnvelope {
 }
 
 /// One logged set inside a session. Mirrors `aw.sets[]` / `setsDetail[]`.
+///
+/// [setNo] counts all sets of the session; [exerciseSetNo] counts only the
+/// sets of [exerciseName] (the UI shows "Set 2 of Chest press"). Both are
+/// assigned when the set is saved, so reordering later does not renumber them.
+/// [weightKg] and [reps] are the values that feed volume and progression.
 class LoggedSet with RecordEnvelope {
   const LoggedSet({
     required this.id,
@@ -687,6 +702,14 @@ class LoggedSet with RecordEnvelope {
 }
 
 /// A finished workout. Mirrors `appState.history[]` entries.
+///
+/// `type` distinguishes a full session, a micro session (a workout finished
+/// early) and a stitched parent. A stitched parent carries its two children in
+/// [children] and only references them — the children keep their own sets and
+/// totals. History lists top-level sessions only, so every set is counted once.
+///
+/// The totals are stored at finish time (see [AppState.finishActiveWorkout]);
+/// they are not derived on read.
 class WorkoutSession with RecordEnvelope {
   const WorkoutSession({
     required this.id,
@@ -709,20 +732,34 @@ class WorkoutSession with RecordEnvelope {
     this.deletedAtUtc,
   });
 
-  /// `full` | `micro` | `stitched`.
   final String id;
   final String userId;
   final String name;
+
+  /// `full` | `micro` | `stitched`. See [isMicro] / [isStitched].
   final String type;
+
+  /// Human label of the start time (`MMM d, HH:mm`), shown in History.
   final String dateLabel;
+
+  /// Calendar day of the start, used by the Home month grid.
   final int dayOfMonth;
   final String startedAtUtc;
+
+  /// Stored totals. They are computed when the session is finished (or
+  /// stitched) and are **not** recalculated from [setsDetail] on load, so any
+  /// code that edits sets must update them too.
   final int durationMin;
   final int reps;
   final double volume;
   final int setsCount;
+
+  /// Input channels that produced at least one set (`manual`, `voice`, …).
   final List<String> methods;
   final List<LoggedSet> setsDetail;
+
+  /// The two sessions a stitched parent was built from; empty for everything
+  /// else. They are stored nested under the parent (see `SqliteStore`).
   final List<WorkoutSession> children;
 
   /// The user's own note about this workout ("how did it feel"), written on
@@ -736,8 +773,8 @@ class WorkoutSession with RecordEnvelope {
   bool get isStitched => type == 'stitched';
   bool get isMicro => type == 'micro';
 
-  /// A copy with another note. Used by the single write path so the stored
-  /// record keeps its identity and timestamps stay in order.
+  /// A copy with another note. The id, sets and totals stay identical; only
+  /// `updatedAtUtc` moves to now.
   WorkoutSession copyWithNote(String note) => WorkoutSession(
         id: id,
         userId: userId,
@@ -809,6 +846,14 @@ class WorkoutSession with RecordEnvelope {
 }
 
 /// The workout in progress. Mirrors `appState.activeWorkout`.
+///
+/// This is the **draft**: [sets] are saved to the database as part of the
+/// draft (so a kill does not lose them) but they are not History yet. They
+/// become a [WorkoutSession] in `AppState.finishActiveWorkout`; until then the
+/// Home calendar and the monthly count do not see them.
+///
+/// [restSeconds] is the remaining rest and [restTotalSeconds] the target used
+/// for the next set; `±15 s` moves both.
 class ActiveWorkout {
   const ActiveWorkout({
     required this.programId,
@@ -916,6 +961,11 @@ class ActiveWorkout {
 }
 
 /// Summary of the workout that was just finished.
+///
+/// Only the Workout complete screen reads it: it is set by
+/// `AppState.finishActiveWorkout` and is not persisted (it can always be
+/// rebuilt from [sessionId]). [sessionId] is what ties the note box on that
+/// screen to the stored session.
 class WorkoutSummary {
   const WorkoutSummary({
     required this.name,

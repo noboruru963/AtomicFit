@@ -11,6 +11,17 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderActiveWorkoutScreen()` (`index.html` lines 2522-2656).
+///
+/// The workout itself lives in `AppState.activeWorkout`; this screen owns only
+/// the text controllers (weight box, voice box) and the microphone session.
+/// Every save goes through `AppState.logCurrentSet`, and **Finish** calls
+/// `finishActiveWorkout()` before routing to the complete screen — a micro
+/// session takes the same path with `sessionType = 'micro'`.
+///
+/// When adding a field here, remember `dispose()`: the mic is cancelled and
+/// the controllers are disposed there. Disposing a controller while a dialog
+/// that still shows it is closing is what produces the "used after being
+/// disposed" error seen in the program editor.
 class ActiveWorkoutScreen extends StatefulWidget {
   const ActiveWorkoutScreen({super.key});
 

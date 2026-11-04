@@ -9,6 +9,13 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderHomeScreen()` (`index.html` lines 1615-1726).
+///
+/// The dashboard: welcome card, month calendar built from `state.history`,
+/// monthly count, the planned-workout card and the entries into a workout.
+/// It only reads state — every action navigates or calls an `AppState` method.
+///
+/// Gotcha: the grid uses the device clock directly (`DateTime.now()`), so a
+/// test that seeds sessions must build them relative to today.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 

@@ -7,6 +7,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderTimerScreen()` (`index.html` lines 2666-2731).
+///
+/// The countdown itself is owned by `AppState` (it keeps running when this
+/// screen is closed); this screen only draws `restSecondsRemaining` and sends
+/// start/pause/reset/skip/±15 taps. The lock-screen concept lives on its own
+/// screen (`LockScreenWidgetScreen`).
 class RestTimerScreen extends StatefulWidget {
   const RestTimerScreen({super.key});
 

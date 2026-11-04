@@ -8,6 +8,10 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizExplainerScreen()` (`index.html` lines 1897-1931).
+///
+/// "Why we changed your program": explains the rule-table outcome in words
+/// before the preview. It reads `computedQuizAdjustment()`; no state changes
+/// happen here.
 class QuizExplainerScreen extends StatelessWidget {
   const QuizExplainerScreen({super.key});
 

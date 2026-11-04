@@ -7,6 +7,10 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizPromptScreen()` (`index.html` lines 1758-1781).
+///
+/// Shown from Home when the user has been inactive for the configured number
+/// of days. "Start quiz" opens the first question; "Not now" only dismisses the
+/// prompt for this session — the quiz is never forced.
 class QuizPromptScreen extends StatelessWidget {
   const QuizPromptScreen({super.key});
 

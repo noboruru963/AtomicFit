@@ -59,15 +59,23 @@ class AppDatabase {
     await batch.commit(noResult: true);
   }
 
+  /// Applies [migrationSteps] from `oldVersion` to `newVersion`.
+  ///
+  /// Each step runs statement by statement (not as one batch) so a single
+  /// "duplicate column" can be tolerated: SQLite has no
+  /// `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, and a database that was
+  /// created by a newer build may already carry the column the step adds.
   Future<void> _migrate(Database db, int oldVersion, int newVersion) async {
     for (int version = oldVersion; version < newVersion; version++) {
       final int step = version;
       if (step < 0 || step >= migrationSteps.length) continue;
-      final Batch batch = db.batch();
       for (final String statement in migrationSteps[step]) {
-        batch.execute(statement);
+        try {
+          await db.execute(statement);
+        } on DatabaseException catch (error) {
+          if (!error.isDuplicateColumnError()) rethrow;
+        }
       }
-      await batch.commit(noResult: true);
     }
   }
 

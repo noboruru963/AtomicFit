@@ -9,6 +9,12 @@ import '../widgets/af_widgets.dart';
 
 /// Port of `renderProgramsScreen()` (`index.html` lines 2002-2067) including
 /// the program editor and delete confirmation modals.
+///
+/// The list is `state.programs`; "Current" is whichever program has
+/// `active == true`. The editor works on a local draft and only writes through
+/// `updateProgram` / `createProgram` on save, so Cancel never changes data.
+/// Rows can be dragged by their handle — the order is persisted with the
+/// program and is the order the Active workout pre-fills.
 class ProgramsScreen extends StatelessWidget {
   const ProgramsScreen({super.key});
 

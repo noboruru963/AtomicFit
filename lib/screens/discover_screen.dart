@@ -10,6 +10,11 @@ import '../widgets/af_widgets.dart';
 
 /// Port of `renderDiscoverScreen()` (`index.html` lines 4516-4554) with the
 /// new search, body-part filters, result count and pagination.
+///
+/// Results come from `AppState.searchCatalogue` (the SQLite catalogue), not
+/// from a hard-coded list, so a new exercise is visible here as soon as it is
+/// stored. The filter, search text and visible limit live on `AppState` so they
+/// survive a rebuild.
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
 

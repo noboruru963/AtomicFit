@@ -1,5 +1,9 @@
 import '../models/app_models.dart';
 
+// Pure rules shared by [AppState] and the tests. Nothing here touches storage,
+// Flutter or the clock, so every behaviour can be pinned by a unit test. When
+// a rule changes, `test/state/rules_test.dart` is the place that documents it.
+
 // --------------------------------------------------------------- progression
 
 /// Highest number of reps an exercise climbs to before the load goes up.
@@ -52,6 +56,10 @@ bool earnedProgression(ProgramExercise exercise, List<LoggedSet> sets) {
 /// 3. anything else leaves the program untouched.
 ///
 /// Row 2 is what keeps an all-high answer set from ever cutting the load.
+///
+/// The table is approved as written (BA-010). Any reduction must stay inside
+/// the approved 10–20% band; adding a row or changing a factor needs a new
+/// addendum, not just a code change.
 QuizAdjustment computeQuizAdjustment(Map<String, String> answers) {
   final String energy = answers['q2'] ?? 'Normal';
   final String motivation = answers['q3'] ?? 'Normal';

@@ -44,6 +44,11 @@ Future<void> main() async {
 /// The first frame needs this data, so it runs before `runApp`. Anything that
 /// fails here is reported on screen ([StartupErrorApp]) instead of leaving the
 /// launch window blank.
+///
+/// This is also the **only** place that wires the real implementations
+/// (sqflite, OS notifications, the phone microphone) into [AppState]. Tests
+/// build `AppState` themselves with fakes, so a bug that only shows on the
+/// device usually means the wiring here is wrong, not the screen.
 Future<void> _boot() async {
   try {
     // The local database: accounts, exercise catalogue, programs, sessions.
@@ -103,6 +108,10 @@ class AtomFitApp extends StatelessWidget {
 
   /// The screen the app opens on — the prototype routes to the login screen
   /// until a user is signed in (`renderCurrentScreen`, `index.html` 1501).
+  ///
+  /// It is read once, when [MaterialApp] is built. Changing the login flag
+  /// later does **not** move the user; screens navigate themselves with
+  /// `Navigator.pushReplacementNamed`.
   String get _initialRoute {
     if (!state.isLoggedIn) return AfScreen.login;
     if (!state.personalDetailsComplete) return AfScreen.personalDetails;
@@ -111,6 +120,9 @@ class AtomFitApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `ListenableBuilder` sits above `MaterialApp` so a theme or login change
+    // rebuilds the whole app shell (top bar, nav, toast) at once. Every screen
+    // also subscribes to the same [AppState] through [AfAppScope].
     return AfAppScope(
       state: state,
       child: ListenableBuilder(

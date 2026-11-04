@@ -163,6 +163,7 @@ void main() {
             'volume': 225.0,
             'setsCount': 1,
             'methods': <String>['manual'],
+            'note': 'Felt strong today.',
             'setsDetail': <Map<String, dynamic>>[
               <String, dynamic>{
                 'id': 'set_1',
@@ -227,6 +228,7 @@ void main() {
           history.first as Map<String, dynamic>;
       expect(session['setsCount'], 1);
       expect(session['setsDetail'], hasLength(1));
+      expect(session['note'], 'Felt strong today.');
     });
 
     test('writing the same document twice does not duplicate rows', () async {
