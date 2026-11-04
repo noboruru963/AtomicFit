@@ -1,11 +1,17 @@
-# AtomFit
+# AtomicFit
 
-Local-first, mobile-first workout tracker for Android. Purpose: **consistency, not
-perfection**. Tagline: *"Log it. Keep going."*
+Hello everyone! AtomicFit is a local, mobile workout tracker that 
+helps busy workers and students work out, even when they are fatigued and stressed.   
+
+Our purpose is to help gym-goers achieve consistency, 
+not perfection, with our motto of "One percent of workout effort is better than zero percent"
 
 The UI is a native Flutter port of the team's `index.html` prototype (the
 `Argon-2.0` branch design), and the data lives in a real on-device SQLite
 database.
+
+Developed by Jonathan Gouw Alexandrio, Luiesrelio, and Alexander Marchiano, 
+for final projects of Software Requirements Engineering at the University of Jakarta International (UNIJI)
 
 ## Architecture
 
