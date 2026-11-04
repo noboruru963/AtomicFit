@@ -662,6 +662,28 @@ class LoggedSet with RecordEnvelope {
   final String updatedAtUtc;
   final String? deletedAtUtc;
 
+  /// The same set recorded under another exercise name.
+  ///
+  /// Used when the lifter renames the exercise mid-workout: the sets already
+  /// logged move with the name, so the session still reads as one exercise.
+  /// Every other field, including [id] and the logged timestamp, is kept.
+  LoggedSet withExerciseName(String name) => LoggedSet(
+        id: id,
+        userId: userId,
+        sessionId: sessionId,
+        exerciseName: name,
+        setNo: setNo,
+        exerciseSetNo: exerciseSetNo,
+        weightKg: weightKg,
+        reps: reps,
+        restS: restS,
+        inputMethod: inputMethod,
+        loggedAtUtc: loggedAtUtc,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
+
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
         'userId': userId,

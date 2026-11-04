@@ -263,6 +263,16 @@ class AfStrings {
   static const String workoutInputChannel =
       'Input channel: {method} (Change in Settings)';
   static const String workoutOpenExerciseInfo = 'Exercise info';
+  static const String workoutRenameTooltip = 'Rename exercise';
+  static const String workoutRenameTitle = 'Rename exercise';
+  static const String workoutRenameHint = 'Exercise name';
+  static const String workoutRenameSave = 'Save';
+  static const String workoutRenameEmpty = 'Please enter an exercise name.';
+  static const String workoutRenameDuplicate =
+      'Another exercise in this workout already uses that name.';
+  static const String workoutRenameTooLong =
+      'Keep the name to {max} characters or fewer.';
+  static const String workoutRenameNoExercise = 'Select an exercise first.';
   static const String workoutRecentCommands = 'Recent commands';
   static const String workoutTapToExpand = 'Tap a group to see its sets';
   static const String workoutGroupedSets = '{reps}';
@@ -271,9 +281,6 @@ class AfStrings {
   static const String workoutRemoveGroupBody =
       'This removes {count} logged sets for {exercise}.';
   static const String remove = 'Remove';
-  static const String workoutAutoCountDemo = 'Auto-count demo';
-  static const String workoutAutoCountHide = 'Hide auto-count';
-  static const String workoutLockscreenConcept = '🔒 Lock screen widget';
   static const String lockWidgetLabel = 'LOCK SCREEN';
   static const String lockWidgetBrand = 'ATOMFIT';
   static const String lockWidgetSet = 'Set {n} of {total}';
@@ -291,17 +298,12 @@ class AfStrings {
   static const String workoutFinish = 'Finish Workout';
   static const String workoutSetNumber = 'Set {number}';
   static const String workoutSetSummary = '{kg} kg × {reps} reps';
-  static const String workoutAutoCount = '⌚ Auto-Count Channel:';
-  static const String workoutCounting = 'Counting reps...';
-  static const String workoutReady = 'Ready';
-  static const String workoutStartAutoCount = 'Start Auto-Count';
-  static const String workoutStopSensor = 'Stop Sensor';
   static const String workoutVoicePlaceholder = 'type a command';
   static const String workoutVoiceHint =
       'Say or type a command: "add 10 reps" · "subtract 5 reps" · '
       '"set reps to 12" · "finished set"';
   static const String workoutVoiceRun = 'Run';
-  static const String workoutVoiceSpeak = '🎙️ Speak';
+  static const String workoutVoiceSpeak = 'Speak';
   static const String workoutVoiceStop = '⏹ Stop';
   static const String workoutVoiceListening =
       'Listening… say "add 10 reps", "set reps to 12" or "finished set".';

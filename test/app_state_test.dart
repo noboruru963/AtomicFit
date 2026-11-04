@@ -647,7 +647,66 @@ void main() {
     expect(result.outcome, VoiceOutcome.rejected);
     expect(result.error, isNotNull);
     expect(state.activeWorkout.sets, isEmpty);
+    state.dispose();
+  });
 
+  test('renaming the exercise renames its logged sets, not the program',
+      () async {
+    final AppState state = await _freshState();
+    final String original = state.activeWorkout.currentExercise;
+    expect(original, isNotEmpty);
+    state.updateWeightInput('20');
+    state.updateRepsInput(10);
+    state.logCurrentSet();
+
+    expect(state.renameActiveExercise('  Machine chest press  '), isNull);
+    expect(state.activeWorkout.currentExercise, 'Machine chest press');
+    expect(state.activeWorkout.sets.single.exerciseName, 'Machine chest press');
+    expect(state.loggedCountFor('Machine chest press'), 1);
+    expect(
+      state.activeWorkout.exercises.map((ProgramExercise e) => e.name),
+      contains('Machine chest press'),
+    );
+    expect(
+      state.activeWorkout.exercises.map((ProgramExercise e) => e.name),
+      isNot(contains(original)),
+    );
+    // The program is not an improvised swap: it keeps its planned exercise.
+    expect(
+      state.getActiveProgram()!.exercises.map((ProgramExercise e) => e.name),
+      contains(original),
+    );
+    state.dispose();
+  });
+
+  test('renaming rejects a blank or duplicated name', () async {
+    final AppState state = await _freshState();
+    final String original = state.activeWorkout.currentExercise;
+    expect(state.activeWorkout.exercises.length, greaterThan(1));
+    final String other = state.activeWorkout.exercises
+        .firstWhere((ProgramExercise e) => e.name != original)
+        .name;
+
+    expect(state.renameActiveExercise('   '), isNotNull);
+    expect(state.renameActiveExercise(other), isNotNull);
+    expect(state.activeWorkout.currentExercise, original);
+    state.dispose();
+  });
+
+  test('finishing a workout ends the rest and clears the notification',
+      () async {
+    final AppState state = await _freshState();
+    final _FakeRestNotifier notifier = _FakeRestNotifier();
+    state.restTimerNotifications = notifier;
+    state.updateWeightInput('20');
+    state.logCurrentSet();
+    state.startRestTimerCountdown();
+    expect(state.isTimerRunning, isTrue);
+    expect(notifier.progressCalls, greaterThan(0));
+
+    state.finishActiveWorkout();
+    expect(state.isTimerRunning, isFalse);
+    expect(notifier.cancelCalls, greaterThan(0));
     state.dispose();
   });
 }
@@ -673,4 +732,7 @@ class _FakeRestNotifier implements RestTimerNotifier {
   void cancelProgress() {
     cancelCalls += 1;
   }
+
+  @override
+  void cancelFinished() {}
 }

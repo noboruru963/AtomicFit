@@ -39,6 +39,10 @@ Future<void> main() async {
   await _boot();
 }
 
+/// Keeps the "Rest over" alert from lingering after the user is back in the
+/// app. Held here so it is created once per boot and disposed on a retry.
+AppLifecycleListener? _lifecycle;
+
 /// Opens the database, prepares the catalogue and loads the saved state.
 ///
 /// The first frame needs this data, so it runs before `runApp`. Anything that
@@ -84,6 +88,13 @@ Future<void> _boot() async {
     state.reminders = AfNotifications.instance;
     await state.reconcileReminders();
     await RestAlerts.instance.warmUp();
+    // A "Rest over" alert posted while the app was in the background should
+    // not sit in the shade once the user is back. Only the finished alert is
+    // cleared: a countdown that is still running keeps its notification.
+    _lifecycle?.dispose();
+    _lifecycle = AppLifecycleListener(
+      onResume: AfNotifications.instance.cancelFinished,
+    );
     // The microphone behind the voice log. It asks for access on first use and
     // reports a refusal back to the screen, which falls back to typing.
     state.speech = SpeechToTextSource();

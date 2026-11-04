@@ -21,6 +21,10 @@ abstract class RestTimerNotifier {
 
   /// Removes the ongoing notification and its pending alert.
   void cancelProgress();
+
+  /// Removes only the "Rest over" alert, so a running countdown notification
+  /// is left alone. Called when the app comes back to the foreground.
+  void cancelFinished();
 }
 
 /// The seam [AppState] uses to keep reminders for planned workouts in the
@@ -235,6 +239,20 @@ class AfNotifications implements RestTimerNotifier, WorkoutReminderScheduler {
       await _plugin.cancel(_restFinishedId);
     } catch (error) {
       debugPrint('AfNotifications: cancel failed ($error)');
+    }
+  }
+
+  @override
+  void cancelFinished() {
+    unawaited(_cancelFinished());
+  }
+
+  Future<void> _cancelFinished() async {
+    if (!_ready) return;
+    try {
+      await _plugin.cancel(_restFinishedId);
+    } catch (error) {
+      debugPrint('AfNotifications: cancel finished failed ($error)');
     }
   }
 

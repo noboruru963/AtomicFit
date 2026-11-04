@@ -706,6 +706,9 @@ class AppState extends ChangeNotifier {
 
     final Program target = found;
     final bool switching = activeWorkout.programId != target.id;
+    // A rest from the previous workout must not keep ticking (or sit in the
+    // notification shade) behind the new one.
+    _endRest();
     programs = programs
         .map((Program p) => p.copyWith(active: p.id == target.id))
         .toList();
@@ -725,6 +728,7 @@ class AppState extends ChangeNotifier {
   /// by one. It is stored as a micro session, because it has no program behind
   /// it and is finished as a partial workout.
   void startEmptyWorkout() {
+    _endRest();
     activeWorkout = const ActiveWorkout(
       programId: 'p_empty',
       sessionName: 'Empty Workout',
@@ -985,6 +989,60 @@ class AppState extends ChangeNotifier {
     changeActiveExercise(exercises[next].name);
   }
 
+  /// The longest exercise name the rename dialog accepts.
+  static const int maxExerciseNameLength = 40;
+
+  /// Renames the exercise currently selected in the draft workout.
+  ///
+  /// The name changes for this workout only: the program and the exercise
+  /// catalogue keep their own names, because an improvised swap (the machine
+  /// was taken) is not a program edit. Sets already logged under the old name
+  /// in this session move with it, so History and the copy-as-text output
+  /// still show one exercise.
+  ///
+  /// Returns an error message for the dialog, or `null` when the name was
+  /// accepted (including the no-op case of an unchanged name).
+  String? renameActiveExercise(String raw) {
+    final String previous = activeWorkout.currentExercise;
+    if (previous.isEmpty) return AfStrings.workoutRenameNoExercise;
+    final String name = raw.trim();
+    if (name.isEmpty) return AfStrings.workoutRenameEmpty;
+    if (name.length > maxExerciseNameLength) {
+      return AfStrings.fill(
+        AfStrings.workoutRenameTooLong,
+        <String, Object?>{'max': maxExerciseNameLength},
+      );
+    }
+    if (name.toLowerCase() == previous.toLowerCase()) return null;
+
+    final String key = name.toLowerCase();
+    final bool duplicate = activeWorkout.exercises.any(
+      (ProgramExercise e) =>
+          e.name.toLowerCase() == key &&
+          e.name.toLowerCase() != previous.toLowerCase(),
+    );
+    if (duplicate) return AfStrings.workoutRenameDuplicate;
+
+    final String oldKey = previous.toLowerCase();
+    activeWorkout = activeWorkout.copyWith(
+      exercises: activeWorkout.exercises
+          .map((ProgramExercise e) =>
+              e.name.toLowerCase() == oldKey ? e.copyWith(name: name) : e)
+          .toList(growable: false),
+      currentExercise: name,
+      sets: activeWorkout.sets
+          .map((LoggedSet s) => s.exerciseName.toLowerCase() == oldKey
+              ? s.withExerciseName(name)
+              : s)
+          .toList(growable: false),
+    );
+    // The ongoing rest notification names the exercise; keep it in step.
+    _syncRestNotification();
+    unawaited(persist());
+    notifyListeners();
+    return null;
+  }
+
   void updateWeightInput(String value) {
     activeWorkout = activeWorkout.copyWith(weightInput: value);
     notifyListeners();
@@ -1066,6 +1124,8 @@ class AppState extends ChangeNotifier {
     restCompleted = false;
     restEndTime = null;
     _ticker?.cancel();
+    // The previous rest's notification must not outlive the set that ends it.
+    _syncRestNotification();
     unawaited(persist());
     notifyListeners();
     showToast(
@@ -1252,6 +1312,8 @@ class AppState extends ChangeNotifier {
     );
 
     activeWorkout = activeWorkout.copyWith(sets: <LoggedSet>[]);
+    // Finishing ends the workout: no countdown or notification may survive it.
+    _endRest();
     unawaited(persist());
     notifyListeners();
     return session;
@@ -2143,13 +2205,20 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void skipRestTimer() {
+  /// Stops the countdown and removes the OS notification, without notifying
+  /// listeners. Used when a rest is over for good: Back to workout, finishing
+  /// a workout, or starting another one.
+  void _endRest() {
     restRunning = false;
     restCompleted = false;
     restEndTime = null;
     _ticker?.cancel();
     activeWorkout = activeWorkout.copyWith(restSeconds: 0);
     _syncRestNotification();
+  }
+
+  void skipRestTimer() {
+    _endRest();
     notifyListeners();
   }
 
