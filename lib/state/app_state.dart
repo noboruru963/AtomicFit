@@ -15,6 +15,7 @@ import '../services/notifications.dart';
 import '../services/rest_alerts.dart';
 import '../services/speech_source.dart';
 import '../strings.dart';
+import 'calendar.dart';
 import 'rules.dart';
 import 'voice_commands.dart';
 
@@ -1327,12 +1328,8 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  DateTime? _sessionDay(WorkoutSession session) {
-    final DateTime? parsed = DateTime.tryParse(session.startedAtUtc);
-    if (parsed == null) return null;
-    final DateTime local = parsed.isUtc ? parsed.toLocal() : parsed;
-    return DateTime(local.year, local.month, local.day);
-  }
+  /// The local calendar day a session belongs to; see [sessionLocalDay].
+  DateTime? _sessionDay(WorkoutSession session) => sessionLocalDay(session);
 
   bool _sameLocalDay(WorkoutSession a, WorkoutSession b) {
     final DateTime? dayA = _sessionDay(a);

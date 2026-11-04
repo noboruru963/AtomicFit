@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../app/shell.dart';
 import '../models/app_models.dart';
 import '../state/app_state.dart';
+import '../state/calendar.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
@@ -186,7 +187,10 @@ class HomeScreen extends StatelessWidget {
                                   style: AfText.muted(t),
                                 ),
                                 TextSpan(
-                                  text: state.history.length.toString(),
+                                  text: workoutsInMonth(
+                                    state.history,
+                                    now,
+                                  ).toString(),
                                   style: TextStyle(
                                     color: t.accent,
                                     fontSize: 12,
@@ -377,10 +381,11 @@ class HomeScreen extends StatelessWidget {
     DateTime now,
   ) async {
     final DateTime date = DateTime(now.year, now.month, day);
-    final List<WorkoutSession> matches =
-        state.history.where((WorkoutSession s) => s.dayOfMonth == day).toList();
+    final List<WorkoutSession> matches = state.history
+        .where((WorkoutSession s) => sessionIsOn(s, date))
+        .toList();
     if (matches.isNotEmpty) {
-      await _showSessionDetails(context, matches.first, now, day);
+      await _showSessionDetails(context, matches.first);
       return;
     }
 
@@ -416,18 +421,24 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Read-only summary of a workout that was logged on [day].
+  /// Read-only summary of a workout that was logged on its own day.
+  ///
+  /// The date in the title comes from the session itself, never from the month
+  /// the calendar is showing, so an older workout can never be labelled with
+  /// the current month.
   static Future<void> _showSessionDetails(
     BuildContext context,
     WorkoutSession session,
-    DateTime now,
-    int day,
   ) async {
     final AfTokens t = context.af;
+    final DateTime? loggedOn = sessionLocalDay(session);
+    final String month =
+        loggedOn == null ? '' : _monthTitle(loggedOn).split(' ').first;
+    final int day = loggedOn?.day ?? session.dayOfMonth;
     await AfDialog.show<void>(
       context,
       title: AfStrings.fill(AfStrings.calendarDayTitle, <String, Object?>{
-        'month': _monthTitle(now).split(' ').first,
+        'month': month,
         'day': day,
         'name': session.name,
       }),
@@ -558,21 +569,23 @@ class _CalendarGrid extends StatelessWidget {
     final int daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     // Monday-first offset.
     final int leading = DateTime(month.year, month.month, 1).weekday - 1;
-    final int today = DateTime.now().day;
-    final bool sameMonth = DateTime.now().year == month.year &&
-        DateTime.now().month == month.month;
+    final DateTime today = DateTime.now();
+    final bool sameMonth =
+        today.year == month.year && today.month == month.month;
 
     final List<Widget> cells = <Widget>[];
     for (int i = 0; i < leading; i++) {
       cells.add(const SizedBox(height: 32));
     }
     for (int day = 1; day <= daysInMonth; day++) {
-      final WorkoutSession? session =
-          sessions.where((WorkoutSession s) => s.dayOfMonth == day).firstOrNull;
-      final bool planned = scheduled.any((ScheduledWorkout s) => s.isOn(
-            DateTime(month.year, month.month, day),
-          ));
-      final bool isToday = sameMonth && day == today;
+      final DateTime date = DateTime(month.year, month.month, day);
+      // A session belongs to its own local day, so last month's workouts never
+      // mark the same day number in this month.
+      final WorkoutSession? session = sessions
+          .where((WorkoutSession s) => sessionIsOn(s, date))
+          .firstOrNull;
+      final bool planned = scheduled.any((ScheduledWorkout s) => s.isOn(date));
+      final bool isToday = sameMonth && day == today.day;
 
       Color background = t.bgSubtle;
       Color foreground = t.textMuted;
@@ -581,61 +594,74 @@ class _CalendarGrid extends StatelessWidget {
       if (session != null) {
         background = t.accent;
         foreground = Colors.white;
-      } else if (isToday) {
-        background = Colors.transparent;
-        foreground = t.accent;
-        border = Border.all(color: t.accent, width: 1.5);
       } else if (planned) {
         background = t.accentTint;
         foreground = t.accentTintText;
         border = Border.all(color: t.accent, width: 1);
       }
 
+      if (isToday) {
+        // White reads on the blue "workout logged" fill; on the light empty
+        // cell a white ring would be invisible, so accent is used there.
+        border = Border.all(
+          color: session != null ? Colors.white : t.accent,
+          width: 2,
+        );
+        if (session == null) {
+          background = Colors.transparent;
+          foreground = t.accent;
+        }
+      }
+
       cells.add(
-        GestureDetector(
-          onTap: () => onDayTap(day),
-          child: Container(
-            height: 32,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(8),
-              border: border,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  '$day',
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 11,
-                    fontWeight: session != null || isToday || planned
-                        ? FontWeight.w700
-                        : FontWeight.w400,
-                    height: 1.1,
-                  ),
-                ),
-                if (session != null)
-                  Container(
-                    width: 4,
-                    height: 4,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else if (planned)
-                  Container(
-                    width: 4,
-                    height: 4,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: t.accent,
-                      shape: BoxShape.circle,
+        Semantics(
+          label: isToday ? AfStrings.calendarToday : null,
+          child: GestureDetector(
+            onTap: () => onDayTap(day),
+            child: Container(
+              key: ValueKey<String>('cal-day-$day'),
+              height: 32,
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.circular(8),
+                border: border,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    '$day',
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 11,
+                      fontWeight: session != null || isToday || planned
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                      height: 1.1,
                     ),
                   ),
-              ],
+                  if (session != null)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  else if (planned)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        color: t.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

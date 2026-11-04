@@ -105,6 +105,7 @@ class AfStrings {
   static const String calendarRestDayToast =
       '{month} {day}: Rest day (No logged session)';
   static const String calendarDayTitle = '{month} {day} • {name}';
+  static const String calendarToday = 'Today';
   static const String calendarTotalReps = 'Total Reps: {reps}';
   static const String calendarTotalVolume = 'Total Volume: {volume} kg';
   static const String openInHistory = 'Open in History';
