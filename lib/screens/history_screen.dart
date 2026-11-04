@@ -439,7 +439,7 @@ class _SessionCard extends StatelessWidget {
                     label: AfStrings.historyDetail,
                     variant: AfButtonVariant.secondary,
                     size: AfButtonSize.compact,
-                    onPressed: () => _openDetail(context, session),
+                    onPressed: () => _openDetail(context, state, session),
                   ),
                   const SizedBox(width: 8),
                   AfButton(
@@ -458,68 +458,119 @@ class _SessionCard extends StatelessWidget {
 
   static Future<void> _openDetail(
     BuildContext context,
+    AppState state,
     WorkoutSession session,
   ) async {
     final AfTokens t = context.af;
+    WorkoutSession current = session;
     await AfDialog.show<void>(
       context,
       title: session.name,
       scrollable: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Row(
+      body: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setModalState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              AfBadge(
-                label: session.type,
-                uppercase: true,
-                tone: session.isStitched
-                    ? AfBadgeTone.amber
-                    : (session.isMicro ? AfBadgeTone.green : AfBadgeTone.blue),
+              Row(
+                children: <Widget>[
+                  AfBadge(
+                    label: current.type,
+                    uppercase: true,
+                    tone: current.isStitched
+                        ? AfBadgeTone.amber
+                        : (current.isMicro
+                            ? AfBadgeTone.green
+                            : AfBadgeTone.blue),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(current.dateLabel, style: AfText.muted(t)),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(session.dateLabel, style: AfText.muted(t)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            AfStrings.fill(AfStrings.historyTotalVolume, <String, Object?>{
-              'volume': session.volume,
-            }),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          Text(
-            AfStrings.fill(AfStrings.historyTotalReps, <String, Object?>{
-              'reps': session.reps,
-            }),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 10),
-          if (session.setsDetail.isEmpty)
-            Text(
-              AfStrings.fill(AfStrings.historyNoSetDetail, <String, Object?>{
-                'reps': session.reps,
-                'count': session.setsCount,
-              }),
-              style: AfText.muted(t),
-            )
-          else
-            for (int i = 0; i < session.setsDetail.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
-                  AfStrings.fill(AfStrings.historySetRow, <String, Object?>{
-                    'index': i + 1,
-                    'exercise': session.setsDetail[i].exerciseName,
-                    'kg': _trim(session.setsDetail[i].weightKg),
-                    'reps': session.setsDetail[i].reps,
-                    'method': session.setsDetail[i].inputMethod,
-                  }),
-                  style: AfText.muted(t, size: 12),
+              const SizedBox(height: 10),
+              Text(
+                AfStrings.fill(AfStrings.historyTotalVolume, <String, Object?>{
+                  'volume': current.volume,
+                }),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Text(
+                AfStrings.fill(AfStrings.historyTotalReps, <String, Object?>{
+                  'reps': current.reps,
+                }),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (current.note.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                AfSubtle(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        AfStrings.historyNoteLabel,
+                        style: AfText.muted(t, size: 11),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        current.note,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AfButton(
+                  label: current.note.isEmpty
+                      ? AfStrings.historyNoteAdd
+                      : AfStrings.historyNoteEdit,
+                  variant: AfButtonVariant.secondary,
+                  size: AfButtonSize.compact,
+                  onPressed: () async {
+                    final WorkoutSession? updated =
+                        await _openNoteEditor(context, state, current);
+                    if (updated == null) return;
+                    setModalState(() => current = updated);
+                  },
                 ),
               ),
-        ],
+              const SizedBox(height: 10),
+              if (current.setsDetail.isEmpty)
+                Text(
+                  AfStrings.fill(
+                    AfStrings.historyNoSetDetail,
+                    <String, Object?>{
+                      'reps': current.reps,
+                      'count': current.setsCount,
+                    },
+                  ),
+                  style: AfText.muted(t),
+                )
+              else
+                for (int i = 0; i < current.setsDetail.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      AfStrings.fill(
+                        AfStrings.historySetRow,
+                        <String, Object?>{
+                          'index': i + 1,
+                          'exercise': current.setsDetail[i].exerciseName,
+                          'kg': _trim(current.setsDetail[i].weightKg),
+                          'reps': current.setsDetail[i].reps,
+                          'method': current.setsDetail[i].inputMethod,
+                        },
+                      ),
+                      style: AfText.muted(t, size: 12),
+                    ),
+                  ),
+            ],
+          );
+        },
       ),
       actions: <Widget>[
         AfButton(
@@ -530,6 +581,50 @@ class _SessionCard extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Writes the note of one workout, from History. Returns the refreshed
+  /// session when the note was saved, `null` when the user backed out.
+  static Future<WorkoutSession?> _openNoteEditor(
+    BuildContext context,
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    final TextEditingController controller =
+        TextEditingController(text: session.note);
+    final bool? saved = await AfDialog.show<bool>(
+      context,
+      title: AfStrings.historyNoteEditTitle,
+      body: AfTextField(
+        controller: controller,
+        hint: AfStrings.completeNoteHint,
+        minLines: 3,
+        maxLines: 6,
+        maxLength: AppState.maxSessionNoteLength,
+        autofocus: true,
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        AfButton(
+          label: AfStrings.completeNoteSave,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            state.setSessionNote(session.id, controller.text);
+            Navigator.of(context).pop(true);
+          },
+        ),
+      ],
+    );
+    // The dialog keeps rebuilding its field while it fades out.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+    if (saved != true) return null;
+    return state.sessionById(session.id);
   }
 
   static Future<void> _confirmUnstitch(

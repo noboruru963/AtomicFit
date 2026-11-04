@@ -422,6 +422,51 @@ void main() {
     );
   });
 
+  test('a workout note is stored with the session and survives a restart',
+      () async {
+    final _MemoryStore store = _MemoryStore();
+    final AppState state = AppState(store: store);
+    await state.load();
+    state.updateWeightInput('20');
+    state.updateRepsInput(10);
+    state.logCurrentSet();
+    final WorkoutSession session = state.finishActiveWorkout()!;
+
+    expect(
+      state.setSessionNote(session.id, '  today was good  '),
+      isTrue,
+    );
+    final WorkoutSession noted = state.sessionById(session.id)!;
+    expect(noted.note, 'today was good');
+    // The note never touches the workout's own numbers.
+    expect(noted.reps, session.reps);
+    expect(noted.volume, session.volume);
+    expect(noted.setsCount, session.setsCount);
+
+    await state.persist();
+    final AppState reopened = AppState(store: store);
+    await reopened.load();
+    expect(reopened.sessionById(session.id)!.note, 'today was good');
+  });
+
+  test('a note is capped, can be cleared and ignores unknown sessions',
+      () async {
+    final AppState state = await _freshState();
+    state.logCurrentSet();
+    final WorkoutSession session = state.finishActiveWorkout()!;
+
+    final String tooLong = 'a' * 700;
+    state.setSessionNote(session.id, tooLong);
+    expect(
+      state.sessionById(session.id)!.note.length,
+      AppState.maxSessionNoteLength,
+    );
+
+    state.setSessionNote(session.id, '   ');
+    expect(state.sessionById(session.id)!.note, '');
+    expect(state.setSessionNote('s_missing', 'hello'), isFalse);
+  });
+
   test('creating a program no longer overwrites per-exercise values', () async {
     final AppState state = await _freshState();
     final Program created = state.createProgram(

@@ -704,6 +704,7 @@ class WorkoutSession with RecordEnvelope {
     required this.setsDetail,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.note = '',
     this.children = const <WorkoutSession>[],
     this.deletedAtUtc,
   });
@@ -723,12 +724,40 @@ class WorkoutSession with RecordEnvelope {
   final List<String> methods;
   final List<LoggedSet> setsDetail;
   final List<WorkoutSession> children;
+
+  /// The user's own note about this workout ("how did it feel"), written on
+  /// the Workout complete screen or later from History. Plain text, never
+  /// interpreted as markup.
+  final String note;
   final String createdAtUtc;
   final String updatedAtUtc;
   final String? deletedAtUtc;
 
   bool get isStitched => type == 'stitched';
   bool get isMicro => type == 'micro';
+
+  /// A copy with another note. Used by the single write path so the stored
+  /// record keeps its identity and timestamps stay in order.
+  WorkoutSession copyWithNote(String note) => WorkoutSession(
+        id: id,
+        userId: userId,
+        name: name,
+        type: type,
+        dateLabel: dateLabel,
+        dayOfMonth: dayOfMonth,
+        startedAtUtc: startedAtUtc,
+        durationMin: durationMin,
+        reps: reps,
+        volume: volume,
+        setsCount: setsCount,
+        methods: methods,
+        setsDetail: setsDetail,
+        children: children,
+        note: note,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -744,6 +773,7 @@ class WorkoutSession with RecordEnvelope {
         'setsCount': setsCount,
         'methods': methods,
         'setsDetail': setsDetail.map((LoggedSet s) => s.toJson()).toList(),
+        'note': note,
         'children': children.map((WorkoutSession s) => s.toJson()).toList(),
         'createdAtUtc': createdAtUtc,
         'updatedAtUtc': updatedAtUtc,
@@ -768,6 +798,7 @@ class WorkoutSession with RecordEnvelope {
         setsDetail: _asMapList(json['setsDetail'])
             .map(LoggedSet.fromJson)
             .toList(growable: false),
+        note: (json['note'] ?? '').toString(),
         children: _asMapList(json['children'])
             .map(WorkoutSession.fromJson)
             .toList(growable: false),
@@ -895,11 +926,16 @@ class WorkoutSummary {
     required this.totalVolume,
     required this.methods,
     this.durationSec = 0,
+    this.sessionId = '',
   });
 
   final String name;
   final String type;
   final int durationMin;
+
+  /// The stored session this summary describes, so the complete screen can
+  /// attach the user's note to it.
+  final String sessionId;
 
   /// The exact duration in seconds (`mm:ss` on the summary screen).
   final int durationSec;

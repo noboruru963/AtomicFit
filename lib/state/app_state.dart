@@ -1194,6 +1194,7 @@ class AppState extends ChangeNotifier {
       totalReps: session.reps,
       totalVolume: session.volume,
       methods: methodList,
+      sessionId: session.id,
     );
     // Double progression: only a full session whose planned sets were all
     // completed at the planned reps moves the program forward.
@@ -1296,8 +1297,8 @@ class AppState extends ChangeNotifier {
   /// when the selection is not eligible.
   WorkoutSession? stitchSessions(List<String> sessionIds) {
     if (sessionIds.length != 2) return null;
-    final WorkoutSession? first = _sessionById(sessionIds[0]);
-    final WorkoutSession? second = _sessionById(sessionIds[1]);
+    final WorkoutSession? first = sessionById(sessionIds[0]);
+    final WorkoutSession? second = sessionById(sessionIds[1]);
     if (first == null || second == null) return null;
     if (!canStitch(first, second)) return null;
 
@@ -1337,11 +1338,46 @@ class AppState extends ChangeNotifier {
     return stitched;
   }
 
-  WorkoutSession? _sessionById(String id) {
+  /// Finds a stored session by id, or `null` when it no longer exists.
+  WorkoutSession? sessionById(String id) {
     for (final WorkoutSession session in history) {
       if (session.id == id) return session;
     }
     return null;
+  }
+
+  /// Stores the user's own note on one workout.
+  ///
+  /// The note is plain text, trimmed and capped at [maxSessionNoteLength]; an
+  /// empty note removes it. Totals, sets and timestamps of the workout itself
+  /// are left alone.
+  bool setSessionNote(String sessionId, String note) {
+    final int index =
+        history.indexWhere((WorkoutSession s) => s.id == sessionId);
+    if (index < 0) return false;
+    final String cleaned = _cleanNote(note);
+    if (history[index].note == cleaned) return false;
+    final List<WorkoutSession> next = <WorkoutSession>[...history];
+    next[index] = next[index].copyWithNote(cleaned);
+    history = next;
+    unawaited(persist());
+    notifyListeners();
+    showToast(
+      cleaned.isEmpty
+          ? AfStrings.completeNoteRemoved
+          : AfStrings.completeNoteSaved,
+    );
+    return true;
+  }
+
+  /// The longest note a workout can carry.
+  static const int maxSessionNoteLength = 500;
+
+  static String _cleanNote(String note) {
+    final String trimmed = note.trim();
+    return trimmed.length <= maxSessionNoteLength
+        ? trimmed
+        : trimmed.substring(0, maxSessionNoteLength).trimRight();
   }
 
   /// Replaces a stitched session with its children.

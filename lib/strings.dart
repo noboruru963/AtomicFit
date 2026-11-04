@@ -393,6 +393,12 @@ class AfStrings {
   static const String completeChannelsUsed = 'Input channels used:';
   static const String completeGoHome = 'Go to home page';
   static const String completeViewHistory = 'View in Workout History';
+  static const String completeNoteLabel = 'Add a note (optional)';
+  static const String completeNoteHint =
+      'How did it feel? Anything worth remembering.';
+  static const String completeNoteSave = 'Save note';
+  static const String completeNoteSaved = 'Note saved.';
+  static const String completeNoteRemoved = 'Note removed.';
 
   // ------------------------------------------------------------------ history
   static const String historySearchPlaceholder = 'Search by program name';
@@ -442,6 +448,10 @@ class AfStrings {
       'Two sessions are already picked. Remove one to change the pair.';
   static const String historyStitchPicked = '✓ Picked for stitching';
   static const String historyStitchTapToPick = 'Tap to pick this session';
+  static const String historyNoteLabel = 'Your note';
+  static const String historyNoteEdit = 'Edit note';
+  static const String historyNoteAdd = 'Add note';
+  static const String historyNoteEditTitle = 'Note about this workout';
 
   // ----------------------------------------------------------------- discover
   static const String discoverCustomTitle = 'Add Custom Exercise';

@@ -659,6 +659,9 @@ class AfTextField extends StatelessWidget {
     this.autofocus = false,
     this.obscureText = false,
     this.inputFormatters,
+    this.minLines,
+    this.maxLines = 1,
+    this.maxLength,
   });
 
   final TextEditingController controller;
@@ -674,6 +677,11 @@ class AfTextField extends StatelessWidget {
   final bool obscureText;
   final List<TextInputFormatter>? inputFormatters;
 
+  /// Multi-line support for the free-text note boxes.
+  final int? minLines;
+  final int? maxLines;
+  final int? maxLength;
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -687,6 +695,9 @@ class AfTextField extends StatelessWidget {
       autofocus: autofocus,
       obscureText: obscureText,
       inputFormatters: inputFormatters,
+      minLines: minLines,
+      maxLines: maxLines,
+      maxLength: maxLength,
       style: style ??
           (emphasised
               ? theme.textTheme.titleMedium?.copyWith(fontSize: 18)
