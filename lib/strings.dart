@@ -452,6 +452,8 @@ class AfStrings {
   static const String historyNoteEdit = 'Edit note';
   static const String historyNoteAdd = 'Add note';
   static const String historyNoteEditTitle = 'Note about this workout';
+  static const String historyCopy = 'Copy';
+  static const String historyCopied = 'Workout copied to clipboard.';
 
   // ----------------------------------------------------------------- discover
   static const String discoverCustomTitle = 'Add Custom Exercise';

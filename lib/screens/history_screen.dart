@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/shell.dart';
 import '../models/app_models.dart';
 import '../state/app_state.dart';
+import '../state/history_text.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
@@ -581,6 +583,14 @@ class _SessionCard extends StatelessWidget {
       ),
       actions: <Widget>[
         AfButton(
+          label: AfStrings.historyCopy,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: session.setsDetail.isEmpty
+              ? null
+              : () => _copySession(state, session),
+        ),
+        AfButton(
           label: AfStrings.close,
           variant: AfButtonVariant.secondary,
           size: AfButtonSize.compact,
@@ -588,6 +598,20 @@ class _SessionCard extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Copies one workout as the plain text produced by [sessionToClipboardText].
+  ///
+  /// Nothing is written to the app's own data: the text goes to the OS
+  /// clipboard so the user can paste it into a note app or a message.
+  static Future<void> _copySession(
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    final String text = sessionToClipboardText(session);
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    state.showToast(AfStrings.historyCopied);
   }
 
   /// Writes the note of one workout, from History. Returns the refreshed
