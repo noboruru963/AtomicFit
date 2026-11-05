@@ -98,6 +98,45 @@ void main() {
     state.dispose();
   });
 
+  testWidgets('the history detail lists the same grouped lines as Copy',
+      (WidgetTester tester) async {
+    await loadAppFonts();
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppState state = await _stateWithFinishedSession(_MemoryStore());
+    final WorkoutSession session = state.history.first;
+
+    await tester.pumpWidget(AtomFitApp(state: state));
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(HomeScreen)))
+        .pushNamed(AfScreen.history);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text(AfStrings.historyDetail).first);
+    await tester.pumpAndSettle();
+
+    // One line per exercise/weight block: `#1 Bench Press (20 kg) : 10`.
+    for (final String line in sessionSetLines(session)) {
+      expect(find.text(line), findsOneWidget);
+    }
+    // The old per-set row (`#1 Bench press — 20 kg × 10 (manual)`) is gone.
+    final LoggedSet first = session.setsDetail.first;
+    expect(
+      find.text(
+        '#1 ${first.exerciseName} — ${formatWeightKg(first.weightKg)} kg × '
+        '${first.reps} (${first.inputMethod})',
+      ),
+      findsNothing,
+    );
+
+    expect(tester.takeException(), isNull);
+    state.dispose();
+  });
+
   testWidgets('copy is disabled for a workout without logged sets',
       (WidgetTester tester) async {
     await loadAppFonts();

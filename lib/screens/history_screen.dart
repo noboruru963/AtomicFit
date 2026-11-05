@@ -560,20 +560,11 @@ class _SessionCard extends StatelessWidget {
                   style: AfText.muted(t),
                 )
               else
-                for (int i = 0; i < current.setsDetail.length; i++)
+                for (final String line in sessionSetLines(current))
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(
-                      AfStrings.fill(
-                        AfStrings.historySetRow,
-                        <String, Object?>{
-                          'index': i + 1,
-                          'exercise': current.setsDetail[i].exerciseName,
-                          'kg': _trim(current.setsDetail[i].weightKg),
-                          'reps': current.setsDetail[i].reps,
-                          'method': current.setsDetail[i].inputMethod,
-                        },
-                      ),
+                      line,
                       style: AfText.muted(t, size: 12),
                     ),
                   ),

@@ -118,9 +118,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Colors.white,
                     border: Border.all(color: t.accent, width: 2),
                   ),
-                  child: Image.asset(
-                    'assets/images/logo.jpg',
-                    fit: BoxFit.cover,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),

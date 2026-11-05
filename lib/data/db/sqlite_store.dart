@@ -127,7 +127,6 @@ class SqliteStore implements AtomFitStore {
     document['quizAnswers'] =
         _decodeJson(state['quizAnswers']) ?? <String, dynamic>{};
     document['showQuizBannerOnHome'] = state['showQuizBannerOnHome'] != 'false';
-    document['quizShortMode'] = state['quizShortMode'] == 'true';
     document['quizStepIndex'] = int.tryParse(state['quizStepIndex'] ?? '') ?? 0;
 
     return document;
@@ -305,15 +304,6 @@ class SqliteStore implements AtomFitStore {
         <String, Object?>{
           'key': 'showQuizBannerOnHome',
           'value': document['showQuizBannerOnHome'] == false ? 'false' : 'true',
-          'updated_at_utc': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      await txn.insert(
-        'app_state',
-        <String, Object?>{
-          'key': 'quizShortMode',
-          'value': document['quizShortMode'] == true ? 'true' : 'false',
           'updated_at_utc': now,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,

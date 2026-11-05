@@ -20,7 +20,7 @@
     </queries>
     
     <application
-        android:label="AtomFit"
+        android:label="AtomicFit"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

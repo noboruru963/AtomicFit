@@ -124,7 +124,6 @@ class AppState extends ChangeNotifier {
 
   // ------------------------------------------------------------- ui state
   bool showQuizBannerOnHome = true;
-  bool quizShortMode = false;
   int quizStepIndex = 0;
   final Map<String, String> quizAnswers = <String, String>{};
   String programsFilter = 'All';
@@ -372,7 +371,6 @@ class AppState extends ChangeNotifier {
           scheduledWorkouts.map((ScheduledWorkout s) => s.toJson()).toList(),
       'quizAnswers': Map<String, dynamic>.from(quizAnswers),
       'showQuizBannerOnHome': showQuizBannerOnHome,
-      'quizShortMode': quizShortMode,
       'quizStepIndex': quizStepIndex,
     });
     _pendingWrite = write;
@@ -1676,23 +1674,10 @@ class AppState extends ChangeNotifier {
 
   // ------------------------------------------------------------------- quiz
 
-  List<QuizQuestion> get activeQuizQuestions {
-    if (!quizShortMode) return SeedData.quizQuestions;
-    return <QuizQuestion>[
-      SeedData.quizQuestions[0],
-      SeedData.quizQuestions[1],
-      SeedData.quizQuestions[9],
-    ];
-  }
+  List<QuizQuestion> get activeQuizQuestions => SeedData.quizQuestions;
 
   void selectQuizOption(String questionId, String value) {
     quizAnswers[questionId] = value;
-    notifyListeners();
-  }
-
-  void toggleQuizLengthMode() {
-    quizShortMode = !quizShortMode;
-    quizStepIndex = 0;
     notifyListeners();
   }
 
