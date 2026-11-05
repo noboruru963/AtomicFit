@@ -373,6 +373,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             AfStrings.settingsAboutVersion,
             style: AfText.muted(t, size: 12),
           ),
+          const SizedBox(height: 10),
+          Text(
+            AfStrings.settingsAboutDevelopers,
+            style: AfText.strong(t, size: 12),
+          ),
+          const SizedBox(height: 2),
+          for (final String name in AfStrings.settingsAboutDeveloperNames)
+            Text(
+              name,
+              style: AfText.muted(t, size: 12),
+            ),
+          const SizedBox(height: 10),
           Text.rich(
             TextSpan(
               children: <InlineSpan>[

@@ -552,7 +552,13 @@ class AfStrings {
   static const String settingsResetSeed = 'Reset Seeded Data';
   static const String settingsAboutCredits = 'About & Credits';
   static const String settingsAboutVersion =
-      'AtomFit v1.0 · Log it. Keep going.';
+      'AtomFit v2.0 · Log it. Keep going.';
+  static const String settingsAboutDevelopers = 'Developed by:';
+  static const List<String> settingsAboutDeveloperNames = <String>[
+    'Jonathan Gouw Alexandrio',
+    'Alexander Marchiano',
+    'Luiesrelio',
+  ];
   static const String settingsAboutExerciseData = 'Exercise data by';
   static const String settingsLogOut = 'Log out';
   static const String settingsUpdatedToast = 'Updated {key} preference';
