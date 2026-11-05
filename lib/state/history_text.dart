@@ -21,7 +21,15 @@ import '../models/app_models.dart';
 ///
 /// This is pure Dart on purpose: no Flutter, no clipboard, so the exact text
 /// can be pinned by a unit test. The screen only copies what this returns.
-String sessionToClipboardText(WorkoutSession session) {
+/// The numbered lines shared by the History detail dialog and the Copy action.
+///
+/// One line per exercise (or per weight block when the weight changes):
+///
+/// ```text
+/// #1 Dumbbell Bench Press (50 kg) : 7, 4
+/// #2 Push-up : 15
+/// ```
+List<String> sessionSetLines(WorkoutSession session) {
   final List<_ExerciseBlock> blocks = <_ExerciseBlock>[];
 
   for (final LoggedSet set in session.setsDetail) {
@@ -51,7 +59,11 @@ String sessionToClipboardText(WorkoutSession session) {
         block.weightText == '0' ? '' : ' (${block.weightText} kg)';
     lines.add('#${i + 1} ${block.exercise}$load : ${block.reps.join(', ')}');
   }
-  return lines.join('\n');
+  return lines;
+}
+
+String sessionToClipboardText(WorkoutSession session) {
+  return sessionSetLines(session).join('\n');
 }
 
 /// Formats a load the way the rest of the app does: one decimal at most, and

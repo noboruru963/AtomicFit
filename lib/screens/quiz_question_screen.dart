@@ -53,15 +53,6 @@ class QuizQuestionScreen extends StatelessWidget {
                 }),
                 style: AfText.sectionHead(t).copyWith(fontSize: 12),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: state.toggleQuizLengthMode,
-                child: AfBadge(
-                  label: state.quizShortMode
-                      ? AfStrings.quizModeFast
-                      : AfStrings.quizModeFull,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 10),

@@ -59,6 +59,30 @@ void main() {
     });
   });
 
+  group('sessionSetLines', () {
+    test('returns the numbered lines the Copy action joins', () {
+      final WorkoutSession session = _session(<LoggedSet>[
+        _set('Dumbbell Bench Press', 60, 12),
+        _set('Dumbbell Bench Press', 60, 12),
+        _set('Pull-up', 0, 9),
+      ]);
+
+      expect(
+        sessionSetLines(session),
+        <String>[
+          '#1 Dumbbell Bench Press (60 kg) : 12, 12',
+          '#2 Pull-up : 9',
+        ],
+      );
+      expect(
+          sessionSetLines(session).join('\n'), sessionToClipboardText(session));
+    });
+
+    test('is empty when there are no logged sets', () {
+      expect(sessionSetLines(_session(const <LoggedSet>[])), isEmpty);
+    });
+  });
+
   group('sessionToClipboardText', () {
     test('prints one numbered line per exercise with comma-separated reps', () {
       final String text = sessionToClipboardText(

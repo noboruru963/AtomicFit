@@ -4,12 +4,12 @@ class AfStrings {
   const AfStrings._();
 
   // ---------------------------------------------------------------- app level
-  static const String appName = 'AtomFit';
+  static const String appName = 'AtomicFit';
   static const String tagline = 'Log it. Keep going.';
-  static const String appTitle = 'AtomFit — Adaptive Workout Tracker';
+  static const String appTitle = 'AtomicFit — Adaptive Workout Tracker';
 
   // ------------------------------------------------------- startup failure
-  static const String startupErrorTitle = 'AtomFit could not start';
+  static const String startupErrorTitle = 'AtomicFit could not start';
   static const String startupErrorMessage =
       'Something went wrong while preparing the local data on this device.\n\n'
       'Your phone is fine — nothing was deleted. Try again, and if it keeps '
@@ -18,7 +18,7 @@ class AfStrings {
   static const String startupErrorRetry = 'Try again';
 
   // ------------------------------------------------------------- screen titles
-  static const String titleHome = 'AtomFit';
+  static const String titleHome = 'AtomicFit';
   static const String titlePrograms = 'My Programs';
   static const String titleWorkout = 'Workout';
   static const String titleTimer = 'Rest Timer';
@@ -34,7 +34,7 @@ class AfStrings {
 
   // ------------------------------------------------------------------- login
   static const String loginEyebrow = 'Welcome back';
-  static const String loginTitle = 'Log in to AtomFit';
+  static const String loginTitle = 'Log in to AtomicFit';
   static const String loginEmailLabel = 'Email';
   static const String loginEmailPlaceholder = 'alex@example.com';
   static const String loginPasswordLabel = 'Password';
@@ -47,15 +47,15 @@ class AfStrings {
   static const String loginWelcomeToast = 'Welcome back, {name}!';
   static const String forgotTitle = 'Forgot password?';
   static const String forgotBody =
-      "Enter your AtomFit account email and we'll generate a local recovery token.";
+      "Enter your AtomicFit account email and we'll generate a local recovery token.";
   static const String forgotSend = 'Send Reset Link';
   static const String forgotSentToast = 'Password reset instructions sent!';
   static const String cancel = 'Cancel';
   static const String close = 'Close';
 
   // ----------------------------------------------------------------- register
-  static const String registerEyebrow = 'AtomFit Onboarding';
-  static const String registerTitle = 'Create your AtomFit account';
+  static const String registerEyebrow = 'AtomicFit Onboarding';
+  static const String registerTitle = 'Create your AtomicFit account';
   static const String registerUsername = 'Username';
   static const String registerUsernamePlaceholder = 'Your name';
   static const String registerEmailLabel = 'Email';
@@ -127,13 +127,10 @@ class AfStrings {
   static const String quizTuningRest = 'Rest timer intervals';
   static const String quizTuningRestValue = 'Auto-adjusted';
   static const String quizStartFull = 'Start quiz (Full 10 Questions)';
-  static const String quizStartQuick = 'Quick 3-Question Check-In';
   static const String quizNotNow = 'Not now';
 
   // ------------------------------------------------------------- quiz question
   static const String quizQuestionIndex = 'Question {index} / {total}';
-  static const String quizModeFull = 'Mode: Full 10-Step';
-  static const String quizModeFast = 'Mode: 3-Step Fast';
   static const String quizNext = 'Next question →';
   static const String quizSeeWhatChanged = 'See what changed →';
   static const String quizBack = '← Back';
@@ -311,7 +308,7 @@ class AfStrings {
   static const String workoutVoiceStopTooltip = 'Stop listening';
   static const String workoutMicExplainTitle = 'Microphone';
   static const String workoutMicExplainBody =
-      'AtomFit listens only while you hold the mic open, turns what you say '
+      'AtomicFit listens only while you hold the mic open, turns what you say '
       'into a set, and never stores the audio.';
   static const String workoutMicExplainContinue = 'Continue';
   static const String workoutMicExplainCancel = 'Not now';
@@ -435,8 +432,6 @@ class AfStrings {
   static const String historyEmpty = 'No workouts found';
   static const String historyTotalVolume = 'Total Volume: {volume} kg';
   static const String historyTotalReps = 'Total Reps: {reps}';
-  static const String historySetRow =
-      '#{index} {exercise} — {kg} kg × {reps} ({method})';
   static const String historyNoSetDetail =
       'Total {reps} reps across {count} logged sets.';
   static const String historyDeleteTitle = 'Delete this session?';
@@ -552,7 +547,7 @@ class AfStrings {
   static const String settingsResetSeed = 'Reset Seeded Data';
   static const String settingsAboutCredits = 'About & Credits';
   static const String settingsAboutVersion =
-      'AtomFit v2.0 · Log it. Keep going.';
+      'AtomicFit v2.1 · Log it. Keep going.';
   static const String settingsAboutDevelopers = 'Developed by:';
   static const List<String> settingsAboutDeveloperNames = <String>[
     'Jonathan Gouw Alexandrio',

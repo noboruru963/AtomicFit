@@ -99,7 +99,6 @@ class LegacyMigration {
       'activeWorkout': legacy['activeWorkout'],
       'quizAnswers': legacy['quizAnswers'],
       'showQuizBannerOnHome': legacy['showQuizBannerOnHome'] != false,
-      'quizShortMode': legacy['quizShortMode'] == true,
       'quizStepIndex': legacy['quizStepIndex'],
     };
 
