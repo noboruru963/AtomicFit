@@ -7,6 +7,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderTimerScreen()` (`index.html` lines 2666-2731).
+///
+/// The countdown itself is owned by `AppState` (it keeps running when this
+/// screen is closed); this screen only draws `restSecondsRemaining` and sends
+/// start/pause/reset/skip/±15 taps. The lock-screen concept lives on its own
+/// screen (`LockScreenWidgetScreen`).
 class RestTimerScreen extends StatefulWidget {
   const RestTimerScreen({super.key});
 
@@ -19,12 +24,20 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
   final TextEditingController _seconds = TextEditingController();
   bool _handledFinish = false;
 
+  /// The app state this screen was opened with.
+  ///
+  /// The completion callback outlives the screen (the countdown keeps running
+  /// in [AppState]), so it must not look the state up through a context that
+  /// may already be disposed.
+  AppState? _state;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final AppState state = AfAppScope.of(context);
+      _state = state;
       state.onRestTimerFinished = _onFinished;
       _handledFinish = false;
       // This screen is always pushed right after a set is logged, so the
@@ -40,6 +53,12 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
 
   @override
   void dispose() {
+    // The countdown lives on in AppState, but the callback must not point at
+    // a disposed widget: at 0:00 it would throw and skip the toast/pop.
+    final AppState? state = _state;
+    if (state != null && state.onRestTimerFinished == _onFinished) {
+      state.onRestTimerFinished = null;
+    }
     _minutes.dispose();
     _seconds.dispose();
     super.dispose();
@@ -56,7 +75,8 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
     _handledFinish = true;
     // The bell, the haptics and the rest-over notification are all driven by
     // the AppState ticker, so they also fire while this screen is not on top.
-    final AppState state = AfAppScope.of(context);
+    final AppState? state = _state;
+    if (state == null) return;
     state.showToast(AfStrings.timerCompleteToast);
 
     if (mounted) {
@@ -66,10 +86,14 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
 
   /// Returns to the workout screen that opened the timer.
   ///
-  /// The timer is always pushed from the active workout, so popping keeps that
-  /// screen (scroll position, typed values, logged sets) exactly as it was.
-  /// The replacement is only a fallback for a timer opened without a stack.
+  /// Leaving ends the rest: the countdown stops and the ongoing notification
+  /// is removed, so nothing keeps ticking (or sits in the notification shade)
+  /// behind the workout. The timer is always pushed from the active workout,
+  /// so popping keeps that screen (scroll position, typed values, logged sets)
+  /// exactly as it was. The replacement is only a fallback for a timer opened
+  /// without a stack.
   void _leaveTimer() {
+    _state?.skipRestTimer();
     final NavigatorState navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();

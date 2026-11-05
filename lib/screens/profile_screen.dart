@@ -8,6 +8,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderProfileScreen()` (`index.html` lines 4784-4909).
+///
+/// Edits the signed-in account: username, date of birth, gender, weight and
+/// height. **Update profile** validates the numbers with
+/// `PersonalDetailsValidation` and writes through `AppState.saveProfile`, which
+/// also updates the stored account record.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 

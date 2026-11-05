@@ -470,6 +470,11 @@ class Exercise with RecordEnvelope {
 }
 
 /// A single exercise inside a program, with its own targets.
+///
+/// These numbers are what the Active workout pre-fills: `sets` planned sets of
+/// `reps` at `weightKg`. Progression edits them after a fully completed session
+/// (see `progressExercise` in `rules.dart`), so they are the program's current
+/// prescription, not a log of what happened.
 class ProgramExercise {
   const ProgramExercise({
     required this.name,
@@ -520,6 +525,11 @@ class ProgramExercise {
 }
 
 /// Training program. Mirrors `DEFAULT_PROGRAMS` entries.
+///
+/// [active] marks the Current program; [AppState.setActiveProgram] keeps
+/// exactly one active program and clears the flag on the others. [type] is the
+/// label shown in the UI (`Built-in`, `Custom`, …) and the exercise order is
+/// the order the user dragged the rows into.
 class Program with RecordEnvelope {
   const Program({
     required this.id,
@@ -614,6 +624,11 @@ class Program with RecordEnvelope {
 }
 
 /// One logged set inside a session. Mirrors `aw.sets[]` / `setsDetail[]`.
+///
+/// [setNo] counts all sets of the session; [exerciseSetNo] counts only the
+/// sets of [exerciseName] (the UI shows "Set 2 of Chest press"). Both are
+/// assigned when the set is saved, so reordering later does not renumber them.
+/// [weightKg] and [reps] are the values that feed volume and progression.
 class LoggedSet with RecordEnvelope {
   const LoggedSet({
     required this.id,
@@ -646,6 +661,28 @@ class LoggedSet with RecordEnvelope {
   final String createdAtUtc;
   final String updatedAtUtc;
   final String? deletedAtUtc;
+
+  /// The same set recorded under another exercise name.
+  ///
+  /// Used when the lifter renames the exercise mid-workout: the sets already
+  /// logged move with the name, so the session still reads as one exercise.
+  /// Every other field, including [id] and the logged timestamp, is kept.
+  LoggedSet withExerciseName(String name) => LoggedSet(
+        id: id,
+        userId: userId,
+        sessionId: sessionId,
+        exerciseName: name,
+        setNo: setNo,
+        exerciseSetNo: exerciseSetNo,
+        weightKg: weightKg,
+        reps: reps,
+        restS: restS,
+        inputMethod: inputMethod,
+        loggedAtUtc: loggedAtUtc,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -687,6 +724,14 @@ class LoggedSet with RecordEnvelope {
 }
 
 /// A finished workout. Mirrors `appState.history[]` entries.
+///
+/// `type` distinguishes a full session, a micro session (a workout finished
+/// early) and a stitched parent. A stitched parent carries its two children in
+/// [children] and only references them — the children keep their own sets and
+/// totals. History lists top-level sessions only, so every set is counted once.
+///
+/// The totals are stored at finish time (see [AppState.finishActiveWorkout]);
+/// they are not derived on read.
 class WorkoutSession with RecordEnvelope {
   const WorkoutSession({
     required this.id,
@@ -704,31 +749,74 @@ class WorkoutSession with RecordEnvelope {
     required this.setsDetail,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.note = '',
     this.children = const <WorkoutSession>[],
     this.deletedAtUtc,
   });
 
-  /// `full` | `micro` | `stitched`.
   final String id;
   final String userId;
   final String name;
+
+  /// `full` | `micro` | `stitched`. See [isMicro] / [isStitched].
   final String type;
+
+  /// Human label of the start time (`MMM d, HH:mm`), shown in History.
   final String dateLabel;
+
+  /// Calendar day of the start, used by the Home month grid.
   final int dayOfMonth;
   final String startedAtUtc;
+
+  /// Stored totals. They are computed when the session is finished (or
+  /// stitched) and are **not** recalculated from [setsDetail] on load, so any
+  /// code that edits sets must update them too.
   final int durationMin;
   final int reps;
   final double volume;
   final int setsCount;
+
+  /// Input channels that produced at least one set (`manual`, `voice`, …).
   final List<String> methods;
   final List<LoggedSet> setsDetail;
+
+  /// The two sessions a stitched parent was built from; empty for everything
+  /// else. They are stored nested under the parent (see `SqliteStore`).
   final List<WorkoutSession> children;
+
+  /// The user's own note about this workout ("how did it feel"), written on
+  /// the Workout complete screen or later from History. Plain text, never
+  /// interpreted as markup.
+  final String note;
   final String createdAtUtc;
   final String updatedAtUtc;
   final String? deletedAtUtc;
 
   bool get isStitched => type == 'stitched';
   bool get isMicro => type == 'micro';
+
+  /// A copy with another note. The id, sets and totals stay identical; only
+  /// `updatedAtUtc` moves to now.
+  WorkoutSession copyWithNote(String note) => WorkoutSession(
+        id: id,
+        userId: userId,
+        name: name,
+        type: type,
+        dateLabel: dateLabel,
+        dayOfMonth: dayOfMonth,
+        startedAtUtc: startedAtUtc,
+        durationMin: durationMin,
+        reps: reps,
+        volume: volume,
+        setsCount: setsCount,
+        methods: methods,
+        setsDetail: setsDetail,
+        children: children,
+        note: note,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -744,6 +832,7 @@ class WorkoutSession with RecordEnvelope {
         'setsCount': setsCount,
         'methods': methods,
         'setsDetail': setsDetail.map((LoggedSet s) => s.toJson()).toList(),
+        'note': note,
         'children': children.map((WorkoutSession s) => s.toJson()).toList(),
         'createdAtUtc': createdAtUtc,
         'updatedAtUtc': updatedAtUtc,
@@ -768,6 +857,7 @@ class WorkoutSession with RecordEnvelope {
         setsDetail: _asMapList(json['setsDetail'])
             .map(LoggedSet.fromJson)
             .toList(growable: false),
+        note: (json['note'] ?? '').toString(),
         children: _asMapList(json['children'])
             .map(WorkoutSession.fromJson)
             .toList(growable: false),
@@ -778,6 +868,14 @@ class WorkoutSession with RecordEnvelope {
 }
 
 /// The workout in progress. Mirrors `appState.activeWorkout`.
+///
+/// This is the **draft**: [sets] are saved to the database as part of the
+/// draft (so a kill does not lose them) but they are not History yet. They
+/// become a [WorkoutSession] in `AppState.finishActiveWorkout`; until then the
+/// Home calendar and the monthly count do not see them.
+///
+/// [restSeconds] is the remaining rest and [restTotalSeconds] the target used
+/// for the next set; `±15 s` moves both.
 class ActiveWorkout {
   const ActiveWorkout({
     required this.programId,
@@ -885,6 +983,11 @@ class ActiveWorkout {
 }
 
 /// Summary of the workout that was just finished.
+///
+/// Only the Workout complete screen reads it: it is set by
+/// `AppState.finishActiveWorkout` and is not persisted (it can always be
+/// rebuilt from [sessionId]). [sessionId] is what ties the note box on that
+/// screen to the stored session.
 class WorkoutSummary {
   const WorkoutSummary({
     required this.name,
@@ -895,11 +998,16 @@ class WorkoutSummary {
     required this.totalVolume,
     required this.methods,
     this.durationSec = 0,
+    this.sessionId = '',
   });
 
   final String name;
   final String type;
   final int durationMin;
+
+  /// The stored session this summary describes, so the complete screen can
+  /// attach the user's note to it.
+  final String sessionId;
 
   /// The exact duration in seconds (`mm:ss` on the summary screen).
   final int durationSec;

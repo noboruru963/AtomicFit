@@ -105,6 +105,7 @@ class AfStrings {
   static const String calendarRestDayToast =
       '{month} {day}: Rest day (No logged session)';
   static const String calendarDayTitle = '{month} {day} • {name}';
+  static const String calendarToday = 'Today';
   static const String calendarTotalReps = 'Total Reps: {reps}';
   static const String calendarTotalVolume = 'Total Volume: {volume} kg';
   static const String openInHistory = 'Open in History';
@@ -234,6 +235,10 @@ class AfStrings {
   static const String programsCreatedToast = '"{name}" created.';
   static const String programsPerExercise = 'Sets · Reps · Weight (kg)';
   static const String programsRemoveExercise = 'Remove exercise';
+  static const String programsReorderHint =
+      'Hold the handle and drag to change the exercise order.';
+  static const String programsReorderTooltip = 'Reorder exercise';
+  static const String programsReorderToast = 'Exercise order saved.';
   static const String programsNameRequired = 'Please enter a program name.';
   static const String programsExerciseRequired =
       'Please select at least one exercise from Discover.';
@@ -258,6 +263,16 @@ class AfStrings {
   static const String workoutInputChannel =
       'Input channel: {method} (Change in Settings)';
   static const String workoutOpenExerciseInfo = 'Exercise info';
+  static const String workoutRenameTooltip = 'Rename exercise';
+  static const String workoutRenameTitle = 'Rename exercise';
+  static const String workoutRenameHint = 'Exercise name';
+  static const String workoutRenameSave = 'Save';
+  static const String workoutRenameEmpty = 'Please enter an exercise name.';
+  static const String workoutRenameDuplicate =
+      'Another exercise in this workout already uses that name.';
+  static const String workoutRenameTooLong =
+      'Keep the name to {max} characters or fewer.';
+  static const String workoutRenameNoExercise = 'Select an exercise first.';
   static const String workoutRecentCommands = 'Recent commands';
   static const String workoutTapToExpand = 'Tap a group to see its sets';
   static const String workoutGroupedSets = '{reps}';
@@ -266,9 +281,6 @@ class AfStrings {
   static const String workoutRemoveGroupBody =
       'This removes {count} logged sets for {exercise}.';
   static const String remove = 'Remove';
-  static const String workoutAutoCountDemo = 'Auto-count demo';
-  static const String workoutAutoCountHide = 'Hide auto-count';
-  static const String workoutLockscreenConcept = '🔒 Lock screen widget';
   static const String lockWidgetLabel = 'LOCK SCREEN';
   static const String lockWidgetBrand = 'ATOMFIT';
   static const String lockWidgetSet = 'Set {n} of {total}';
@@ -286,17 +298,12 @@ class AfStrings {
   static const String workoutFinish = 'Finish Workout';
   static const String workoutSetNumber = 'Set {number}';
   static const String workoutSetSummary = '{kg} kg × {reps} reps';
-  static const String workoutAutoCount = '⌚ Auto-Count Channel:';
-  static const String workoutCounting = 'Counting reps...';
-  static const String workoutReady = 'Ready';
-  static const String workoutStartAutoCount = 'Start Auto-Count';
-  static const String workoutStopSensor = 'Stop Sensor';
   static const String workoutVoicePlaceholder = 'type a command';
   static const String workoutVoiceHint =
       'Say or type a command: "add 10 reps" · "subtract 5 reps" · '
       '"set reps to 12" · "finished set"';
   static const String workoutVoiceRun = 'Run';
-  static const String workoutVoiceSpeak = '🎙️ Speak';
+  static const String workoutVoiceSpeak = 'Speak';
   static const String workoutVoiceStop = '⏹ Stop';
   static const String workoutVoiceListening =
       'Listening… say "add 10 reps", "set reps to 12" or "finished set".';
@@ -389,6 +396,12 @@ class AfStrings {
   static const String completeChannelsUsed = 'Input channels used:';
   static const String completeGoHome = 'Go to home page';
   static const String completeViewHistory = 'View in Workout History';
+  static const String completeNoteLabel = 'Add a note (optional)';
+  static const String completeNoteHint =
+      'How did it feel? Anything worth remembering.';
+  static const String completeNoteSave = 'Save note';
+  static const String completeNoteSaved = 'Note saved.';
+  static const String completeNoteRemoved = 'Note removed.';
 
   // ------------------------------------------------------------------ history
   static const String historySearchPlaceholder = 'Search by program name';
@@ -438,6 +451,12 @@ class AfStrings {
       'Two sessions are already picked. Remove one to change the pair.';
   static const String historyStitchPicked = '✓ Picked for stitching';
   static const String historyStitchTapToPick = 'Tap to pick this session';
+  static const String historyNoteLabel = 'Your note';
+  static const String historyNoteEdit = 'Edit note';
+  static const String historyNoteAdd = 'Add note';
+  static const String historyNoteEditTitle = 'Note about this workout';
+  static const String historyCopy = 'Copy';
+  static const String historyCopied = 'Workout copied to clipboard.';
 
   // ----------------------------------------------------------------- discover
   static const String discoverCustomTitle = 'Add Custom Exercise';

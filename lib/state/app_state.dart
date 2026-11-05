@@ -15,6 +15,7 @@ import '../services/notifications.dart';
 import '../services/rest_alerts.dart';
 import '../services/speech_source.dart';
 import '../strings.dart';
+import 'calendar.dart';
 import 'rules.dart';
 import 'voice_commands.dart';
 
@@ -54,6 +55,17 @@ const String _legacyVoiceText = 'add 10 reps';
 ///
 /// Screens read from this object and call the methods below; nothing else
 /// mutates application data.
+///
+/// Every mutating method follows the same shape: change the field, call
+/// [persist] (usually through `unawaited`), then [notifyListeners] and — when
+/// the user needs feedback — [showToast].
+///
+/// Debugging pointers:
+/// * a screen that does not update usually misses `notifyListeners()`;
+/// * a change that disappears after a restart is missing from [persist] or
+///   from `SqliteStore.write`;
+/// * "nothing happens" on a tap is often an early return guarded by
+///   [activeWorkout] being empty or a validation error string.
 class AppState extends ChangeNotifier {
   AppState({
     required this.store,
@@ -334,6 +346,13 @@ class AppState extends ChangeNotifier {
   }
 
   /// Writes the current state back to the store.
+  ///
+  /// Every mutating method calls this (usually through `unawaited`), so the
+  /// document is always the whole state. If a field is missing from this map,
+  /// it is not persisted — add it here **and** in `SqliteStore.write`.
+  ///
+  /// The write is tracked in [_pendingWrite] so tests can await it and a slow
+  /// write cannot overwrite a newer one.
   Future<void> persist() async {
     final Future<void> write = store.write(<String, dynamic>{
       'schemaVersion': 1,
@@ -668,6 +687,12 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Loads [programId] into the draft and makes it the Current program.
+  ///
+  /// [mode] is `full` or `micro`; an empty string infers it from the program
+  /// type. Already logged sets are kept when the same program is re-opened and
+  /// cleared when the user switches program, so "start again" needs an
+  /// explicit discard.
   void startProgramWorkout(String programId, String mode) {
     Program? found;
     for (final Program program in programs) {
@@ -681,6 +706,9 @@ class AppState extends ChangeNotifier {
 
     final Program target = found;
     final bool switching = activeWorkout.programId != target.id;
+    // A rest from the previous workout must not keep ticking (or sit in the
+    // notification shade) behind the new one.
+    _endRest();
     programs = programs
         .map((Program p) => p.copyWith(active: p.id == target.id))
         .toList();
@@ -696,7 +724,11 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Starts an empty workout: no planned exercises, so the user adds them one
+  /// by one. It is stored as a micro session, because it has no program behind
+  /// it and is finished as a partial workout.
   void startEmptyWorkout() {
+    _endRest();
     activeWorkout = const ActiveWorkout(
       programId: 'p_empty',
       sessionName: 'Empty Workout',
@@ -758,6 +790,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Creates a program from the editor and makes it the Current program.
+  ///
+  /// The new program is prepended to [programs] and every other program is
+  /// marked inactive (there is exactly one Current program). The draft is
+  /// rebuilt from it, so the Workout tab shows the new exercises immediately.
   Program createProgram({
     required String name,
     required List<ProgramExercise> exercises,
@@ -846,6 +883,47 @@ class AppState extends ChangeNotifier {
     return updated;
   }
 
+  /// Moves one exercise inside a program and saves the new order.
+  ///
+  /// [oldIndex] and [newIndex] come straight from `ReorderableListView`'s
+  /// `onReorderItem`, which already reports the destination index after the
+  /// dragged row is removed.
+  ///
+  /// Reordering the active program also reorders the workout draft, so the
+  /// workout screen and its exercise picker follow the new order right away.
+  Program? reorderProgramExercises({
+    required String programId,
+    required int oldIndex,
+    required int newIndex,
+  }) {
+    final int index = programs.indexWhere((Program p) => p.id == programId);
+    if (index < 0) return null;
+    final Program before = programs[index];
+    final List<ProgramExercise> exercises = <ProgramExercise>[
+      ...before.exercises,
+    ];
+    if (oldIndex < 0 || oldIndex >= exercises.length) return null;
+    if (newIndex == oldIndex || newIndex < 0 || newIndex >= exercises.length) {
+      return null;
+    }
+
+    exercises.insert(newIndex, exercises.removeAt(oldIndex));
+    final Program updated = before.copyWith(exercises: exercises);
+    programs = <Program>[
+      for (int i = 0; i < programs.length; i++)
+        if (i == index) updated else programs[i],
+    ];
+    if (before.active) {
+      // The draft keeps its logged sets and the selected exercise; only the
+      // planned order changes.
+      activeWorkout = activeWorkout.copyWith(exercises: exercises);
+    }
+    unawaited(persist());
+    notifyListeners();
+    showToast(AfStrings.programsReorderToast);
+    return updated;
+  }
+
   /// A rough duration from the number of planned sets (3 minutes each).
   String _programDuration(List<ProgramExercise> exercises) {
     final int sets = exercises.fold<int>(
@@ -911,6 +989,60 @@ class AppState extends ChangeNotifier {
     changeActiveExercise(exercises[next].name);
   }
 
+  /// The longest exercise name the rename dialog accepts.
+  static const int maxExerciseNameLength = 40;
+
+  /// Renames the exercise currently selected in the draft workout.
+  ///
+  /// The name changes for this workout only: the program and the exercise
+  /// catalogue keep their own names, because an improvised swap (the machine
+  /// was taken) is not a program edit. Sets already logged under the old name
+  /// in this session move with it, so History and the copy-as-text output
+  /// still show one exercise.
+  ///
+  /// Returns an error message for the dialog, or `null` when the name was
+  /// accepted (including the no-op case of an unchanged name).
+  String? renameActiveExercise(String raw) {
+    final String previous = activeWorkout.currentExercise;
+    if (previous.isEmpty) return AfStrings.workoutRenameNoExercise;
+    final String name = raw.trim();
+    if (name.isEmpty) return AfStrings.workoutRenameEmpty;
+    if (name.length > maxExerciseNameLength) {
+      return AfStrings.fill(
+        AfStrings.workoutRenameTooLong,
+        <String, Object?>{'max': maxExerciseNameLength},
+      );
+    }
+    if (name.toLowerCase() == previous.toLowerCase()) return null;
+
+    final String key = name.toLowerCase();
+    final bool duplicate = activeWorkout.exercises.any(
+      (ProgramExercise e) =>
+          e.name.toLowerCase() == key &&
+          e.name.toLowerCase() != previous.toLowerCase(),
+    );
+    if (duplicate) return AfStrings.workoutRenameDuplicate;
+
+    final String oldKey = previous.toLowerCase();
+    activeWorkout = activeWorkout.copyWith(
+      exercises: activeWorkout.exercises
+          .map((ProgramExercise e) =>
+              e.name.toLowerCase() == oldKey ? e.copyWith(name: name) : e)
+          .toList(growable: false),
+      currentExercise: name,
+      sets: activeWorkout.sets
+          .map((LoggedSet s) => s.exerciseName.toLowerCase() == oldKey
+              ? s.withExerciseName(name)
+              : s)
+          .toList(growable: false),
+    );
+    // The ongoing rest notification names the exercise; keep it in step.
+    _syncRestNotification();
+    unawaited(persist());
+    notifyListeners();
+    return null;
+  }
+
   void updateWeightInput(String value) {
     activeWorkout = activeWorkout.copyWith(weightInput: value);
     notifyListeners();
@@ -952,6 +1084,11 @@ class AppState extends ChangeNotifier {
   /// [inputMethod] records how the set was produced; it defaults to `manual`
   /// because the screen buttons are the normal path now that the channel
   /// selector is gone.
+  ///
+  /// The set lands in the draft (`activeWorkout.sets`) — it only becomes part
+  /// of a history record in [finishActiveWorkout]. That is why discarding a
+  /// workout loses its sets, and why a micro session is just a finish with
+  /// fewer sets. A successful save also resets the rest timer.
   String? logCurrentSet({String inputMethod = 'manual'}) {
     if (activeWorkout.currentExercise.isEmpty) {
       return 'Please add or select an exercise first.';
@@ -987,6 +1124,8 @@ class AppState extends ChangeNotifier {
     restCompleted = false;
     restEndTime = null;
     _ticker?.cancel();
+    // The previous rest's notification must not outlive the set that ends it.
+    _syncRestNotification();
     unawaited(persist());
     notifyListeners();
     showToast(
@@ -1100,6 +1239,15 @@ class AppState extends ChangeNotifier {
   }
 
   /// Finishes the workout and stores the session in history.
+  ///
+  /// Side effects, in order: the session is prepended to [history], the
+  /// summary the complete screen reads is set, progression may bump the
+  /// program, and the draft's sets are cleared (the program and inputs stay,
+  /// so the next workout starts where this one ended). Returns `null` and
+  /// shows a toast when no set was logged.
+  ///
+  /// The note is not written here: the complete screen calls
+  /// [setSessionNote] with the id from [WorkoutSummary.sessionId].
   WorkoutSession? finishActiveWorkout() {
     if (activeWorkout.sets.isEmpty) {
       showToast(
@@ -1153,6 +1301,7 @@ class AppState extends ChangeNotifier {
       totalReps: session.reps,
       totalVolume: session.volume,
       methods: methodList,
+      sessionId: session.id,
     );
     // Double progression: only a full session whose planned sets were all
     // completed at the planned reps moves the program forward.
@@ -1163,6 +1312,8 @@ class AppState extends ChangeNotifier {
     );
 
     activeWorkout = activeWorkout.copyWith(sets: <LoggedSet>[]);
+    // Finishing ends the workout: no countdown or notification may survive it.
+    _endRest();
     unawaited(persist());
     notifyListeners();
     return session;
@@ -1209,6 +1360,11 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- history
 
+  /// Removes a session from History.
+  ///
+  /// Deleting a stitched parent also removes its children: they only live
+  /// inside the parent record, so there is nothing left to show afterwards.
+  /// Unstitch first if the children should stay.
   void deleteSession(String sessionId) {
     history = history.where((WorkoutSession s) => s.id != sessionId).toList();
     unawaited(persist());
@@ -1234,12 +1390,8 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  DateTime? _sessionDay(WorkoutSession session) {
-    final DateTime? parsed = DateTime.tryParse(session.startedAtUtc);
-    if (parsed == null) return null;
-    final DateTime local = parsed.isUtc ? parsed.toLocal() : parsed;
-    return DateTime(local.year, local.month, local.day);
-  }
+  /// The local calendar day a session belongs to; see [sessionLocalDay].
+  DateTime? _sessionDay(WorkoutSession session) => sessionLocalDay(session);
 
   bool _sameLocalDay(WorkoutSession a, WorkoutSession b) {
     final DateTime? dayA = _sessionDay(a);
@@ -1253,10 +1405,14 @@ class AppState extends ChangeNotifier {
   /// The children keep every set they had; the parent only references them, so
   /// each set still counts once in History and the calendar. Returns `null`
   /// when the selection is not eligible.
+  ///
+  /// The parent is a new record without a note of its own: notes stay on the
+  /// children, and [unstitchSession] throws the parent (and any note added to
+  /// it) away.
   WorkoutSession? stitchSessions(List<String> sessionIds) {
     if (sessionIds.length != 2) return null;
-    final WorkoutSession? first = _sessionById(sessionIds[0]);
-    final WorkoutSession? second = _sessionById(sessionIds[1]);
+    final WorkoutSession? first = sessionById(sessionIds[0]);
+    final WorkoutSession? second = sessionById(sessionIds[1]);
     if (first == null || second == null) return null;
     if (!canStitch(first, second)) return null;
 
@@ -1296,14 +1452,54 @@ class AppState extends ChangeNotifier {
     return stitched;
   }
 
-  WorkoutSession? _sessionById(String id) {
+  /// Finds a stored session by id, or `null` when it no longer exists.
+  WorkoutSession? sessionById(String id) {
     for (final WorkoutSession session in history) {
       if (session.id == id) return session;
     }
     return null;
   }
 
+  /// Stores the user's own note on one workout.
+  ///
+  /// The note is plain text, trimmed and capped at [maxSessionNoteLength]; an
+  /// empty note removes it. Totals, sets and timestamps of the workout itself
+  /// are left alone.
+  bool setSessionNote(String sessionId, String note) {
+    final int index =
+        history.indexWhere((WorkoutSession s) => s.id == sessionId);
+    if (index < 0) return false;
+    final String cleaned = _cleanNote(note);
+    if (history[index].note == cleaned) return false;
+    final List<WorkoutSession> next = <WorkoutSession>[...history];
+    next[index] = next[index].copyWithNote(cleaned);
+    history = next;
+    unawaited(persist());
+    notifyListeners();
+    showToast(
+      cleaned.isEmpty
+          ? AfStrings.completeNoteRemoved
+          : AfStrings.completeNoteSaved,
+    );
+    return true;
+  }
+
+  /// The longest note a workout can carry.
+  static const int maxSessionNoteLength = 500;
+
+  static String _cleanNote(String note) {
+    final String trimmed = note.trim();
+    return trimmed.length <= maxSessionNoteLength
+        ? trimmed
+        : trimmed.substring(0, maxSessionNoteLength).trimRight();
+  }
+
   /// Replaces a stitched session with its children.
+  ///
+  /// Returns the number of sessions that came back (2 for a real parent, 0
+  /// when the id is unknown). A parent restored from an old record that lost
+  /// its children is split into two synthetic halves so the user never ends up
+  /// with nothing.
   int unstitchSession(String sessionId) {
     final int index =
         history.indexWhere((WorkoutSession s) => s.id == sessionId);
@@ -1511,6 +1707,11 @@ class AppState extends ChangeNotifier {
   QuizAdjustment computedQuizAdjustment() => computeQuizAdjustment(quizAnswers);
 
   /// Applies the adjusted weights to the active program.
+  ///
+  /// The adjustment is written straight into the Current program (there is no
+  /// separate version record in this build), the draft is rebuilt from it, and
+  /// the Home banner is hidden. **Keep my old program** on the preview screen
+  /// is the only way back, so nothing is applied before the user taps Accept.
   void acceptAdjustedProgram() {
     final QuizAdjustment adjustment = computedQuizAdjustment();
     final Program? active = getActiveProgram();
@@ -1881,6 +2082,10 @@ class AppState extends ChangeNotifier {
   }
 
   /// Restores the seeded demo data.
+  ///
+  /// Only reachable from Settings in debug builds (`kDebugMode`), after the
+  /// confirmation dialog. It rewrites the in-memory demo data and persists it,
+  /// so the next launch is back to the seed as well.
   void resetDemoState() {
     final DateTime now = _now;
     catalogue = SeedData.catalogue(now);
@@ -1911,6 +2116,13 @@ class AppState extends ChangeNotifier {
 
   bool get isTimerRunning => restRunning;
 
+  /// Starts (or resumes) the countdown.
+  ///
+  /// Only the end time is stored; the 250 ms ticker just refreshes the UI, so
+  /// the remaining time stays correct after the app was in the background.
+  /// Reaching zero fires the bell, the vibration and [onRestTimerFinished]
+  /// here (not on the screen), so the feedback still happens when the user
+  /// navigated away.
   void startRestTimerCountdown() {
     timerRunId += 1;
     restRunning = true;
@@ -1993,13 +2205,20 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void skipRestTimer() {
+  /// Stops the countdown and removes the OS notification, without notifying
+  /// listeners. Used when a rest is over for good: Back to workout, finishing
+  /// a workout, or starting another one.
+  void _endRest() {
     restRunning = false;
     restCompleted = false;
     restEndTime = null;
     _ticker?.cancel();
     activeWorkout = activeWorkout.copyWith(restSeconds: 0);
     _syncRestNotification();
+  }
+
+  void skipRestTimer() {
+    _endRest();
     notifyListeners();
   }
 

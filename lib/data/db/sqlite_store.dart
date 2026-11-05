@@ -29,6 +29,12 @@ class SqliteStore implements AtomFitStore {
 
   final AppDatabase _appDatabase;
 
+  /// Rebuilds the prototype's document from the tables.
+  ///
+  /// Returns `null` when the database is empty (first launch), which makes
+  /// `AppState.load()` seed the demo data. Stitched children are stored in
+  /// `sessions` with a `parent_id` and are nested under their parent here, so
+  /// the rest of the app only ever sees top-level sessions.
   @override
   Future<Map<String, dynamic>?> read() async {
     final Database db = await _appDatabase.database;
@@ -127,6 +133,14 @@ class SqliteStore implements AtomFitStore {
     return document;
   }
 
+  /// Replaces the stored document inside one transaction.
+  ///
+  /// Programs, sessions and their sets are rewritten from scratch, so the
+  /// document must carry the full lists — a failure rolls the transaction back
+  /// and leaves the previous data untouched. Keys the document may omit
+  /// (`settings` flags, `scheduledWorkouts`) fall back to what is already
+  /// stored; **every other key needs a mapping here, or it is silently lost on
+  /// the next restart** (this is how the workout note was dropped once).
   @override
   Future<void> write(Map<String, dynamic> document) async {
     final Database db = await _appDatabase.database;
@@ -339,6 +353,7 @@ class SqliteStore implements AtomFitStore {
         'volume': (session['volume'] as num?)?.toDouble() ?? 0,
         'sets_count': (session['setsCount'] as num?)?.toInt() ?? 0,
         'methods': jsonEncode(session['methods'] ?? const <dynamic>[]),
+        'note': (session['note'] ?? '').toString(),
         'parent_id': parentId,
         'created_at_utc': (session['createdAtUtc'] ?? now).toString(),
         'updated_at_utc': (session['updatedAtUtc'] ?? now).toString(),
@@ -424,6 +439,7 @@ class SqliteStore implements AtomFitStore {
       'volume': (row['volume'] as num?)?.toDouble() ?? 0,
       'setsCount': (row['sets_count'] as num?)?.toInt() ?? 0,
       'methods': _decodeList(row['methods']),
+      'note': (row['note'] ?? '').toString(),
       'createdAtUtc': (row['created_at_utc'] ?? '').toString(),
       'updatedAtUtc': (row['updated_at_utc'] ?? '').toString(),
       'deletedAtUtc': row['deleted_at_utc'],

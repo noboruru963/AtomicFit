@@ -6,7 +6,11 @@
 /// mirror the same shape without touching the UI.
 library;
 
-/// Current schema version. Bump this whenever [migrationSteps] grows.
+/// Legacy marker from the first schema draft; nothing reads it.
+///
+/// The version the database is actually opened with is
+/// [initialSchemaVersion] (= `migrationSteps.length`). Adding a migration step
+/// therefore bumps the version automatically — do not bump this constant.
 const int kSchemaVersion = 1;
 
 /// Name of the SQLite file inside the app's database directory.
@@ -111,6 +115,7 @@ CREATE TABLE sessions (
   volume REAL NOT NULL DEFAULT 0,
   sets_count INTEGER NOT NULL DEFAULT 0,
   methods TEXT NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL DEFAULT '',
   parent_id TEXT,
   created_at_utc TEXT NOT NULL,
   updated_at_utc TEXT NOT NULL,
@@ -172,9 +177,16 @@ const List<String> kCreateIndexes = <String>[
 ];
 
 /// Migration steps applied when the stored schema version is older than
-/// [kSchemaVersion].
+/// [initialSchemaVersion].
 ///
-/// Step 1 creates every table (see [kCreateStatements]).
+/// Index `i` upgrades a database from version `i` to version `i + 1`:
+///
+/// * step 0 — creates every table (see [kCreateStatements]).
+/// * step 1 — BA-011, renames the back exercise to "Lat pulldown".
+/// * step 2 — adds the personal workout note to `sessions`.
+///
+/// A fresh install runs only [kCreateStatements], so any column added by a
+/// later step must also exist in the matching `CREATE TABLE` above.
 const List<List<String>> migrationSteps = <List<String>>[
   kCreateStatements,
 
@@ -206,6 +218,12 @@ UPDATE app_state
    SET value = REPLACE(value, 'Lateral pushdown', 'Lat pulldown')
  WHERE key = 'activeWorkout' AND value LIKE '%Lateral pushdown%'
 ''',
+  ],
+
+  // Step 3 — the Workout complete screen lets the user write a personal note
+  // on the session. Older rows read back as "no note" thanks to the default.
+  <String>[
+    "ALTER TABLE sessions ADD COLUMN note TEXT NOT NULL DEFAULT ''",
   ],
 ];
 

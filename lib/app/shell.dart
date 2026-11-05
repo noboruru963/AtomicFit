@@ -7,6 +7,10 @@ import '../widgets/af_widgets.dart';
 
 /// Provides the [AppState] to the widget tree and rebuilds listeners when it
 /// changes.
+///
+/// Use [of] inside `build` when the widget shows state (it subscribes, so the
+/// widget rebuilds on every `notifyListeners()`). Use [read] from callbacks
+/// (tap handlers, `initState`, dialogs) where a rebuild is not wanted.
 class AfAppScope extends InheritedNotifier<AppState> {
   const AfAppScope({
     super.key,
@@ -223,6 +227,10 @@ class _IconAction extends StatelessWidget {
 /// nav is a [Stack]: the bar keeps its own height and the button is painted
 /// above it. The middle slot is always reserved, which keeps the bar height
 /// constant whichever tab is selected.
+///
+/// Tab switches use `pushReplacementNamed`, so the tabs never pile up on the
+/// back stack: Back from a tab leaves the app, while detail screens
+/// (exercise detail, settings, …) are pushed normally and return to the tab.
 class AfBottomNav extends StatelessWidget {
   const AfBottomNav({super.key, required this.current});
 
@@ -423,6 +431,11 @@ class _NavTab extends StatelessWidget {
 }
 
 /// The app frame: header, content, bottom navigation and the global toast.
+///
+/// Every screen wraps its body in this widget, so the chrome (top bar, bottom
+/// nav, toast) stays identical across the app. The body is capped at 480 dp and
+/// the default padding leaves room for the raised Workout button, which paints
+/// 30 dp above the bar.
 class AfScaffold extends StatelessWidget {
   const AfScaffold({
     super.key,

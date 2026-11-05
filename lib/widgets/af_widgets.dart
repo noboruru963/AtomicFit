@@ -5,6 +5,16 @@ import '../theme/app_theme.dart';
 
 /// Reusable widgets mirroring the prototype's CSS classes
 /// (`.af-card`, `.af-btn-*`, `.af-badge`, `.af-input`, …).
+///
+/// Every colour comes from `context.af` (the [AfTokens] extension), never from
+/// a literal, so light and dark themes stay in step. When a screen looks wrong
+/// in one theme, the token is the first thing to check, not the widget.
+///
+/// Two widgets have non-obvious behaviour:
+/// * [AfTextField] defaults to a single line; pass `minLines`/`maxLines` for a
+///   multi-line box and `maxLength` to get the counter;
+/// * [AfDialog.show] closes with whatever the caller pops, so actions must pop
+///   a value (`true`, `false`, …) when the caller needs to know what happened.
 
 class AfCard extends StatelessWidget {
   const AfCard({
@@ -659,6 +669,9 @@ class AfTextField extends StatelessWidget {
     this.autofocus = false,
     this.obscureText = false,
     this.inputFormatters,
+    this.minLines,
+    this.maxLines = 1,
+    this.maxLength,
   });
 
   final TextEditingController controller;
@@ -674,6 +687,11 @@ class AfTextField extends StatelessWidget {
   final bool obscureText;
   final List<TextInputFormatter>? inputFormatters;
 
+  /// Multi-line support for the free-text note boxes.
+  final int? minLines;
+  final int? maxLines;
+  final int? maxLength;
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -687,6 +705,9 @@ class AfTextField extends StatelessWidget {
       autofocus: autofocus,
       obscureText: obscureText,
       inputFormatters: inputFormatters,
+      minLines: minLines,
+      maxLines: maxLines,
+      maxLength: maxLength,
       style: style ??
           (emphasised
               ? theme.textTheme.titleMedium?.copyWith(fontSize: 18)

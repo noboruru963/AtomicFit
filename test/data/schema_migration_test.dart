@@ -142,5 +142,33 @@ void main() {
       expect(await db.query('exercises'), isEmpty);
       await upgraded.close();
     });
+
+    test('adds the session note column to an older database', () async {
+      // A database from before the note feature: same tables, no note column.
+      final Database old = await databaseFactoryFfi.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (Database db, int version) async {
+            for (final String statement in kCreateStatements) {
+              await db.execute(statement);
+            }
+          },
+        ),
+      );
+      await old.execute('ALTER TABLE sessions DROP COLUMN note');
+      await old.close();
+
+      final AppDatabase upgraded =
+          AppDatabase(factory: databaseFactoryFfi, path: dbPath);
+      final Database db = await upgraded.database;
+      final List<Map<String, Object?>> columns =
+          await db.rawQuery('PRAGMA table_info(sessions)');
+      expect(
+        columns.map((Map<String, Object?> column) => column['name']),
+        contains('note'),
+      );
+      await upgraded.close();
+    });
   });
 }

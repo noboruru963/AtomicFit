@@ -238,6 +238,10 @@ class AfTokens extends ThemeExtension<AfTokens> {
 }
 
 extension AfTokensX on BuildContext {
+  /// The design tokens of the current theme (`context.af`).
+  ///
+  /// Shorthand for [AfTokens.of]; use it instead of a `Color(0x…)` literal so
+  /// the same widget works in light and dark mode.
   AfTokens get af => AfTokens.of(this);
 }
 

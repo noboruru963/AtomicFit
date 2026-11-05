@@ -337,6 +337,136 @@ void main() {
     expect(state.currentTarget?.weightKg, 22.5);
   });
 
+  test('dragging an exercise reorders the program and survives a restart',
+      () async {
+    final _MemoryStore store = _MemoryStore();
+    final AppState state = AppState(store: store);
+    await state.load();
+    final Program before = state.getActiveProgram()!;
+    final String first = before.exercises.first.name;
+    final String second = before.exercises[1].name;
+
+    // `onReorderItem` already reports the index after the row was removed.
+    final Program? updated = state.reorderProgramExercises(
+      programId: before.id,
+      oldIndex: 0,
+      newIndex: 1,
+    );
+
+    expect(updated, isNotNull);
+    expect(state.getActiveProgram()!.exercises.first.name, second);
+    expect(state.getActiveProgram()!.exercises[1].name, first);
+
+    await state.persist();
+    final AppState reopened = AppState(store: store);
+    await reopened.load();
+    expect(reopened.getActiveProgram()!.exercises.first.name, second);
+  });
+
+  test('reordering the active program reorders the workout draft too',
+      () async {
+    final AppState state = await _freshState();
+    final Program before = state.getActiveProgram()!;
+    final String current = state.activeWorkout.currentExercise;
+    final String second = before.exercises[1].name;
+
+    state.reorderProgramExercises(
+      programId: before.id,
+      oldIndex: 0,
+      newIndex: 1,
+    );
+
+    expect(state.activeWorkout.exercises.first.name, second);
+    // The exercise being logged stays selected, only the order moved.
+    expect(state.activeWorkout.currentExercise, current);
+  });
+
+  test('a reorder that changes nothing leaves the program alone', () async {
+    final AppState state = await _freshState();
+    final Program before = state.getActiveProgram()!;
+    final List<String> order = before.exercises
+        .map((ProgramExercise e) => e.name)
+        .toList(growable: false);
+
+    expect(
+      state.reorderProgramExercises(
+        programId: before.id,
+        oldIndex: 0,
+        newIndex: 0,
+      ),
+      isNull,
+    );
+    expect(
+      state.reorderProgramExercises(
+        programId: before.id,
+        oldIndex: 0,
+        newIndex: 99,
+      ),
+      isNull,
+    );
+    expect(
+      state.reorderProgramExercises(
+        programId: 'p_missing',
+        oldIndex: 0,
+        newIndex: 1,
+      ),
+      isNull,
+    );
+    expect(
+      state
+          .getActiveProgram()!
+          .exercises
+          .map((ProgramExercise e) => e.name)
+          .toList(),
+      order,
+    );
+  });
+
+  test('a workout note is stored with the session and survives a restart',
+      () async {
+    final _MemoryStore store = _MemoryStore();
+    final AppState state = AppState(store: store);
+    await state.load();
+    state.updateWeightInput('20');
+    state.updateRepsInput(10);
+    state.logCurrentSet();
+    final WorkoutSession session = state.finishActiveWorkout()!;
+
+    expect(
+      state.setSessionNote(session.id, '  today was good  '),
+      isTrue,
+    );
+    final WorkoutSession noted = state.sessionById(session.id)!;
+    expect(noted.note, 'today was good');
+    // The note never touches the workout's own numbers.
+    expect(noted.reps, session.reps);
+    expect(noted.volume, session.volume);
+    expect(noted.setsCount, session.setsCount);
+
+    await state.persist();
+    final AppState reopened = AppState(store: store);
+    await reopened.load();
+    expect(reopened.sessionById(session.id)!.note, 'today was good');
+  });
+
+  test('a note is capped, can be cleared and ignores unknown sessions',
+      () async {
+    final AppState state = await _freshState();
+    state.logCurrentSet();
+    final WorkoutSession session = state.finishActiveWorkout()!;
+
+    final String tooLong = 'a' * 700;
+    state.setSessionNote(session.id, tooLong);
+    expect(
+      state.sessionById(session.id)!.note.length,
+      AppState.maxSessionNoteLength,
+    );
+
+    state.setSessionNote(session.id, '   ');
+    expect(state.sessionById(session.id)!.note, '');
+    expect(state.setSessionNote('s_missing', 'hello'), isFalse);
+  });
+
   test('creating a program no longer overwrites per-exercise values', () async {
     final AppState state = await _freshState();
     final Program created = state.createProgram(
@@ -517,7 +647,66 @@ void main() {
     expect(result.outcome, VoiceOutcome.rejected);
     expect(result.error, isNotNull);
     expect(state.activeWorkout.sets, isEmpty);
+    state.dispose();
+  });
 
+  test('renaming the exercise renames its logged sets, not the program',
+      () async {
+    final AppState state = await _freshState();
+    final String original = state.activeWorkout.currentExercise;
+    expect(original, isNotEmpty);
+    state.updateWeightInput('20');
+    state.updateRepsInput(10);
+    state.logCurrentSet();
+
+    expect(state.renameActiveExercise('  Machine chest press  '), isNull);
+    expect(state.activeWorkout.currentExercise, 'Machine chest press');
+    expect(state.activeWorkout.sets.single.exerciseName, 'Machine chest press');
+    expect(state.loggedCountFor('Machine chest press'), 1);
+    expect(
+      state.activeWorkout.exercises.map((ProgramExercise e) => e.name),
+      contains('Machine chest press'),
+    );
+    expect(
+      state.activeWorkout.exercises.map((ProgramExercise e) => e.name),
+      isNot(contains(original)),
+    );
+    // The program is not an improvised swap: it keeps its planned exercise.
+    expect(
+      state.getActiveProgram()!.exercises.map((ProgramExercise e) => e.name),
+      contains(original),
+    );
+    state.dispose();
+  });
+
+  test('renaming rejects a blank or duplicated name', () async {
+    final AppState state = await _freshState();
+    final String original = state.activeWorkout.currentExercise;
+    expect(state.activeWorkout.exercises.length, greaterThan(1));
+    final String other = state.activeWorkout.exercises
+        .firstWhere((ProgramExercise e) => e.name != original)
+        .name;
+
+    expect(state.renameActiveExercise('   '), isNotNull);
+    expect(state.renameActiveExercise(other), isNotNull);
+    expect(state.activeWorkout.currentExercise, original);
+    state.dispose();
+  });
+
+  test('finishing a workout ends the rest and clears the notification',
+      () async {
+    final AppState state = await _freshState();
+    final _FakeRestNotifier notifier = _FakeRestNotifier();
+    state.restTimerNotifications = notifier;
+    state.updateWeightInput('20');
+    state.logCurrentSet();
+    state.startRestTimerCountdown();
+    expect(state.isTimerRunning, isTrue);
+    expect(notifier.progressCalls, greaterThan(0));
+
+    state.finishActiveWorkout();
+    expect(state.isTimerRunning, isFalse);
+    expect(notifier.cancelCalls, greaterThan(0));
     state.dispose();
   });
 }
@@ -543,4 +732,7 @@ class _FakeRestNotifier implements RestTimerNotifier {
   void cancelProgress() {
     cancelCalls += 1;
   }
+
+  @override
+  void cancelFinished() {}
 }

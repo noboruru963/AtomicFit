@@ -11,6 +11,17 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderActiveWorkoutScreen()` (`index.html` lines 2522-2656).
+///
+/// The workout itself lives in `AppState.activeWorkout`; this screen owns only
+/// the text controllers (weight box, voice box) and the microphone session.
+/// Every save goes through `AppState.logCurrentSet`, and **Finish** calls
+/// `finishActiveWorkout()` before routing to the complete screen — a micro
+/// session takes the same path with `sessionType = 'micro'`.
+///
+/// When adding a field here, remember `dispose()`: the mic is cancelled and
+/// the controllers are disposed there. Disposing a controller while a dialog
+/// that still shows it is closing is what produces the "used after being
+/// disposed" error seen in the program editor.
 class ActiveWorkoutScreen extends StatefulWidget {
   const ActiveWorkoutScreen({super.key});
 
@@ -28,10 +39,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
   /// Whether the microphone is open right now (drives the Speak/Stop button).
   bool _listening = false;
-
-  /// Whether the auto-count demo block is unfolded. The channel selector is
-  /// gone, so this is the only door to that demo.
-  bool _showAutoCount = false;
 
   /// The source an open session belongs to, so leaving the screen can cancel it.
   SpeechSource? _activeSpeech;
@@ -230,6 +237,72 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     Navigator.of(context).pushNamed(AfScreen.discoverDetail);
   }
 
+  /// Lets the lifter rename the current exercise for this workout only.
+  ///
+  /// Gym reality: the machine or dumbbell is taken, so the movement changes.
+  /// The program and the catalogue keep their own names — only this session
+  /// is renamed, and its already-logged sets move with it so History and the
+  /// copy-as-text output still read as one exercise.
+  Future<void> _renameExercise(AppState state) async {
+    if (state.activeWorkout.currentExercise.isEmpty) return;
+    final TextEditingController controller =
+        TextEditingController(text: state.activeWorkout.currentExercise);
+    String? error;
+    late StateSetter setDialogState;
+    final bool? saved = await AfDialog.show<bool>(
+      context,
+      title: AfStrings.workoutRenameTitle,
+      body: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          setDialogState = setState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AfTextField(
+                controller: controller,
+                hint: AfStrings.workoutRenameHint,
+                autofocus: true,
+                maxLength: AppState.maxExerciseNameLength,
+              ),
+              if (error != null) ...<Widget>[
+                const SizedBox(height: 6),
+                Text(
+                  error!,
+                  style: TextStyle(color: context.af.danger, fontSize: 12),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        AfButton(
+          label: AfStrings.workoutRenameSave,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            final String? problem = state.renameActiveExercise(controller.text);
+            if (problem != null) {
+              setDialogState(() => error = problem);
+              return;
+            }
+            Navigator.of(context).pop(true);
+          },
+        ),
+      ],
+    );
+    // The field is still mounted while the dialog animates out.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+    if (saved == true && mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
@@ -339,6 +412,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                               tooltip: AfStrings.workoutOpenExerciseInfo,
                               onPressed: () => _openExerciseInfo(state),
                               icon: const Icon(Icons.info_outline, size: 20),
+                            ),
+                            IconButton(
+                              tooltip: AfStrings.workoutRenameTooltip,
+                              onPressed: () => _renameExercise(state),
+                              icon: const Icon(Icons.edit_outlined, size: 20),
                             ),
                           ],
                         ),
@@ -476,57 +554,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                // The demo-only channels stay reachable from here, so removing
-                // the Settings selector loses no demo step.
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    AfButton(
-                      label: _showAutoCount
-                          ? AfStrings.workoutAutoCountHide
-                          : AfStrings.workoutAutoCountDemo,
-                      variant: AfButtonVariant.secondary,
-                      size: AfButtonSize.compact,
-                      onPressed: () =>
-                          setState(() => _showAutoCount = !_showAutoCount),
-                    ),
-                    AfButton(
-                      label: AfStrings.workoutLockscreenConcept,
-                      variant: AfButtonVariant.secondary,
-                      size: AfButtonSize.compact,
-                      onPressed: () => Navigator.of(context)
-                          .pushNamed(AfScreen.lockScreenWidget),
-                    ),
-                  ],
-                ),
-                if (_showAutoCount) ...<Widget>[
-                  const SizedBox(height: 8),
-                  _ChannelHelper(
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            '⌚ ${AfStrings.workoutAutoCount} '
-                            '${state.sensorSimActive ? AfStrings.workoutCounting : AfStrings.workoutReady}',
-                            style: AfText.muted(t, size: 12),
-                          ),
-                        ),
-                        AfButton(
-                          label: state.sensorSimActive
-                              ? AfStrings.workoutStopSensor
-                              : AfStrings.workoutStartAutoCount,
-                          variant: state.sensorSimActive
-                              ? AfButtonVariant.danger
-                              : AfButtonVariant.tint,
-                          size: AfButtonSize.compact,
-                          onPressed: state.toggleSensorSimulation,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 4),
                 if (_weightError != null) ...<Widget>[
                   AfErrorBanner(

@@ -39,11 +39,20 @@ Future<void> main() async {
   await _boot();
 }
 
+/// Keeps the "Rest over" alert from lingering after the user is back in the
+/// app. Held here so it is created once per boot and disposed on a retry.
+AppLifecycleListener? _lifecycle;
+
 /// Opens the database, prepares the catalogue and loads the saved state.
 ///
 /// The first frame needs this data, so it runs before `runApp`. Anything that
 /// fails here is reported on screen ([StartupErrorApp]) instead of leaving the
 /// launch window blank.
+///
+/// This is also the **only** place that wires the real implementations
+/// (sqflite, OS notifications, the phone microphone) into [AppState]. Tests
+/// build `AppState` themselves with fakes, so a bug that only shows on the
+/// device usually means the wiring here is wrong, not the screen.
 Future<void> _boot() async {
   try {
     // The local database: accounts, exercise catalogue, programs, sessions.
@@ -79,6 +88,13 @@ Future<void> _boot() async {
     state.reminders = AfNotifications.instance;
     await state.reconcileReminders();
     await RestAlerts.instance.warmUp();
+    // A "Rest over" alert posted while the app was in the background should
+    // not sit in the shade once the user is back. Only the finished alert is
+    // cleared: a countdown that is still running keeps its notification.
+    _lifecycle?.dispose();
+    _lifecycle = AppLifecycleListener(
+      onResume: AfNotifications.instance.cancelFinished,
+    );
     // The microphone behind the voice log. It asks for access on first use and
     // reports a refusal back to the screen, which falls back to typing.
     state.speech = SpeechToTextSource();
@@ -103,6 +119,10 @@ class AtomFitApp extends StatelessWidget {
 
   /// The screen the app opens on — the prototype routes to the login screen
   /// until a user is signed in (`renderCurrentScreen`, `index.html` 1501).
+  ///
+  /// It is read once, when [MaterialApp] is built. Changing the login flag
+  /// later does **not** move the user; screens navigate themselves with
+  /// `Navigator.pushReplacementNamed`.
   String get _initialRoute {
     if (!state.isLoggedIn) return AfScreen.login;
     if (!state.personalDetailsComplete) return AfScreen.personalDetails;
@@ -111,6 +131,9 @@ class AtomFitApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `ListenableBuilder` sits above `MaterialApp` so a theme or login change
+    // rebuilds the whole app shell (top bar, nav, toast) at once. Every screen
+    // also subscribes to the same [AppState] through [AfAppScope].
     return AfAppScope(
       state: state,
       child: ListenableBuilder(

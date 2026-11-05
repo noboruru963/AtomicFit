@@ -8,8 +8,61 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderWorkoutCompleteScreen()` (`index.html` lines 3439-3481).
-class WorkoutCompleteScreen extends StatelessWidget {
+///
+/// The screen also carries the one place where a workout gets its personal
+/// note: the note is written straight onto the session that was just stored,
+/// so it survives a restart and shows up in History.
+class WorkoutCompleteScreen extends StatefulWidget {
   const WorkoutCompleteScreen({super.key});
+
+  @override
+  State<WorkoutCompleteScreen> createState() => _WorkoutCompleteScreenState();
+}
+
+class _WorkoutCompleteScreenState extends State<WorkoutCompleteScreen> {
+  final TextEditingController _note = TextEditingController();
+  String _sessionId = '';
+  String _savedNote = '';
+  bool _seeded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seeded) return;
+    _seeded = true;
+    final AppState state = AfAppScope.of(context);
+    _sessionId = state.lastCompletedWorkout?.sessionId ?? '';
+    _savedNote =
+        _sessionId.isEmpty ? '' : (state.sessionById(_sessionId)?.note ?? '');
+    _note.text = _savedNote;
+  }
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  /// Whether the box holds something the session does not have yet.
+  bool get _dirty => _note.text.trim() != _savedNote;
+
+  void _saveNote() {
+    if (_sessionId.isEmpty || !_dirty) return;
+    final AppState state = AfAppScope.of(context);
+    state.setSessionNote(_sessionId, _note.text);
+    setState(() {
+      _savedNote = state.sessionById(_sessionId)?.note ?? '';
+    });
+  }
+
+  /// Saves a note the user typed but did not confirm, then leaves the screen.
+  /// Typing a note should never be lost to a tap on "Go home".
+  void _leave(String route) {
+    if (_sessionId.isNotEmpty && _dirty) {
+      AfAppScope.of(context).setSessionNote(_sessionId, _note.text);
+    }
+    Navigator.of(context).pushReplacementNamed(route);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +85,7 @@ class WorkoutCompleteScreen extends StatelessWidget {
               AfButton(
                 label: AfStrings.completeGoHome,
                 expand: true,
-                onPressed: () =>
-                    Navigator.of(context).pushReplacementNamed(AfScreen.home),
+                onPressed: () => _leave(AfScreen.home),
               ),
             ],
           ),
@@ -152,13 +204,45 @@ class WorkoutCompleteScreen extends StatelessWidget {
                 ],
               ),
             ),
+            if (_sessionId.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              AfSubtle(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      AfStrings.completeNoteLabel,
+                      style: AfText.strong(t, size: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    AfTextField(
+                      controller: _note,
+                      hint: AfStrings.completeNoteHint,
+                      minLines: 3,
+                      maxLines: 6,
+                      maxLength: AppState.maxSessionNoteLength,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: AfButton(
+                        label: AfStrings.completeNoteSave,
+                        variant: AfButtonVariant.secondary,
+                        size: AfButtonSize.compact,
+                        onPressed: _dirty ? _saveNote : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             AfButton(
               label: AfStrings.completeGoHome,
               expand: true,
               fontSize: 14,
-              onPressed: () =>
-                  Navigator.of(context).pushReplacementNamed(AfScreen.home),
+              onPressed: () => _leave(AfScreen.home),
             ),
             const SizedBox(height: 8),
             AfButton(
@@ -166,8 +250,7 @@ class WorkoutCompleteScreen extends StatelessWidget {
               variant: AfButtonVariant.secondary,
               expand: true,
               size: AfButtonSize.compact,
-              onPressed: () =>
-                  Navigator.of(context).pushReplacementNamed(AfScreen.history),
+              onPressed: () => _leave(AfScreen.history),
             ),
           ],
         ),
