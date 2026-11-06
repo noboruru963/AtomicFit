@@ -30,7 +30,7 @@ class FirebaseAuthService implements AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  @override
+   @override
   Future<AuthResult> register(String email, String password) async {
     try {
       final UserCredential cred = await _auth.createUserWithEmailAndPassword(
@@ -39,6 +39,13 @@ class FirebaseAuthService implements AuthService {
       );
       final User? user = cred.user;
       if (user == null) return const AuthResult.failed(_generic);
+
+      // Send the "confirm your email" message. If it fails, the account
+      // is still created, so the sign-up does not fail with it.
+      try {
+        await user.sendEmailVerification();
+      } catch (_) {}
+
       return AuthResult.ok(user.uid);
     } on FirebaseAuthException catch (e) {
       return AuthResult.failed(_message(e.code));
