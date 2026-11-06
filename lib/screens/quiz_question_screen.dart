@@ -8,6 +8,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizQuestionScreen()` (`index.html` lines 1799-1850).
+///
+/// One question per screen. The answer is stored on `AppState.quizAnswers` as
+/// soon as it is tapped; **Next** stays disabled until the current question has
+/// one (that gating is what the widget test pins). Q1 and Q10 are fixed, and
+/// every screen keeps the non-diagnostic footer (AGENTS F-10).
 class QuizQuestionScreen extends StatelessWidget {
   const QuizQuestionScreen({super.key});
 
@@ -47,15 +52,6 @@ class QuizQuestionScreen extends StatelessWidget {
                   'total': questions.length,
                 }),
                 style: AfText.sectionHead(t).copyWith(fontSize: 12),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: state.toggleQuizLengthMode,
-                child: AfBadge(
-                  label: state.quizShortMode
-                      ? AfStrings.quizModeFast
-                      : AfStrings.quizModeFull,
-                ),
               ),
             ],
           ),

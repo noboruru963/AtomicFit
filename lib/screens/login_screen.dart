@@ -7,6 +7,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderLoginScreen()` (`index.html` lines 1456-1489).
+///
+/// Local accounts only: `AppState.login` compares the salted hash and returns
+/// an error string, which the screen shows under the fields. A successful
+/// login replaces the route with Home, or with the personal-details step when
+/// that account never finished it.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,10 +20,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _email =
-      TextEditingController(text: 'alex@example.com');
-  final TextEditingController _password =
-      TextEditingController(text: 'atomfit2026');
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
   String? _error;
 
   @override
@@ -30,25 +33,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     final AppState state = AfAppScope.of(context);
-    if (_email.text.trim().isEmpty || _password.text.trim().isEmpty) {
+    final String identifier = _email.text.trim();
+    final String password = _password.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
       setState(() => _error = AfStrings.loginError);
       return;
     }
-    setState(() => _error = null);
-    state.saveProfile(
-      username: state.user.username,
-      email: _email.text.trim(),
-      gender: state.user.gender,
-      dobMonth: state.user.dobMonth,
-      weightKg: state.user.weightKg,
-      heightCm: state.user.heightCm,
+
+    final String? error = state.login(
+      identifier: identifier,
+      password: password,
     );
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+
+    setState(() => _error = null);
     state.showToast(
       AfStrings.fill(AfStrings.loginWelcomeToast, <String, Object?>{
-        'name': state.user.username,
+        'name': state.user.username.isEmpty ? identifier : state.user.username,
       }),
     );
-    Navigator.of(context).pushReplacementNamed(AfScreen.home);
+    Navigator.of(context).pushReplacementNamed(
+      state.personalDetailsComplete ? AfScreen.home : AfScreen.personalDetails,
+    );
   }
 
   Future<void> _forgotPassword() async {
@@ -106,7 +116,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              child: Image.asset('assets/images/logo.jpg', fit: BoxFit.cover),
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),

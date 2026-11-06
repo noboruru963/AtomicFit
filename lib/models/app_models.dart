@@ -248,6 +248,27 @@ class Exercise with RecordEnvelope {
     required this.isCustom,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.nameEn = '',
+    this.descriptionEn = '',
+    this.bodyPart = '',
+    this.bodyPartLabel = '',
+    this.exerciseCategory = '',
+    this.mechanic = '',
+    this.forceType = '',
+    this.difficulty = '',
+    this.equipment = '',
+    this.primaryMuscles = const <String>[],
+    this.secondaryMuscles = const <String>[],
+    this.goals = const <String>[],
+    this.tags = const <String>[],
+    this.instructions = const <String>[],
+    this.tips = const <String>[],
+    this.images = const <String, dynamic>{},
+    this.isBodyweight = false,
+    this.isUnilateral = false,
+    this.met,
+    this.variationGroup = '',
+    this.searchIndex = '',
     this.deletedAtUtc,
   });
 
@@ -262,6 +283,68 @@ class Exercise with RecordEnvelope {
   final bool isCustom;
   final String createdAtUtc;
   final String updatedAtUtc;
+
+  // ------------------------------------------------- RepDB catalogue fields
+  /// English display name (`name_en`).
+  final String nameEn;
+
+  /// English description (`description_en`).
+  final String descriptionEn;
+
+  /// Raw body part, e.g. `upper_legs`.
+  final String bodyPart;
+
+  /// Display body part, e.g. `Hips / Glutes`.
+  final String bodyPartLabel;
+
+  /// `strength` | `stretching` | …
+  final String exerciseCategory;
+
+  /// `compound` | `isolation`.
+  final String mechanic;
+
+  /// `push` | `pull` | `static`.
+  final String forceType;
+
+  /// `beginner` | `intermediate` | `advanced`.
+  final String difficulty;
+
+  /// Equipment slug, e.g. `pull_up_bar`.
+  final String equipment;
+
+  /// Primary muscle slugs.
+  final List<String> primaryMuscles;
+
+  /// Secondary muscle slugs.
+  final List<String> secondaryMuscles;
+
+  /// Training goals, e.g. `hypertrophy`.
+  final List<String> goals;
+
+  /// Free-form safety tags.
+  final List<String> tags;
+
+  /// Step-by-step instructions.
+  final List<String> instructions;
+
+  /// Form tips.
+  final List<String> tips;
+
+  /// Illustration paths (`start`, `peak`, `main`).
+  final Map<String, dynamic> images;
+
+  final bool isBodyweight;
+  final bool isUnilateral;
+
+  /// Metabolic equivalent, when the dataset provides one.
+  final double? met;
+
+  /// Grouping slug for variations of the same movement.
+  final String variationGroup;
+
+  /// Lower-cased haystack used by the Discover search.
+  final String searchIndex;
+
   final String? deletedAtUtc;
 
   Exercise copyWith({
@@ -272,6 +355,9 @@ class Exercise with RecordEnvelope {
     int? defaultSets,
     String? description,
     bool? isCustom,
+    String? bodyPartLabel,
+    String? bodyPart,
+    String? searchIndex,
   }) {
     return Exercise(
       id: id,
@@ -285,6 +371,27 @@ class Exercise with RecordEnvelope {
       isCustom: isCustom ?? this.isCustom,
       createdAtUtc: createdAtUtc,
       updatedAtUtc: _nowIso(),
+      nameEn: nameEn,
+      descriptionEn: descriptionEn,
+      bodyPart: bodyPart ?? this.bodyPart,
+      bodyPartLabel: bodyPartLabel ?? this.bodyPartLabel,
+      exerciseCategory: exerciseCategory,
+      mechanic: mechanic,
+      forceType: forceType,
+      difficulty: difficulty,
+      equipment: equipment,
+      primaryMuscles: primaryMuscles,
+      secondaryMuscles: secondaryMuscles,
+      goals: goals,
+      tags: tags,
+      instructions: instructions,
+      tips: tips,
+      images: images,
+      isBodyweight: isBodyweight,
+      isUnilateral: isUnilateral,
+      met: met,
+      variationGroup: variationGroup,
+      searchIndex: searchIndex ?? this.searchIndex,
       deletedAtUtc: deletedAtUtc,
     );
   }
@@ -301,6 +408,27 @@ class Exercise with RecordEnvelope {
         'isCustom': isCustom,
         'createdAtUtc': createdAtUtc,
         'updatedAtUtc': updatedAtUtc,
+        'nameEn': nameEn,
+        'descriptionEn': descriptionEn,
+        'bodyPart': bodyPart,
+        'bodyPartLabel': bodyPartLabel,
+        'exerciseCategory': exerciseCategory,
+        'mechanic': mechanic,
+        'forceType': forceType,
+        'difficulty': difficulty,
+        'equipment': equipment,
+        'primaryMuscles': primaryMuscles,
+        'secondaryMuscles': secondaryMuscles,
+        'goals': goals,
+        'tags': tags,
+        'instructions': instructions,
+        'tips': tips,
+        'images': images,
+        'isBodyweight': isBodyweight,
+        'isUnilateral': isUnilateral,
+        'met': met,
+        'variationGroup': variationGroup,
+        'searchIndex': searchIndex,
         'deletedAtUtc': deletedAtUtc,
       };
 
@@ -316,11 +444,37 @@ class Exercise with RecordEnvelope {
         isCustom: json['isCustom'] == true,
         createdAtUtc: (json['createdAtUtc'] ?? _nowIso()).toString(),
         updatedAtUtc: (json['updatedAtUtc'] ?? _nowIso()).toString(),
+        nameEn: (json['nameEn'] ?? '').toString(),
+        descriptionEn: (json['descriptionEn'] ?? '').toString(),
+        bodyPart: (json['bodyPart'] ?? '').toString(),
+        bodyPartLabel: (json['bodyPartLabel'] ?? '').toString(),
+        exerciseCategory: (json['exerciseCategory'] ?? '').toString(),
+        mechanic: (json['mechanic'] ?? '').toString(),
+        forceType: (json['forceType'] ?? '').toString(),
+        difficulty: (json['difficulty'] ?? '').toString(),
+        equipment: (json['equipment'] ?? '').toString(),
+        primaryMuscles: _asStringList(json['primaryMuscles']),
+        secondaryMuscles: _asStringList(json['secondaryMuscles']),
+        goals: _asStringList(json['goals']),
+        tags: _asStringList(json['tags']),
+        instructions: _asStringList(json['instructions']),
+        tips: _asStringList(json['tips']),
+        images: _asStringMap(json['images']),
+        isBodyweight: json['isBodyweight'] == true,
+        isUnilateral: json['isUnilateral'] == true,
+        met: json['met'] == null ? null : _toDouble(json['met']),
+        variationGroup: (json['variationGroup'] ?? '').toString(),
+        searchIndex: (json['searchIndex'] ?? '').toString(),
         deletedAtUtc: json['deletedAtUtc']?.toString(),
       );
 }
 
 /// A single exercise inside a program, with its own targets.
+///
+/// These numbers are what the Active workout pre-fills: `sets` planned sets of
+/// `reps` at `weightKg`. Progression edits them after a fully completed session
+/// (see `progressExercise` in `rules.dart`), so they are the program's current
+/// prescription, not a log of what happened.
 class ProgramExercise {
   const ProgramExercise({
     required this.name,
@@ -371,6 +525,11 @@ class ProgramExercise {
 }
 
 /// Training program. Mirrors `DEFAULT_PROGRAMS` entries.
+///
+/// [active] marks the Current program; [AppState.setActiveProgram] keeps
+/// exactly one active program and clears the flag on the others. [type] is the
+/// label shown in the UI (`Built-in`, `Custom`, …) and the exercise order is
+/// the order the user dragged the rows into.
 class Program with RecordEnvelope {
   const Program({
     required this.id,
@@ -465,6 +624,11 @@ class Program with RecordEnvelope {
 }
 
 /// One logged set inside a session. Mirrors `aw.sets[]` / `setsDetail[]`.
+///
+/// [setNo] counts all sets of the session; [exerciseSetNo] counts only the
+/// sets of [exerciseName] (the UI shows "Set 2 of Chest press"). Both are
+/// assigned when the set is saved, so reordering later does not renumber them.
+/// [weightKg] and [reps] are the values that feed volume and progression.
 class LoggedSet with RecordEnvelope {
   const LoggedSet({
     required this.id,
@@ -497,6 +661,28 @@ class LoggedSet with RecordEnvelope {
   final String createdAtUtc;
   final String updatedAtUtc;
   final String? deletedAtUtc;
+
+  /// The same set recorded under another exercise name.
+  ///
+  /// Used when the lifter renames the exercise mid-workout: the sets already
+  /// logged move with the name, so the session still reads as one exercise.
+  /// Every other field, including [id] and the logged timestamp, is kept.
+  LoggedSet withExerciseName(String name) => LoggedSet(
+        id: id,
+        userId: userId,
+        sessionId: sessionId,
+        exerciseName: name,
+        setNo: setNo,
+        exerciseSetNo: exerciseSetNo,
+        weightKg: weightKg,
+        reps: reps,
+        restS: restS,
+        inputMethod: inputMethod,
+        loggedAtUtc: loggedAtUtc,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -538,6 +724,14 @@ class LoggedSet with RecordEnvelope {
 }
 
 /// A finished workout. Mirrors `appState.history[]` entries.
+///
+/// `type` distinguishes a full session, a micro session (a workout finished
+/// early) and a stitched parent. A stitched parent carries its two children in
+/// [children] and only references them — the children keep their own sets and
+/// totals. History lists top-level sessions only, so every set is counted once.
+///
+/// The totals are stored at finish time (see [AppState.finishActiveWorkout]);
+/// they are not derived on read.
 class WorkoutSession with RecordEnvelope {
   const WorkoutSession({
     required this.id,
@@ -555,31 +749,74 @@ class WorkoutSession with RecordEnvelope {
     required this.setsDetail,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.note = '',
     this.children = const <WorkoutSession>[],
     this.deletedAtUtc,
   });
 
-  /// `full` | `micro` | `stitched`.
   final String id;
   final String userId;
   final String name;
+
+  /// `full` | `micro` | `stitched`. See [isMicro] / [isStitched].
   final String type;
+
+  /// Human label of the start time (`MMM d, HH:mm`), shown in History.
   final String dateLabel;
+
+  /// Calendar day of the start, used by the Home month grid.
   final int dayOfMonth;
   final String startedAtUtc;
+
+  /// Stored totals. They are computed when the session is finished (or
+  /// stitched) and are **not** recalculated from [setsDetail] on load, so any
+  /// code that edits sets must update them too.
   final int durationMin;
   final int reps;
   final double volume;
   final int setsCount;
+
+  /// Input channels that produced at least one set (`manual`, `voice`, …).
   final List<String> methods;
   final List<LoggedSet> setsDetail;
+
+  /// The two sessions a stitched parent was built from; empty for everything
+  /// else. They are stored nested under the parent (see `SqliteStore`).
   final List<WorkoutSession> children;
+
+  /// The user's own note about this workout ("how did it feel"), written on
+  /// the Workout complete screen or later from History. Plain text, never
+  /// interpreted as markup.
+  final String note;
   final String createdAtUtc;
   final String updatedAtUtc;
   final String? deletedAtUtc;
 
   bool get isStitched => type == 'stitched';
   bool get isMicro => type == 'micro';
+
+  /// A copy with another note. The id, sets and totals stay identical; only
+  /// `updatedAtUtc` moves to now.
+  WorkoutSession copyWithNote(String note) => WorkoutSession(
+        id: id,
+        userId: userId,
+        name: name,
+        type: type,
+        dateLabel: dateLabel,
+        dayOfMonth: dayOfMonth,
+        startedAtUtc: startedAtUtc,
+        durationMin: durationMin,
+        reps: reps,
+        volume: volume,
+        setsCount: setsCount,
+        methods: methods,
+        setsDetail: setsDetail,
+        children: children,
+        note: note,
+        createdAtUtc: createdAtUtc,
+        updatedAtUtc: _nowIso(),
+        deletedAtUtc: deletedAtUtc,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -595,6 +832,7 @@ class WorkoutSession with RecordEnvelope {
         'setsCount': setsCount,
         'methods': methods,
         'setsDetail': setsDetail.map((LoggedSet s) => s.toJson()).toList(),
+        'note': note,
         'children': children.map((WorkoutSession s) => s.toJson()).toList(),
         'createdAtUtc': createdAtUtc,
         'updatedAtUtc': updatedAtUtc,
@@ -619,6 +857,7 @@ class WorkoutSession with RecordEnvelope {
         setsDetail: _asMapList(json['setsDetail'])
             .map(LoggedSet.fromJson)
             .toList(growable: false),
+        note: (json['note'] ?? '').toString(),
         children: _asMapList(json['children'])
             .map(WorkoutSession.fromJson)
             .toList(growable: false),
@@ -629,6 +868,14 @@ class WorkoutSession with RecordEnvelope {
 }
 
 /// The workout in progress. Mirrors `appState.activeWorkout`.
+///
+/// This is the **draft**: [sets] are saved to the database as part of the
+/// draft (so a kill does not lose them) but they are not History yet. They
+/// become a [WorkoutSession] in `AppState.finishActiveWorkout`; until then the
+/// Home calendar and the monthly count do not see them.
+///
+/// [restSeconds] is the remaining rest and [restTotalSeconds] the target used
+/// for the next set; `±15 s` moves both.
 class ActiveWorkout {
   const ActiveWorkout({
     required this.programId,
@@ -642,7 +889,8 @@ class ActiveWorkout {
     required this.restTotalSeconds,
     required this.restSeconds,
     required this.sets,
-    this.voiceSimText = '22.5 kg for 8 reps',
+    this.voiceSimText = '',
+    this.voiceHistory = const <String>[],
   });
 
   final String programId;
@@ -658,6 +906,10 @@ class ActiveWorkout {
   final List<LoggedSet> sets;
   final String voiceSimText;
 
+  /// The last few commands the user actually sent, newest first. Shown as
+  /// one-tap chips under the microphone so a repeated command costs no typing.
+  final List<String> voiceHistory;
+
   ActiveWorkout copyWith({
     String? programId,
     String? sessionName,
@@ -671,6 +923,7 @@ class ActiveWorkout {
     int? restSeconds,
     List<LoggedSet>? sets,
     String? voiceSimText,
+    List<String>? voiceHistory,
   }) {
     return ActiveWorkout(
       programId: programId ?? this.programId,
@@ -685,6 +938,7 @@ class ActiveWorkout {
       restSeconds: restSeconds ?? this.restSeconds,
       sets: sets ?? this.sets,
       voiceSimText: voiceSimText ?? this.voiceSimText,
+      voiceHistory: voiceHistory ?? this.voiceHistory,
     );
   }
 
@@ -701,6 +955,7 @@ class ActiveWorkout {
         'restSeconds': restSeconds,
         'sets': sets.map((LoggedSet s) => s.toJson()).toList(),
         'voiceSimText': voiceSimText,
+        'voiceHistory': voiceHistory,
       };
 
   factory ActiveWorkout.fromJson(Map<String, dynamic> json) {
@@ -721,12 +976,18 @@ class ActiveWorkout {
       sets: _asMapList(json['sets'])
           .map(LoggedSet.fromJson)
           .toList(growable: false),
-      voiceSimText: (json['voiceSimText'] ?? '22.5 kg for 8 reps').toString(),
+      voiceSimText: (json['voiceSimText'] ?? '').toString(),
+      voiceHistory: _asStringList(json['voiceHistory']),
     );
   }
 }
 
 /// Summary of the workout that was just finished.
+///
+/// Only the Workout complete screen reads it: it is set by
+/// `AppState.finishActiveWorkout` and is not persisted (it can always be
+/// rebuilt from [sessionId]). [sessionId] is what ties the note box on that
+/// screen to the stored session.
 class WorkoutSummary {
   const WorkoutSummary({
     required this.name,
@@ -736,11 +997,20 @@ class WorkoutSummary {
     required this.totalReps,
     required this.totalVolume,
     required this.methods,
+    this.durationSec = 0,
+    this.sessionId = '',
   });
 
   final String name;
   final String type;
   final int durationMin;
+
+  /// The stored session this summary describes, so the complete screen can
+  /// attach the user's note to it.
+  final String sessionId;
+
+  /// The exact duration in seconds (`mm:ss` on the summary screen).
+  final int durationSec;
   final int totalSets;
   final int totalReps;
   final double totalVolume;
@@ -775,6 +1045,110 @@ class QuizAdjustment {
   final String intensityLabel;
   final String sessionLength;
   final String frequency;
+
+  /// Whether the rule table left the load untouched.
+  bool get isUnchanged => factor == 1;
+}
+
+/// A workout the user planned from the Home calendar.
+///
+/// The reminder itself lives in the operating system's alarm list; this record
+/// only tracks what is planned so the calendar and the "Up next" card can show
+/// it and so a reminder can be cancelled or re-armed.
+class ScheduledWorkout with RecordEnvelope {
+  const ScheduledWorkout({
+    required this.id,
+    required this.userId,
+    required this.programId,
+    required this.programName,
+    required this.year,
+    required this.month,
+    required this.day,
+    required this.hour,
+    required this.minute,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+    this.deletedAtUtc,
+  });
+
+  final String id;
+  final String userId;
+  final String programId;
+  final String programName;
+
+  /// The planned local wall-clock time.
+  final int year;
+  final int month;
+  final int day;
+  final int hour;
+  final int minute;
+
+  final String createdAtUtc;
+  final String updatedAtUtc;
+  final String? deletedAtUtc;
+
+  /// The planned local date and time.
+  DateTime get dateTime => DateTime(year, month, day, hour, minute);
+
+  /// Whether the planned time has already passed.
+  bool get isPast => !dateTime.isAfter(DateTime.now());
+
+  /// Whether the workout is planned for [day] of the same month and year.
+  bool isOn(DateTime day) =>
+      year == day.year && month == day.month && this.day == day.day;
+
+  ScheduledWorkout copyWith({
+    String? programId,
+    String? programName,
+    int? hour,
+    int? minute,
+  }) {
+    return ScheduledWorkout(
+      id: id,
+      userId: userId,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      year: year,
+      month: month,
+      day: day,
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+      createdAtUtc: createdAtUtc,
+      updatedAtUtc: _nowIso(),
+      deletedAtUtc: deletedAtUtc,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'userId': userId,
+        'programId': programId,
+        'programName': programName,
+        'year': year,
+        'month': month,
+        'day': day,
+        'hour': hour,
+        'minute': minute,
+        'createdAtUtc': createdAtUtc,
+        'updatedAtUtc': updatedAtUtc,
+        if (deletedAtUtc != null) 'deletedAtUtc': deletedAtUtc,
+      };
+
+  factory ScheduledWorkout.fromJson(Map<String, dynamic> json) =>
+      ScheduledWorkout(
+        id: (json['id'] ?? '').toString(),
+        userId: (json['userId'] ?? '').toString(),
+        programId: (json['programId'] ?? '').toString(),
+        programName: (json['programName'] ?? '').toString(),
+        year: _toInt(json['year'], 0),
+        month: _toInt(json['month'], 1),
+        day: _toInt(json['day'], 1),
+        hour: _toInt(json['hour'], 0),
+        minute: _toInt(json['minute'], 0),
+        createdAtUtc: (json['createdAtUtc'] ?? '').toString(),
+        updatedAtUtc: (json['updatedAtUtc'] ?? '').toString(),
+        deletedAtUtc: json['deletedAtUtc']?.toString(),
+      );
 }
 
 double _toDouble(dynamic value) {
@@ -793,4 +1167,22 @@ List<Map<String, dynamic>> _asMapList(dynamic value) {
       .whereType<Map<dynamic, dynamic>>()
       .map((Map<dynamic, dynamic> e) => e.cast<String, dynamic>())
       .toList(growable: false);
+}
+
+List<String> _asStringList(dynamic value) {
+  if (value is! List) return const <String>[];
+  return value
+      .map((dynamic e) => e.toString())
+      .where((String e) => e.isNotEmpty)
+      .toList(growable: false);
+}
+
+Map<String, dynamic> _asStringMap(dynamic value) {
+  if (value is! Map) return const <String, dynamic>{};
+  return value
+      .map((dynamic key, dynamic e) => MapEntry<String, dynamic>(
+            key.toString(),
+            e,
+          ))
+      .cast<String, dynamic>();
 }

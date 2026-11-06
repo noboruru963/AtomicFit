@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../app/shell.dart';
-import '../services/rest_alerts.dart';
 import '../state/app_state.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderTimerScreen()` (`index.html` lines 2666-2731).
+///
+/// The countdown itself is owned by `AppState` (it keeps running when this
+/// screen is closed); this screen only draws `restSecondsRemaining` and sends
+/// start/pause/reset/skip/±15 taps. The lock-screen concept lives on its own
+/// screen (`LockScreenWidgetScreen`).
 class RestTimerScreen extends StatefulWidget {
   const RestTimerScreen({super.key});
 
@@ -15,35 +19,49 @@ class RestTimerScreen extends StatefulWidget {
   State<RestTimerScreen> createState() => _RestTimerScreenState();
 }
 
-class _RestTimerScreenState extends State<RestTimerScreen>
-    with WidgetsBindingObserver {
+class _RestTimerScreenState extends State<RestTimerScreen> {
   final TextEditingController _minutes = TextEditingController();
   final TextEditingController _seconds = TextEditingController();
-  bool _backgrounded = false;
   bool _handledFinish = false;
+
+  /// The app state this screen was opened with.
+  ///
+  /// The completion callback outlives the screen (the countdown keeps running
+  /// in [AppState]), so it must not look the state up through a context that
+  /// may already be disposed.
+  AppState? _state;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final AppState state = AfAppScope.of(context);
+      _state = state;
       state.onRestTimerFinished = _onFinished;
+      _handledFinish = false;
+      // This screen is always pushed right after a set is logged, so the
+      // countdown starts by itself (there is no Start button).
+      if (!state.restRunning &&
+          !state.restCompleted &&
+          state.activeWorkout.restSeconds > 0) {
+        state.startRestTimerCountdown();
+      }
       _syncInputs(state);
     });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    // The countdown lives on in AppState, but the callback must not point at
+    // a disposed widget: at 0:00 it would throw and skip the toast/pop.
+    final AppState? state = _state;
+    if (state != null && state.onRestTimerFinished == _onFinished) {
+      state.onRestTimerFinished = null;
+    }
+    _minutes.dispose();
+    _seconds.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
-    _backgrounded = lifecycleState == AppLifecycleState.paused ||
-        lifecycleState == AppLifecycleState.hidden;
   }
 
   void _syncInputs(AppState state) {
@@ -55,26 +73,33 @@ class _RestTimerScreenState extends State<RestTimerScreen>
   Future<void> _onFinished() async {
     if (_handledFinish) return;
     _handledFinish = true;
-    final AppState state = AfAppScope.of(context);
-    final String exercise = state.activeWorkout.currentExercise.isEmpty
-        ? AfStrings.timerGeneralRest
-        : state.activeWorkout.currentExercise;
-
-    if (_backgrounded && state.settings.restNotifications) {
-      await RestAlerts.instance.showRestNotification(exercise);
-    } else {
-      if (state.settings.bellSound) {
-        await RestAlerts.instance.playBell();
-      }
-      if (state.settings.hapticFeedback) {
-        await RestAlerts.instance.vibrate();
-      }
-      state.showToast(AfStrings.timerCompleteToast);
-    }
+    // The bell, the haptics and the rest-over notification are all driven by
+    // the AppState ticker, so they also fire while this screen is not on top.
+    final AppState? state = _state;
+    if (state == null) return;
+    state.showToast(AfStrings.timerCompleteToast);
 
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed(AfScreen.activeWorkout);
+      _leaveTimer();
     }
+  }
+
+  /// Returns to the workout screen that opened the timer.
+  ///
+  /// Leaving ends the rest: the countdown stops and the ongoing notification
+  /// is removed, so nothing keeps ticking (or sits in the notification shade)
+  /// behind the workout. The timer is always pushed from the active workout,
+  /// so popping keeps that screen (scroll position, typed values, logged sets)
+  /// exactly as it was. The replacement is only a fallback for a timer opened
+  /// without a stack.
+  void _leaveTimer() {
+    _state?.skipRestTimer();
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushReplacementNamed(AfScreen.activeWorkout);
   }
 
   @override
@@ -84,12 +109,6 @@ class _RestTimerScreenState extends State<RestTimerScreen>
     final int total = state.activeWorkout.restTotalSeconds;
     final int remaining = state.restSecondsRemaining;
     final double progress = total <= 0 ? 0 : remaining / total;
-
-    final String statusLabel = state.restRunning
-        ? AfStrings.timerRunning
-        : (remaining < total && remaining > 0
-            ? AfStrings.timerPaused
-            : AfStrings.timerReady);
 
     void applyDuration() {
       final int minutes = int.tryParse(_minutes.text) ?? -1;
@@ -116,20 +135,11 @@ class _RestTimerScreenState extends State<RestTimerScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Text(
-                      AfStrings.timerTitle.toUpperCase(),
-                      style: AfText.sectionHead(t).copyWith(fontSize: 12),
-                    ),
-                    const Spacer(),
-                    AfBadge(
-                      label: statusLabel,
-                      tone: state.restRunning
-                          ? AfBadgeTone.green
-                          : AfBadgeTone.blue,
-                    ),
-                  ],
+                Center(
+                  child: Text(
+                    AfStrings.timerTitle.toUpperCase(),
+                    style: AfText.sectionHead(t).copyWith(fontSize: 12),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Center(
@@ -190,6 +200,34 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: AfButton(
+                        label: AfStrings.timerMinus15,
+                        variant: AfButtonVariant.secondary,
+                        size: AfButtonSize.compact,
+                        onPressed: () {
+                          state.adjustRestSeconds(-15);
+                          _syncInputs(state);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AfButton(
+                        label: AfStrings.timerPlus15,
+                        variant: AfButtonVariant.secondary,
+                        size: AfButtonSize.compact,
+                        onPressed: () {
+                          state.adjustRestSeconds(15);
+                          _syncInputs(state);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 AfProgress(value: progress, height: 10),
                 const SizedBox(height: 12),
@@ -218,16 +256,22 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 Row(
                   children: <Widget>[
                     Expanded(
                       child: AfButton(
-                        label: AfStrings.timerStart,
+                        label: state.restRunning
+                            ? AfStrings.timerPause
+                            : AfStrings.timerResume,
                         size: AfButtonSize.compact,
                         onPressed: () {
-                          _handledFinish = false;
-                          state.startRestTimerCountdown();
+                          if (state.restRunning) {
+                            state.pauseRestTimer();
+                          } else {
+                            _handledFinish = false;
+                            state.startRestTimerCountdown();
+                          }
                         },
                       ),
                     ),
@@ -237,54 +281,15 @@ class _RestTimerScreenState extends State<RestTimerScreen>
                         label: AfStrings.timerReset,
                         variant: AfButtonVariant.secondary,
                         size: AfButtonSize.compact,
-                        onPressed: state.resetRestTimer,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerPause,
-                        variant: AfButtonVariant.danger,
-                        size: AfButtonSize.compact,
-                        onPressed: state.pauseRestTimer,
+                        onPressed: () {
+                          state.resetRestTimer();
+                          _syncInputs(state);
+                        },
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerMinus15,
-                        variant: AfButtonVariant.secondary,
-                        size: AfButtonSize.compact,
-                        onPressed: () => state.adjustRestSeconds(-15),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AfButton(
-                        label: AfStrings.timerPlus15,
-                        variant: AfButtonVariant.secondary,
-                        size: AfButtonSize.compact,
-                        onPressed: () => state.adjustRestSeconds(15),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                AfButton(
-                  label: AfStrings.timerSkip,
-                  variant: AfButtonVariant.secondary,
-                  size: AfButtonSize.compact,
-                  expand: true,
-                  onPressed: () {
-                    state.skipRestTimer();
-                    Navigator.of(context)
-                        .pushReplacementNamed(AfScreen.activeWorkout);
-                  },
-                ),
               ],
             ),
           ),
@@ -294,8 +299,7 @@ class _RestTimerScreenState extends State<RestTimerScreen>
             size: AfButtonSize.large,
             fontSize: 16,
             expand: true,
-            onPressed: () => Navigator.of(context)
-                .pushReplacementNamed(AfScreen.activeWorkout),
+            onPressed: _leaveTimer,
           ),
         ],
       ),

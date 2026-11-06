@@ -1,0 +1,42 @@
+name: Flutter checks
+
+# Runs the same gates the team runs locally before a demo: formatting,
+# static analysis and the full test suite. The APK itself is built locally —
+# Gradle on a hosted runner is slow and adds nothing for a prototype demo.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The database tests run on sqflite_common_ffi, which loads the system
+      # SQLite shared library on Linux.
+      - name: Install SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test

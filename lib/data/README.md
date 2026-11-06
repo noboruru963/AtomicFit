@@ -3,10 +3,51 @@
 Everything the UI knows about persistence lives behind `AtomFitStore`
 (`lib/data/store.dart`). Screens never import this folder.
 
-## Today: `LocalBlobStore`
+## Today: SQLite (`sqflite`)
 
-One JSON document in `shared_preferences` under the key `atomfit_app_v23` — the
-same key the web prototype uses, so the two can be reasoned about together.
+The app stores everything in a local SQLite database (`atomfit.db`), opened by
+`AppDatabase` (`lib/data/db/app_database.dart`) with a versioned schema
+(`lib/data/db/schema.dart`). `SqliteStore` implements the `AtomFitStore`
+document contract on top of the relational tables:
+
+| document key       | table                                     |
+|--------------------|-------------------------------------------|
+| `user`, `accounts` | `accounts`                                |
+| `settings`         | `settings`                                |
+| `programs`         | `programs`                                |
+| `history`          | `sessions` + `set_logs`                   |
+| `activeWorkout`    | `app_state` (key/value)                   |
+| `catalogue`        | `exercises` (via `ExerciseRepository`)    |
+
+* **Accounts** store a salted SHA-256 hash (`password_hash` + `password_salt`),
+  never a plain-text password.
+* The **exercise catalogue** is the 650 record RepDB dataset, bundled as
+  `assets/data/exercise_catalogue.json` and imported once on first launch
+  (`DatabaseBootstrap.ensureCatalogue`). `ExerciseRepository` answers the
+  Discover search, body-part filters, result count and pagination with SQL.
+* **Legacy data**: the previous build stored everything in one JSON blob
+  (`atomfit_app_v23`) in `shared_preferences`. `LegacyMigration` moves that
+  blob into the database once, on the first launch of the database build.
+  `shared_preferences` is kept for that one-off read only and can be dropped
+  once every device has migrated.
+
+### Layout
+
+```
+lib/data/
+├─ db/
+│  ├─ app_database.dart       opens + migrates the database
+│  ├─ schema.dart             tables, indexes, migration steps
+│  ├─ sqlite_store.dart       AtomFitStore over the relational tables
+│  ├─ exercise_repository.dart catalogue queries (search, filters, paging)
+│  ├─ catalogue.dart          pure label/format/search rules
+│  ├─ catalogue_loader.dart   asset -> Exercise records
+│  ├─ password_hasher.dart    salted password hashing
+│  ├─ legacy_migration.dart   the previous JSON blob -> the database
+│  └─ bootstrap.dart          first-run catalogue import
+├─ seed_data.dart             demo programs, history and quiz questions
+└─ store.dart                 the AtomFitStore seam
+```
 
 ```jsonc
 {

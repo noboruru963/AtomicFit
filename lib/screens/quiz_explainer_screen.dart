@@ -8,6 +8,10 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizExplainerScreen()` (`index.html` lines 1897-1931).
+///
+/// "Why we changed your program": explains the rule-table outcome in words
+/// before the preview. It reads `computedQuizAdjustment()`; no state changes
+/// happen here.
 class QuizExplainerScreen extends StatelessWidget {
   const QuizExplainerScreen({super.key});
 
@@ -75,8 +79,12 @@ class QuizExplainerScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   AfBadge(
-                    label: '${adjustment.pctText} across exercises',
-                    tone: AfBadgeTone.green,
+                    label: adjustment.isUnchanged
+                        ? 'No load change'
+                        : '${adjustment.pctText} across exercises',
+                    tone: adjustment.isUnchanged
+                        ? AfBadgeTone.blue
+                        : AfBadgeTone.green,
                   ),
                 ],
               ),

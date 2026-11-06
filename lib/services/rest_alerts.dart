@@ -1,38 +1,33 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:vibration/vibration.dart';
 
-/// Rest-timer alerts: the supplied bell chime, haptics and the optional
-/// background notification (ported from the prototype's `bell.mp3`,
-/// `navigator.vibrate` and `Notification` usage).
+/// Rest-timer feedback that is not a notification: the supplied bell chime and
+/// the haptics (ported from the prototype's `bell.mp3` and
+/// `navigator.vibrate`).
+///
+/// OS notifications live in `AfNotifications`
+/// (`lib/services/notifications.dart`).
 class RestAlerts {
   RestAlerts._();
 
   static final RestAlerts instance = RestAlerts._();
 
+  /// Three buzzes with a gap between them, in milliseconds.
+  ///
+  /// Android reads the list as "wait, buzz, wait, buzz, …", so the leading 0
+  /// starts the first pulse immediately.
+  static const List<int> _buzzPattern = <int>[0, 220, 140, 220, 140, 220];
+
   final AudioPlayer _player = AudioPlayer();
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
 
-  bool _notificationsReady = false;
-
-  /// Prepares the notification plugin. Safe to call more than once.
-  Future<void> init() async {
-    if (_notificationsReady) return;
+  /// Loads the bell asset so the first chime plays without a delay.
+  Future<void> warmUp() async {
     try {
-      await _notifications.initialize(
-        const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        ),
-      );
-      final AndroidFlutterLocalNotificationsPlugin? android =
-          _notifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      await android?.requestNotificationsPermission();
-      _notificationsReady = true;
+      await _player.setSource(AssetSource('bell.mp3'));
     } catch (error) {
-      debugPrint('RestAlerts: notifications unavailable ($error)');
+      debugPrint('RestAlerts: bell unavailable ($error)');
     }
   }
 
@@ -47,38 +42,32 @@ class RestAlerts {
     }
   }
 
+  /// A short three-pulse buzz, so the rest-over moment is felt and not only
+  /// heard.
+  ///
+  /// This drives the Android vibrator directly rather than going through
+  /// `HapticFeedback`: the window-level haptics are routed through the system's
+  /// "touch vibration" feedback and are silent on many phones (and whenever the
+  /// app is in the background). The fallback keeps the old behaviour for
+  /// devices without a vibrator.
   Future<void> vibrate() async {
     try {
-      await HapticFeedback.heavyImpact();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await HapticFeedback.heavyImpact();
+      if (await Vibration.hasVibrator()) {
+        await Vibration.vibrate(pattern: _buzzPattern);
+        return;
+      }
+    } catch (error) {
+      debugPrint('RestAlerts: vibrator unavailable ($error)');
+    }
+    try {
+      for (int pulse = 0; pulse < 3; pulse++) {
+        await HapticFeedback.heavyImpact();
+        if (pulse < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 220));
+        }
+      }
     } catch (error) {
       debugPrint('RestAlerts: vibration failed ($error)');
-    }
-  }
-
-  /// Shows the background notification used when the app is not in the
-  /// foreground when the rest period ends.
-  Future<void> showRestNotification(String exerciseName) async {
-    if (!_notificationsReady) return;
-    try {
-      await _notifications.show(
-        1001,
-        'AtomFit — Rest Period Ended',
-        'Your rest timer for $exerciseName has finished. '
-            'Ready for your next set!',
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'rest_timer',
-            'Rest Timer',
-            channelDescription: 'Alerts when a rest period finishes.',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-        ),
-      );
-    } catch (error) {
-      debugPrint('RestAlerts: notification failed ($error)');
     }
   }
 }

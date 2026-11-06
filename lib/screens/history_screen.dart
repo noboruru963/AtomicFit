@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/shell.dart';
 import '../models/app_models.dart';
 import '../state/app_state.dart';
+import '../state/history_text.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderHistoryScreen()` (`index.html` lines 3486-3569).
+///
+/// Lists `state.history` newest first, filtered by type and searched by name.
+/// Selection mode stitches exactly two eligible sessions; the detail dialog
+/// shows one session, its note and an editor for it.
+///
+/// The filter and the search text live on `AppState` (not here), so they
+/// survive a rebuild; the search controller is local and must be disposed.
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -18,10 +27,183 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _search = TextEditingController();
 
+  /// Whether stitch selection is open.
+  bool _selecting = false;
+
+  /// The ids picked for stitching, at most two.
+  final List<String> _picked = <String>[];
+
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  WorkoutSession? _session(AppState state, String id) {
+    for (final WorkoutSession session in state.history) {
+      if (session.id == id) return session;
+    }
+    return null;
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selecting = false;
+      _picked.clear();
+    });
+  }
+
+  /// Adds or removes a card from the selection, refusing a second session that
+  /// cannot legally join the first and saying why.
+  void _togglePick(AppState state, WorkoutSession session) {
+    if (_picked.contains(session.id)) {
+      setState(() => _picked.remove(session.id));
+      return;
+    }
+    if (_picked.length == 2) {
+      state.showToast(AfStrings.historyStitchTwoOnly, kind: ToastKind.info);
+      return;
+    }
+    if (_picked.isNotEmpty) {
+      final WorkoutSession? first = _session(state, _picked.first);
+      if (first != null) {
+        final String? reason = state.stitchBlockedReason(first, session);
+        if (reason != null) {
+          state.showToast(reason, kind: ToastKind.danger);
+          return;
+        }
+      }
+    }
+    setState(() => _picked.add(session.id));
+  }
+
+  /// Shows what the merge will contain, then creates the stitched session.
+  Future<void> _previewStitch(AppState state) async {
+    if (_picked.length != 2) return;
+    final WorkoutSession? first = _session(state, _picked[0]);
+    final WorkoutSession? second = _session(state, _picked[1]);
+    if (first == null || second == null) return;
+    final String? reason = state.stitchBlockedReason(first, second);
+    if (reason != null) {
+      state.showToast(reason, kind: ToastKind.danger);
+      return;
+    }
+
+    final AfTokens t = context.af;
+    final bool? confirm = await AfDialog.show<bool>(
+      context,
+      title: AfStrings.historyStitchPreviewTitle,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            AfStrings.historyStitchPreviewBody,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          for (final WorkoutSession session in <WorkoutSession>[first, second])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: AfSubtle(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(session.name, style: AfText.strong(t, size: 12)),
+                    const SizedBox(height: 2),
+                    Text(
+                      AfStrings.fill(
+                        AfStrings.historyStitchBreakdown,
+                        <String, Object?>{
+                          'sets': session.setsCount,
+                          'reps': session.reps,
+                          'volume': _trim(session.volume),
+                          'duration': session.durationMin,
+                        },
+                      ),
+                      style: AfText.muted(t, size: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Text(
+            AfStrings.fill(
+              AfStrings.historyStitchBreakdown,
+              <String, Object?>{
+                'sets': first.setsCount + second.setsCount,
+                'reps': first.reps + second.reps,
+                'volume': _trim(first.volume + second.volume),
+                'duration': first.durationMin + second.durationMin,
+              },
+            ),
+            style: AfText.strong(t, size: 13),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        AfButton(
+          label: AfStrings.historyStitchConfirm,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (confirm != true) return;
+    if (state.stitchSessions(_picked) != null) {
+      _exitSelection();
+    }
+  }
+
+  /// The two-step stitch toolbar shown while selecting.
+  Widget _selectionBar(AfTokens t, AppState state) {
+    return AfSubtle(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(AfStrings.historyStitchHint, style: AfText.muted(t, size: 11)),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  AfStrings.fill(
+                    AfStrings.historyStitchSelected,
+                    <String, Object?>{'count': _picked.length},
+                  ),
+                  style: AfText.strong(t, size: 12),
+                ),
+              ),
+              AfButton(
+                label: AfStrings.fill(
+                  AfStrings.historyStitchAction,
+                  <String, Object?>{'count': _picked.length},
+                ),
+                size: AfButtonSize.compact,
+                onPressed:
+                    _picked.length == 2 ? () => _previewStitch(state) : null,
+              ),
+              const SizedBox(width: 6),
+              AfButton(
+                label: AfStrings.historyStitchCancel,
+                variant: AfButtonVariant.secondary,
+                size: AfButtonSize.compact,
+                onPressed: _exitSelection,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -40,8 +222,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return filterMatch && searchMatch;
     }).toList();
 
-    final List<WorkoutSession> micros =
-        state.history.where((WorkoutSession s) => s.type == 'micro').toList();
+    // Any session that is not already a parent can enter a stitch.
+    final int stitchable =
+        state.history.where((WorkoutSession s) => !s.isStitched).length;
 
     return AfScaffold(
       screenId: AfScreen.history,
@@ -71,42 +254,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
             ],
           ),
-          if (micros.length >= 2) ...<Widget>[
-            const SizedBox(height: 12),
-            AfCard(
-              padding: const EdgeInsets.all(14),
-              borderLeftColor: t.accent,
-              borderLeftWidth: 4,
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          AfStrings.fill(
-                            AfStrings.historyStitchBanner,
-                            <String, Object?>{'count': micros.length},
-                          ),
-                          style: AfText.strong(t, size: 12),
-                        ),
-                        Text(
-                          AfStrings.historyStitchBannerBody,
-                          style: AfText.muted(t, size: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  AfButton(
-                    label: AfStrings.historyStitchButton,
-                    variant: AfButtonVariant.tint,
-                    size: AfButtonSize.compact,
-                    onPressed: state.stitchMicroSessions,
-                  ),
-                ],
+          if (stitchable >= 2) ...<Widget>[
+            const SizedBox(height: 10),
+            if (_selecting)
+              _selectionBar(t, state)
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AfButton(
+                  label: AfStrings.historyStitchEnter,
+                  variant: AfButtonVariant.tint,
+                  size: AfButtonSize.compact,
+                  onPressed: () => setState(() => _selecting = true),
+                ),
               ),
-            ),
           ],
           const SizedBox(height: 12),
           if (sessions.isEmpty)
@@ -120,7 +281,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
             )
           else
             for (final WorkoutSession session in sessions) ...<Widget>[
-              _SessionCard(session: session),
+              _SessionCard(
+                session: session,
+                selectionMode: _selecting,
+                selected: _picked.contains(session.id),
+                onSelect: () => _togglePick(state, session),
+              ),
               const SizedBox(height: 12),
             ],
         ],
@@ -130,9 +296,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session});
+  const _SessionCard({
+    required this.session,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final WorkoutSession session;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +321,9 @@ class _SessionCard extends StatelessWidget {
 
     return AfCard(
       padding: const EdgeInsets.all(16),
+      onTap: selectionMode ? onSelect : null,
+      borderLeftColor: selected ? t.accent : null,
+      borderLeftWidth: selected ? 4 : 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -166,6 +343,12 @@ class _SessionCard extends StatelessWidget {
                           style: AfText.strong(t, size: 14),
                         ),
                         AfBadge(label: label, tone: tone, fontSize: 10),
+                        if (selected)
+                          const AfBadge(
+                            label: '✓ Selected',
+                            tone: AfBadgeTone.amber,
+                            fontSize: 10,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -229,39 +412,54 @@ class _SessionCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: t.borderLine)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
-                if (session.isStitched) ...<Widget>[
+          if (selectionMode)
+            Container(
+              padding: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: t.borderLine)),
+              ),
+              child: Text(
+                selected
+                    ? AfStrings.historyStitchPicked
+                    : AfStrings.historyStitchTapToPick,
+                style: AfText.muted(t, size: 11),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: t.borderLine)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  if (session.isStitched) ...<Widget>[
+                    AfButton(
+                      label: AfStrings.historyUnstitch,
+                      variant: AfButtonVariant.tint,
+                      size: AfButtonSize.compact,
+                      onPressed: () =>
+                          _confirmUnstitch(context, state, session),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   AfButton(
-                    label: AfStrings.historyUnstitch,
-                    variant: AfButtonVariant.tint,
+                    label: AfStrings.historyDetail,
+                    variant: AfButtonVariant.secondary,
                     size: AfButtonSize.compact,
-                    onPressed: () => state.unstitchSession(session.id),
+                    onPressed: () => _openDetail(context, state, session),
                   ),
                   const SizedBox(width: 8),
+                  AfButton(
+                    label: AfStrings.historyDelete,
+                    variant: AfButtonVariant.danger,
+                    size: AfButtonSize.compact,
+                    onPressed: () => _confirmDelete(context, state, session),
+                  ),
                 ],
-                AfButton(
-                  label: AfStrings.historyDetail,
-                  variant: AfButtonVariant.secondary,
-                  size: AfButtonSize.compact,
-                  onPressed: () => _openDetail(context, session),
-                ),
-                const SizedBox(width: 8),
-                AfButton(
-                  label: AfStrings.historyDelete,
-                  variant: AfButtonVariant.danger,
-                  size: AfButtonSize.compact,
-                  onPressed: () => _confirmDelete(context, state, session),
-                ),
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -269,75 +467,214 @@ class _SessionCard extends StatelessWidget {
 
   static Future<void> _openDetail(
     BuildContext context,
+    AppState state,
     WorkoutSession session,
   ) async {
     final AfTokens t = context.af;
+    WorkoutSession current = session;
     await AfDialog.show<void>(
       context,
       title: session.name,
       scrollable: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Row(
+      body: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setModalState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              AfBadge(
-                label: session.type,
-                uppercase: true,
-                tone: session.isStitched
-                    ? AfBadgeTone.amber
-                    : (session.isMicro ? AfBadgeTone.green : AfBadgeTone.blue),
+              Row(
+                children: <Widget>[
+                  AfBadge(
+                    label: current.type,
+                    uppercase: true,
+                    tone: current.isStitched
+                        ? AfBadgeTone.amber
+                        : (current.isMicro
+                            ? AfBadgeTone.green
+                            : AfBadgeTone.blue),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(current.dateLabel, style: AfText.muted(t)),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(session.dateLabel, style: AfText.muted(t)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            AfStrings.fill(AfStrings.historyTotalVolume, <String, Object?>{
-              'volume': session.volume,
-            }),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          Text(
-            AfStrings.fill(AfStrings.historyTotalReps, <String, Object?>{
-              'reps': session.reps,
-            }),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 10),
-          if (session.setsDetail.isEmpty)
-            Text(
-              AfStrings.fill(AfStrings.historyNoSetDetail, <String, Object?>{
-                'reps': session.reps,
-                'count': session.setsCount,
-              }),
-              style: AfText.muted(t),
-            )
-          else
-            for (int i = 0; i < session.setsDetail.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
-                  AfStrings.fill(AfStrings.historySetRow, <String, Object?>{
-                    'index': i + 1,
-                    'exercise': session.setsDetail[i].exerciseName,
-                    'kg': _trim(session.setsDetail[i].weightKg),
-                    'reps': session.setsDetail[i].reps,
-                    'method': session.setsDetail[i].inputMethod,
-                  }),
-                  style: AfText.muted(t, size: 12),
+              const SizedBox(height: 10),
+              Text(
+                AfStrings.fill(AfStrings.historyTotalVolume, <String, Object?>{
+                  'volume': current.volume,
+                }),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Text(
+                AfStrings.fill(AfStrings.historyTotalReps, <String, Object?>{
+                  'reps': current.reps,
+                }),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (current.note.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                AfSubtle(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        AfStrings.historyNoteLabel,
+                        style: AfText.muted(t, size: 11),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        current.note,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AfButton(
+                  label: current.note.isEmpty
+                      ? AfStrings.historyNoteAdd
+                      : AfStrings.historyNoteEdit,
+                  variant: AfButtonVariant.secondary,
+                  size: AfButtonSize.compact,
+                  onPressed: () async {
+                    final WorkoutSession? updated =
+                        await _openNoteEditor(context, state, current);
+                    if (updated == null) return;
+                    setModalState(() => current = updated);
+                  },
                 ),
               ),
-        ],
+              const SizedBox(height: 10),
+              if (current.setsDetail.isEmpty)
+                Text(
+                  AfStrings.fill(
+                    AfStrings.historyNoSetDetail,
+                    <String, Object?>{
+                      'reps': current.reps,
+                      'count': current.setsCount,
+                    },
+                  ),
+                  style: AfText.muted(t),
+                )
+              else
+                for (final String line in sessionSetLines(current))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      line,
+                      style: AfText.muted(t, size: 12),
+                    ),
+                  ),
+            ],
+          );
+        },
       ),
       actions: <Widget>[
+        AfButton(
+          label: AfStrings.historyCopy,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: session.setsDetail.isEmpty
+              ? null
+              : () => _copySession(state, session),
+        ),
         AfButton(
           label: AfStrings.close,
           variant: AfButtonVariant.secondary,
           size: AfButtonSize.compact,
           onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+
+  /// Copies one workout as the plain text produced by [sessionToClipboardText].
+  ///
+  /// Nothing is written to the app's own data: the text goes to the OS
+  /// clipboard so the user can paste it into a note app or a message.
+  static Future<void> _copySession(
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    final String text = sessionToClipboardText(session);
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    state.showToast(AfStrings.historyCopied);
+  }
+
+  /// Writes the note of one workout, from History. Returns the refreshed
+  /// session when the note was saved, `null` when the user backed out.
+  static Future<WorkoutSession?> _openNoteEditor(
+    BuildContext context,
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    final TextEditingController controller =
+        TextEditingController(text: session.note);
+    final bool? saved = await AfDialog.show<bool>(
+      context,
+      title: AfStrings.historyNoteEditTitle,
+      body: AfTextField(
+        controller: controller,
+        hint: AfStrings.completeNoteHint,
+        minLines: 3,
+        maxLines: 6,
+        maxLength: AppState.maxSessionNoteLength,
+        autofocus: true,
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        AfButton(
+          label: AfStrings.completeNoteSave,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            state.setSessionNote(session.id, controller.text);
+            Navigator.of(context).pop(true);
+          },
+        ),
+      ],
+    );
+    // The dialog keeps rebuilding its field while it fades out.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+    if (saved != true) return null;
+    return state.sessionById(session.id);
+  }
+
+  static Future<void> _confirmUnstitch(
+    BuildContext context,
+    AppState state,
+    WorkoutSession session,
+  ) async {
+    await AfDialog.show<void>(
+      context,
+      title: AfStrings.historyUnstitchTitle,
+      body: Text(
+        AfStrings.historyUnstitchBody,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        AfButton(
+          label: AfStrings.historyUnstitchConfirm,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            Navigator.of(context).pop();
+            state.unstitchSession(session.id);
+          },
         ),
       ],
     );

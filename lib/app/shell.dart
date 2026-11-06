@@ -7,6 +7,10 @@ import '../widgets/af_widgets.dart';
 
 /// Provides the [AppState] to the widget tree and rebuilds listeners when it
 /// changes.
+///
+/// Use [of] inside `build` when the widget shows state (it subscribes, so the
+/// widget rebuilds on every `notifyListeners()`). Use [read] from callbacks
+/// (tap handlers, `initState`, dialogs) where a rebuild is not wanted.
 class AfAppScope extends InheritedNotifier<AppState> {
   const AfAppScope({
     super.key,
@@ -36,13 +40,16 @@ class AfScreen {
 
   static const String login = 'login';
   static const String register = 'register';
+  static const String personalDetails = 'personal-details';
   static const String home = 'home';
   static const String programs = 'programs';
   static const String activeWorkout = 'active-workout';
+  static const String lockScreenWidget = 'lock-screen-widget';
   static const String timer = 'timer';
   static const String workoutComplete = 'workout-complete';
   static const String history = 'history';
   static const String discover = 'discover';
+  static const String discoverDetail = 'discover-detail';
   static const String profile = 'profile';
   static const String settings = 'settings';
   static const String quizPrompt = 'quiz-prompt';
@@ -65,10 +72,14 @@ class AfScreen {
         return AfStrings.titleHistory;
       case discover:
         return AfStrings.titleDiscover;
+      case discoverDetail:
+        return AfStrings.titleExerciseGuide;
       case profile:
         return AfStrings.titleProfile;
       case settings:
         return AfStrings.titleSettings;
+      case personalDetails:
+        return AfStrings.titlePersonalDetails;
       case quizPrompt:
         return AfStrings.titleQuizPrompt;
       case quizQuestion:
@@ -83,11 +94,20 @@ class AfScreen {
     }
   }
 
-  static bool showsTopBar(String screenId) =>
-      screenId != login && screenId != register;
+  /// The auth screens hide the app chrome, like the prototype's
+  /// `updateChromeBars()`.
+  static bool showsTopBar(String screenId, {bool isLoggedIn = true}) =>
+      isLoggedIn &&
+      screenId != login &&
+      screenId != register &&
+      screenId != personalDetails;
 
-  static bool showsBottomNav(String screenId) =>
-      screenId != login && screenId != register && screenId != timer;
+  static bool showsBottomNav(String screenId, {bool isLoggedIn = true}) =>
+      isLoggedIn &&
+      screenId != login &&
+      screenId != register &&
+      screenId != personalDetails &&
+      screenId != timer;
 }
 
 /// The persistent app header (`#app-top-bar`).
@@ -99,127 +119,77 @@ class AfTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
-    final AppState state = AfAppScope.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: t.bgCard,
         border: Border(bottom: BorderSide(color: t.borderLine)),
       ),
-      child: Row(
-        children: <Widget>[
-          GestureDetector(
-            onTap: () => Navigator.of(context).pushNamed(AfScreen.home),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 32,
-                  height: 32,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: t.accent, width: 2),
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.jpg',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  AfScreen.titleFor(screenId),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 16,
-                        letterSpacing: -0.4,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          Row(
+      // The bar reaches the top edge, its content stays clear of the status
+      // bar and the front camera.
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
             children: <Widget>[
-              if (_timerPill(context, state) != null)
-                _timerPill(context, state)!,
-              const SizedBox(width: 6),
-              _IconAction(
-                icon: Icons.person_outline,
-                tooltip: AfStrings.titleProfile,
-                onTap: () => Navigator.of(context).pushNamed(AfScreen.profile),
+              GestureDetector(
+                onTap: () => Navigator.of(context).pushNamed(AfScreen.home),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 32,
+                      height: 32,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: t.accent, width: 2),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      AfScreen.titleFor(screenId),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: 16,
+                            letterSpacing: -0.4,
+                          ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 6),
-              _IconAction(
-                icon: Icons.settings_outlined,
-                tooltip: AfStrings.titleSettings,
-                onTap: () => Navigator.of(context).pushNamed(AfScreen.settings),
+              const Spacer(),
+              Row(
+                children: <Widget>[
+                  const SizedBox(width: 6),
+                  _IconAction(
+                    icon: Icons.person_outline,
+                    tooltip: AfStrings.titleProfile,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AfScreen.profile),
+                  ),
+                  const SizedBox(width: 6),
+                  _IconAction(
+                    icon: Icons.settings_outlined,
+                    tooltip: AfStrings.titleSettings,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AfScreen.settings),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
-
-  Widget? _timerPill(BuildContext context, AppState state) {
-    final AfTokens t = context.af;
-    final bool started = state.restRunning ||
-        state.restCompleted ||
-        state.activeWorkout.restSeconds != state.activeWorkout.restTotalSeconds;
-    if (!started) return null;
-
-    String text;
-    Color dot;
-    if (state.restCompleted) {
-      text = AfStrings.timerDonePill;
-      dot = const Color(0xFF22C55E);
-    } else {
-      final int seconds = state.restSecondsRemaining;
-      final String clock = _formatClock(seconds);
-      if (state.restRunning) {
-        text = '⏱ $clock';
-        dot = t.accent;
-      } else {
-        text = '⏸ $clock';
-        dot = t.accent;
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: t.accentTint,
-        borderRadius: BorderRadius.circular(t.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: t.accentTintText,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _formatClock(int totalSeconds) {
-  final int minutes = (totalSeconds ~/ 60).clamp(0, 999);
-  final int seconds = (totalSeconds % 60).clamp(0, 59);
-  return '${minutes.toString().padLeft(2, '0')}:'
-      '${seconds.toString().padLeft(2, '0')}';
 }
 
 class _IconAction extends StatelessWidget {
@@ -255,6 +225,15 @@ class _IconAction extends StatelessWidget {
 }
 
 /// The persistent bottom navigation (`#app-bottom-nav`).
+///
+/// The Workout tab is a raised circular action button in the centre, so the
+/// nav is a [Stack]: the bar keeps its own height and the button is painted
+/// above it. The middle slot is always reserved, which keeps the bar height
+/// constant whichever tab is selected.
+///
+/// Tab switches use `pushReplacementNamed`, so the tabs never pile up on the
+/// back stack: Back from a tab leaves the app, while detail screens
+/// (exercise detail, settings, …) are pushed normally and return to the tab.
 class AfBottomNav extends StatelessWidget {
   const AfBottomNav({super.key, required this.current});
 
@@ -269,42 +248,128 @@ class AfBottomNav extends StatelessWidget {
     (id: AfScreen.discover, label: 'Discover', icon: Icons.search_outlined),
   ];
 
+  /// Diameter of the raised Workout button.
+  static const double _centerSize = 66;
+
+  /// How far the Workout button rises above the bar.
+  static const double _centerLift = 30;
+
+  /// Height reserved for the normal tabs, matching the middle slot.
+  static const double _slotHeight = 48;
+
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
-    return Container(
-      decoration: BoxDecoration(
-        color: t.bgCard,
-        border: Border(top: BorderSide(color: t.borderLine)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: <Widget>[
-              for (final ({String id, String label, IconData icon}) tab
-                  in _tabs)
-                Expanded(
-                  child: _NavTab(
-                    label: tab.label,
-                    icon: tab.icon,
-                    selected: tab.id == current,
-                    onTap: () {
-                      if (tab.id == current) return;
-                      Navigator.of(context).pushReplacementNamed(tab.id);
-                    },
-                  ),
-                ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Container(
+          decoration: BoxDecoration(
+            color: t.bgCard,
+            border: Border(top: BorderSide(color: t.borderLine)),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x140F172A),
+                blurRadius: 20,
+                offset: Offset(0, -4),
+              ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: <Widget>[
+                  for (final ({String id, String label, IconData icon}) tab
+                      in _tabs)
+                    Expanded(
+                      child: tab.id == AfScreen.activeWorkout
+                          ? const SizedBox(height: _slotHeight)
+                          : _NavTab(
+                              label: tab.label,
+                              icon: tab.icon,
+                              selected: tab.id == current,
+                              onTap: () {
+                                if (tab.id == current) return;
+                                Navigator.of(context)
+                                    .pushReplacementNamed(tab.id);
+                              },
+                            ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -_centerLift,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: _CenterNavButton(
+              active: current == AfScreen.activeWorkout,
+              onTap: () {
+                if (current == AfScreen.activeWorkout) return;
+                Navigator.of(context)
+                    .pushReplacementNamed(AfScreen.activeWorkout);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The raised circular Workout button in the middle of the bottom nav.
+class _CenterNavButton extends StatelessWidget {
+  const _CenterNavButton({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    return Semantics(
+      button: true,
+      selected: active,
+      label: 'Workout',
+      child: Tooltip(
+        message: 'Workout',
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Ink(
+              width: AfBottomNav._centerSize,
+              height: AfBottomNav._centerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[t.accent, t.accentDark],
+                ),
+                border: Border.all(color: t.bgCard, width: 4),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: t.accent.withValues(alpha: 0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.bolt_rounded,
+                color: Colors.white,
+                size: active ? 32 : 30,
+              ),
+            ),
           ),
         ),
       ),
@@ -369,6 +434,11 @@ class _NavTab extends StatelessWidget {
 }
 
 /// The app frame: header, content, bottom navigation and the global toast.
+///
+/// Every screen wraps its body in this widget, so the chrome (top bar, bottom
+/// nav, toast) stays identical across the app. The body is capped at 480 dp and
+/// the default padding leaves room for the raised Workout button, which paints
+/// 30 dp above the bar.
 class AfScaffold extends StatelessWidget {
   const AfScaffold({
     super.key,
@@ -384,6 +454,7 @@ class AfScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final bool loggedIn = AfAppScope.of(context).isLoggedIn;
 
     return Scaffold(
       backgroundColor: t.bgPage,
@@ -391,7 +462,8 @@ class AfScaffold extends StatelessWidget {
         children: <Widget>[
           Column(
             children: <Widget>[
-              if (AfScreen.showsTopBar(screenId)) AfTopBar(screenId: screenId),
+              if (AfScreen.showsTopBar(screenId, isLoggedIn: loggedIn))
+                AfTopBar(screenId: screenId),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
@@ -403,7 +475,7 @@ class AfScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              if (AfScreen.showsBottomNav(screenId))
+              if (AfScreen.showsBottomNav(screenId, isLoggedIn: loggedIn))
                 AfBottomNav(current: screenId),
             ],
           ),

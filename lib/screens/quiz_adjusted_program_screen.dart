@@ -8,6 +8,11 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizAdjustedScreen()` (`index.html` lines 1936-1975).
+///
+/// The preview of the quiz result. Nothing is applied until **Accept program**
+/// calls `acceptAdjustedProgram()`; **Keep my old program** leaves the Current
+/// program untouched. Both are deterministic results of
+/// `computeQuizAdjustment` — this screen only presents them.
 class QuizAdjustedProgramScreen extends StatelessWidget {
   const QuizAdjustedProgramScreen({super.key});
 
@@ -48,7 +53,9 @@ class QuizAdjustedProgramScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              AfStrings.quizAdjustedBody,
+              adjustment.isUnchanged
+                  ? AfStrings.quizAdjustedBodyUnchanged
+                  : AfStrings.quizAdjustedBody,
               style: AfText.muted(t).copyWith(height: 1.625),
             ),
             const SizedBox(height: 16),
@@ -79,26 +86,32 @@ class QuizAdjustedProgramScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Row(
-                      children: <Widget>[
-                        Text(
-                          '${_trim(exercise.weightKg)} kg',
-                          style: AfText.muted(t).copyWith(
-                            decoration: TextDecoration.lineThrough,
+                    if (adjustment.isUnchanged)
+                      Text(
+                        '${_trim(exercise.weightKg)} kg',
+                        style: AfText.strong(t, size: 14),
+                      )
+                    else
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            '${_trim(exercise.weightKg)} kg',
+                            style: AfText.muted(t).copyWith(
+                              decoration: TextDecoration.lineThrough,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_trim(exercise.weightKg * adjustment.factor)} kg '
-                          '(${adjustment.pctText})',
-                          style: TextStyle(
-                            color: t.success,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_trim(exercise.weightKg * adjustment.factor)} kg '
+                            '(${adjustment.pctText})',
+                            style: TextStyle(
+                              color: t.success,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -106,7 +119,9 @@ class QuizAdjustedProgramScreen extends StatelessWidget {
             ],
             const SizedBox(height: 2),
             AfButton(
-              label: AfStrings.quizAccept,
+              label: adjustment.isUnchanged
+                  ? AfStrings.quizAcceptUnchanged
+                  : AfStrings.quizAccept,
               expand: true,
               fontSize: 14,
               onPressed: () {

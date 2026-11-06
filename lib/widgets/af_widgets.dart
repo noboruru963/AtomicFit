@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
 /// Reusable widgets mirroring the prototype's CSS classes
 /// (`.af-card`, `.af-btn-*`, `.af-badge`, `.af-input`, …).
+///
+/// Every colour comes from `context.af` (the [AfTokens] extension), never from
+/// a literal, so light and dark themes stay in step. When a screen looks wrong
+/// in one theme, the token is the first thing to check, not the widget.
+///
+/// Two widgets have non-obvious behaviour:
+/// * [AfTextField] defaults to a single line; pass `minLines`/`maxLines` for a
+///   multi-line box and `maxLength` to get the counter;
+/// * [AfDialog.show] closes with whatever the caller pops, so actions must pop
+///   a value (`true`, `false`, …) when the caller needs to know what happened.
 
 class AfCard extends StatelessWidget {
   const AfCard({
@@ -235,19 +246,27 @@ class AfWorkoutButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.emphasised = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final Widget? icon;
 
+  /// Fills the button with the brand blue (white label) instead of the neutral
+  /// grey, used for the rep steppers and the Add Set action.
+  final bool emphasised;
+
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final Color background = emphasised ? t.accent : t.workoutBtnBg;
+    final Color foreground = emphasised ? Colors.white : t.workoutBtnText;
+    final Color border = emphasised ? t.accent : t.workoutBtnBorder;
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: t.workoutBtnBg,
+        color: background,
         borderRadius: BorderRadius.circular(t.radiusWorkout),
         child: InkWell(
           onTap: onPressed,
@@ -256,7 +275,7 @@ class AfWorkoutButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18.4),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(t.radiusWorkout),
-              border: Border.all(color: t.workoutBtnBorder),
+              border: Border.all(color: border),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -265,7 +284,7 @@ class AfWorkoutButton extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: t.workoutBtnText,
+                    color: foreground,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     height: 1.4,
@@ -580,6 +599,60 @@ class AfProgress extends StatelessWidget {
   }
 }
 
+/// A themed dropdown matching the prototype's `<select class="af-input">`.
+class AfDropdown extends StatelessWidget {
+  const AfDropdown({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.hint,
+    this.style,
+    this.isDense = true,
+  });
+
+  /// The selected value. An empty value (or one that is not in [items])
+  /// shows the hint instead.
+  final String value;
+
+  final List<String> items;
+  final ValueChanged<String> onChanged;
+  final String? hint;
+  final TextStyle? style;
+  final bool isDense;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final bool hasValue = value.isNotEmpty && items.contains(value);
+
+    return DropdownButtonFormField<String>(
+      initialValue: hasValue ? value : null,
+      isExpanded: true,
+      isDense: isDense,
+      decoration: const InputDecoration(),
+      style: style ?? Theme.of(context).textTheme.bodyMedium,
+      hint: hint == null
+          ? null
+          : Text(
+              hint!,
+              style: AfText.muted(t),
+              overflow: TextOverflow.ellipsis,
+            ),
+      items: <DropdownMenuItem<String>>[
+        for (final String item in items)
+          DropdownMenuItem<String>(
+            value: item,
+            child: Text(item, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (String? selected) {
+        if (selected != null) onChanged(selected);
+      },
+    );
+  }
+}
+
 /// Themed text field matching `.af-input`.
 class AfTextField extends StatelessWidget {
   const AfTextField({
@@ -589,10 +662,16 @@ class AfTextField extends StatelessWidget {
     this.keyboardType,
     this.textAlign,
     this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
     this.style,
     this.emphasised = false,
     this.autofocus = false,
     this.obscureText = false,
+    this.inputFormatters,
+    this.minLines,
+    this.maxLines = 1,
+    this.maxLength,
   });
 
   final TextEditingController controller;
@@ -600,10 +679,18 @@ class AfTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextAlign? textAlign;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
   final TextStyle? style;
   final bool emphasised;
   final bool autofocus;
   final bool obscureText;
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// Multi-line support for the free-text note boxes.
+  final int? minLines;
+  final int? maxLines;
+  final int? maxLength;
 
   @override
   Widget build(BuildContext context) {
@@ -613,8 +700,14 @@ class AfTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textAlign: textAlign ?? TextAlign.start,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: textInputAction,
       autofocus: autofocus,
       obscureText: obscureText,
+      inputFormatters: inputFormatters,
+      minLines: minLines,
+      maxLines: maxLines,
+      maxLength: maxLength,
       style: style ??
           (emphasised
               ? theme.textTheme.titleMedium?.copyWith(fontSize: 18)

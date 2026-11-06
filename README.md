@@ -1,93 +1,133 @@
-# AtomFit v1
+# AtomicFit
 
-Local-first, mobile-first workout tracker built as an installable offline-capable PWA
-(React + TypeScript). Purpose: **consistency, not perfection**. Tagline: *"Log it. Keep going."*
+Hello everyone! AtomicFit is a local, mobile workout tracker that 
+helps busy workers and students work out, even when they are fatigued and stressed.   
 
-## Architecture (per AGENTS.md)
+Our purpose is to help gym-goers achieve consistency, 
+not perfection, with our motto of "One percent of workout effort is better than zero percent"
+
+The UI is a native Flutter port of the team's `index.html` prototype (the
+`Argon-2.0` branch design), and the data lives in a real on-device SQLite
+database.
+
+Developed by Jonathan Gouw Alexandrio, Luiesrelio, and Alexander Marchiano, 
+for final projects of Software Requirements Engineering at the University of Jakarta International (UNIJI)
+
+## Architecture
 
 ```
-packages/
-├─ core/       domain logic — Save-Set service, session service, quiz engine,
-│              inactivity service, stitching service, progression, analytics.
-│              NO UI / device / storage imports. (Rule I-04)
-├─ storage/    Dexie (IndexedDB) schema, repositories, migrations. (depends on core)
-└─ device/     sensor / speech / vibration / lock-screen adapter interfaces + fakes.
-apps/
-└─ web/        React 18 + React Router + Vite, typed text resources, light/dark theme,
-               all screens, PWA service worker + manifest.
+lib/
+├─ app/            router, app chrome (top bar, bottom nav), screen ids
+├─ data/
+│  ├─ db/          the database layer
+│  │  ├─ app_database.dart        opens + migrates the SQLite database
+│  │  ├─ schema.dart              tables, indexes, migration steps
+│  │  ├─ sqlite_store.dart        AtomFitStore over the relational tables
+│  │  ├─ exercise_repository.dart catalogue queries (search, filters, paging)
+│  │  ├─ catalogue.dart           pure label/format/search rules
+│  │  ├─ catalogue_loader.dart    asset -> Exercise records
+│  │  ├─ password_hasher.dart     salted password hashing
+│  │  ├─ legacy_migration.dart    the previous JSON blob -> the database
+│  │  └─ bootstrap.dart           first-run catalogue import
+│  ├─ seed_data.dart demo programs, history and quiz questions
+│  └─ store.dart                  the AtomFitStore seam
+├─ models/         plain immutable records with a JSON envelope
+├─ screens/        one file per screen
+├─ services/       pure rules (personal-details validation)
+├─ state/          the app state (the prototype's global `appState`)
+├─ strings.dart    every user-facing string
+├─ theme/          colours, typography, shapes
+└─ widgets/        the shared widget set
 ```
 
-Dependency direction: `apps/web → core, storage, device`; `storage → core`; `device → core`; **`core → nothing app-specific`**.
+Dependency direction: `screens → state → data → models`. The UI never talks to
+the database directly, and the persistence seam (`AtomFitStore` +
+`ExerciseRepository`) is what a later Firebase backend would implement.
 
-## Prerequisites
+## The database
 
-Node.js >= 20 and pnpm are required. They are **not** installed in this environment, so run these on a machine with Node:
+| table         | holds                                                        |
+|---------------|--------------------------------------------------------------|
+| `accounts`    | e-mail, username, **salted password hash**, personal details  |
+| `exercises`   | the 650 record RepDB catalogue + the user's own exercises     |
+| `programs`    | training programs and their exercises                         |
+| `sessions`    | finished workouts (full / micro / stitched)                   |
+| `set_logs`    | the logged sets of every session                              |
+| `settings`    | preferences, theme, session flag                              |
+| `app_state`   | key/value: the active workout draft, quiz answers             |
+
+* Passwords are **never** stored in clear text — every account holds a random
+  salt plus the SHA-256 digest of `salt::password`.
+* The exercise catalogue is the [RepDB](https://repdb.co) free tier, bundled as
+  `assets/data/exercise_catalogue.json` and imported once on first launch.
+  Exercise pictures are loaded from `exercise-dataset.com`; offline they fall
+  back to a placeholder.
+* Data of the previous (JSON blob) build is moved into the database once by
+  `LegacyMigration`.
+
+## Running it
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Type-check (Rule I-01: tsc --noEmit must pass with zero errors)
-pnpm run typecheck
-
-# Run unit + integration tests (Rule I-30: core domain >= 80% line coverage)
-pnpm run test
-
-# Lint + format (build fails on ESLint error)
-pnpm run lint
-pnpm run format
-
-# Start dev server (mobile-first, 360-430 px viewports)
-pnpm run dev
+flutter pub get
+flutter run                 # on a connected device or emulator
 ```
 
-## GitHub upload
+Android is the only target. The iOS, macOS, Linux, Windows and web runners were
+removed to keep the repository focused; recreate any of them with
+`flutter create . --platforms=<platform>` if it is ever needed.
 
-This folder is a git repository with one initial commit. To upload it to your GitHub:
+## Quality gates
 
 ```bash
-# 1. Set your identity (one-time)
-git config user.name "Your Name"
-git config user.email "you@example.com"
-
-# 2. Create an empty repository on GitHub (do NOT initialize with README),
-#    then add it as the remote:
-git remote add origin https://github.com/YOUR_USERNAME/atomfit.git
-
-# 3. Push
-git branch -M main
-git push -u origin main
+dart format .
+flutter analyze             # must report zero issues
+flutter test                # 94 tests
+flutter build apk --release
 ```
 
-If you use SSH instead of HTTPS, use `git@github.com:YOUR_USERNAME/atomfit.git` and make sure your SSH key is added to GitHub.
+## Demo accounts
 
-## Scope notes (v1)
+| user     | e-mail             | password      |
+|----------|--------------------|---------------|
+| `Joe123` | `joe@example.com`  | `password123` |
+| `Alex`   | `alex@example.com` | `password123` |
 
-- Built to the AGENTS.md immutable rules: local-first (no server), TypeScript strict,
-  one Save-Set service, idempotent writes, atomic multi-record operations, kg-only units,
-  UTC + IANA time-zone timestamps, light/dark themes, typed text resources, accessible controls.
-- Quiz is non-diagnostic (Rule I-10); zero-guilt language (Rule I-11); 7-day inactivity
-  trigger, 10 questions, 10–20% ease-in (BA-004).
-- Navigation: Home | History | Discover | Profile, Home locked when active (BA-001).
-- Lock-screen quick-add (US-003) is delivered as an in-app quick-add bar plus a
-  best-effort service-worker notification (PWA-only, BA-005). A true native lock-screen
-  widget is not possible in a PWA (Rule I-09) and is marked platform-limited.
+Either the user name or the e-mail works as the sign-in identifier.
 
-## Open / TBD items
+## Demo script (about 3 minutes)
 
-Several behaviors are deliberately left behind replaceable configs flagged `// TBD-nn`
-or `// ASSUMPTION:` (per Rule I-29) because the SRS marks them TBD or Assumption. Promote
-these to Behavior Addenda or decide them with the team before shipping:
-- TBD-05 lock-screen feasibility / "+1 set" meaning
-- TBD-06 speech-to-text engine / offline support
-- TBD-07 voice grammar
-- TBD-08 supported auto-count exercises
-- TBD-10 quiz Q2–Q9 wording
-- TBD-11 quiz rule table + safety limits / weekly ramp
-- TBD-12 quiz re-prompt rule
-- TBD-15 "continue last workout" when nothing is unfinished
-- TBD-16 streak behavior
-- TBD-17 stitching eligibility
-- TBD-18 progression policy
-- TBD-20 exercise catalogue
-- TBD-27 rest timer sound
+1. **Log in** — `joe@example.com` / `password123`.
+2. **Personal details** — the first launch of an account asks for a user name,
+   date of birth, gender, weight and height; the form rejects bad values and
+   names the field.
+3. **Home** — the calendar marks the days you trained, the monthly count is
+   there, the quiz banner offers a program adjustment.
+4. **Discover** — search `squat` (or any muscle, body part or equipment),
+   pick a body-part pill, open a result for the instructions, illustrations
+   and form tips, and add it to the workout.
+5. **Workout** — log a set, watch the rest timer run, and finish the workout
+   to see the summary.
+6. **History** — the new session is at the top; the micro sessions can be
+   stitched into one and unstitched again.
+7. **Profile / Settings** — the personal details, the theme switch and the
+   RepDB credits.
+8. **Restart the app** — everything is still there: it lives in the database.
+
+## Branches
+
+| branch           | what it holds                                              |
+|------------------|------------------------------------------------------------|
+| `argon-2-native` | **the current work**: the SQLite backend and the native port of the `Argon-2.0` design |
+| `main`           | the previous native port plus the two HTML prototypes       |
+| `Argon-2.0`      | the team's branch (untouched by this work)                  |
+
+`argon-2-native` is not merged yet.
+
+## Known gaps
+
+- The dark theme, the rest timer, the workout summary and the full quiz flow
+  still need a pass on a physical device.
+- Exercise images need a network connection.
+- Only an arm64 APK is built; add the other ABIs for 32-bit phones or emulators.
+- Real sensors, speech recognition and the lock-screen widget are not
+  implemented (the prototype simulates them).

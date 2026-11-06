@@ -1,7 +1,7 @@
 name: atomfit
 description: "AtomFit — Adaptive Workout Tracker. Log it. Keep going."
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.1.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -13,25 +13,39 @@ dependencies:
   # Local persistence — mirrors the web prototype's single `atomfit_app_v23` blob.
   # Swap point for a future Firebase implementation (see lib/data/README.md).
   shared_preferences: ^2.2.3
+  # Relational local database (accounts, catalogue, programs, sessions, sets).
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  # Salted password hashing for the local accounts table.
+  crypto: ^3.0.3
   # Date formatting ("Oct 18, 17:30").
   intl: ^0.18.1
   # Rest-timer completion bell (assets/bell.mp3).
   audioplayers: ^6.1.0
   # Background rest-timer notification (Android).
   flutter_local_notifications: ^17.2.3
+  # Time-zone aware scheduling for the notifications above.
+  timezone: ^0.9.4
+  flutter_timezone: ^5.0.0
   # Debug-only "HTML reference" screen (loads index.html in a WebView).
   webview_flutter: ^4.10.0
+  # Microphone speech-to-text for the voice log (Android SpeechRecognizer).
+  speech_to_text: ^7.0.0
+  vibration: ^3.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # In-memory SQLite for the database tests (desktop/test only).
+  sqflite_common_ffi: ^2.3.3
 
 flutter:
   uses-material-design: true
   assets:
     - assets/bell.mp3
-    - assets/images/logo.jpg
+    - assets/images/logo.png
+    - assets/data/exercise_catalogue.json
     - index.html
   fonts:
     - family: Inter

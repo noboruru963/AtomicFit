@@ -7,6 +7,10 @@ import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderQuizPromptScreen()` (`index.html` lines 1758-1781).
+///
+/// Shown from Home when the user has been inactive for the configured number
+/// of days. "Start quiz" opens the first question; "Not now" only dismisses the
+/// prompt for this session — the quiz is never forced.
 class QuizPromptScreen extends StatelessWidget {
   const QuizPromptScreen({super.key});
 
@@ -15,8 +19,7 @@ class QuizPromptScreen extends StatelessWidget {
     final AfTokens t = context.af;
     final AppState state = AfAppScope.of(context);
 
-    void start({required bool short}) {
-      state.quizShortMode = short;
+    void start() {
       state.setQuizStep(0);
       Navigator.of(context).pushNamed(AfScreen.quizQuestion);
     }
@@ -96,15 +99,7 @@ class QuizPromptScreen extends StatelessWidget {
               label: AfStrings.quizStartFull,
               expand: true,
               fontSize: 14,
-              onPressed: () => start(short: false),
-            ),
-            const SizedBox(height: 10),
-            AfButton(
-              label: AfStrings.quizStartQuick,
-              variant: AfButtonVariant.tint,
-              expand: true,
-              size: AfButtonSize.compact,
-              onPressed: () => start(short: true),
+              onPressed: () => start(),
             ),
             const SizedBox(height: 10),
             AfButton(

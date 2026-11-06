@@ -1,13 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/shell.dart';
 import '../models/app_models.dart';
+import '../services/speech_source.dart';
 import '../state/app_state.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/af_widgets.dart';
 
 /// Port of `renderActiveWorkoutScreen()` (`index.html` lines 2522-2656).
+///
+/// The workout itself lives in `AppState.activeWorkout`; this screen owns only
+/// the text controllers (weight box, voice box) and the microphone session.
+/// Every save goes through `AppState.logCurrentSet`, and **Finish** calls
+/// `finishActiveWorkout()` before routing to the complete screen — a micro
+/// session takes the same path with `sessionType = 'micro'`.
+///
+/// When adding a field here, remember `dispose()`: the mic is cancelled and
+/// the controllers are disposed there. Disposing a controller while a dialog
+/// that still shows it is closing is what produces the "used after being
+/// disposed" error seen in the program editor.
 class ActiveWorkoutScreen extends StatefulWidget {
   const ActiveWorkoutScreen({super.key});
 
@@ -20,10 +34,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   final TextEditingController _reps = TextEditingController();
   final TextEditingController _voice = TextEditingController();
   String? _weightError;
+  String? _voiceError;
   bool _syncing = false;
+
+  /// Whether the microphone is open right now (drives the Speak/Stop button).
+  bool _listening = false;
+
+  /// The source an open session belongs to, so leaving the screen can cancel it.
+  SpeechSource? _activeSpeech;
+
+  /// Identifies the current listen session. The recognizer can send more than
+  /// one final result (and another one when it is stopped), so bumping this
+  /// after a command makes every later callback of that session a no-op.
+  /// Without it "finished set" saves the set twice.
+  int _speechSession = 0;
 
   @override
   void dispose() {
+    _activeSpeech?.cancel();
     _weight.dispose();
     _reps.dispose();
     _voice.dispose();
@@ -37,6 +65,242 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     _reps.text = state.activeWorkout.repsInput.toString();
     _voice.text = state.activeWorkout.voiceSimText;
     _syncing = false;
+  }
+
+  /// Runs the voice log through the fixed instruction table and reacts to the
+  /// outcome: rep changes stay on this screen, a finished set opens the timer,
+  /// and an unrecognised line shows the retry hint without touching the set.
+  void _runVoiceCommand(AppState state) {
+    final VoiceCommandResult result = state.applyVoiceCommand(_voice.text);
+    final bool saved = result.outcome == VoiceOutcome.saved;
+    switch (result.outcome) {
+      case VoiceOutcome.adjusted:
+      case VoiceOutcome.saved:
+        _clearVoice(state);
+        setState(() {
+          _voiceError = null;
+          if (saved) _weightError = null;
+        });
+        if (saved) {
+          Navigator.of(context).pushNamed(AfScreen.timer);
+        }
+      case VoiceOutcome.unknown:
+        setState(() => _voiceError = AfStrings.workoutVoiceUnknown);
+      case VoiceOutcome.rejected:
+        setState(() {
+          _voiceError = null;
+          _weightError = result.error;
+        });
+    }
+  }
+
+  /// Empties the voice box after a command, in the widget and in the draft.
+  void _clearVoice(AppState state) {
+    _voice.clear();
+    state.activeWorkout = state.activeWorkout.copyWith(voiceSimText: '');
+  }
+
+  /// Opens or closes the microphone.
+  ///
+  /// Partial results land in the box so the user sees the words live; the
+  /// final result runs the command, which means "finished set" works hands-free.
+  /// When access is refused or the device has no recognizer, the box stays
+  /// typeable and the reason is shown above the chips.
+  Future<void> _toggleSpeech(AppState state) async {
+    if (_listening) {
+      setState(() => _listening = false);
+      await state.speech.stop();
+      return;
+    }
+    if (!state.micExplained) {
+      final bool allowed = await _explainMicrophone();
+      if (!allowed || !mounted) return;
+      state.micExplained = true;
+    }
+
+    final SpeechSource source = state.speech;
+    _activeSpeech = source;
+    final int session = ++_speechSession;
+    final SpeechStartStatus status = await source.start(
+      onWords: (String words, bool isFinal) {
+        // Ignore late results from an earlier session and everything that
+        // arrives after the command of this session already ran.
+        if (!mounted || session != _speechSession) return;
+        final String text = words.trim();
+        setState(() {
+          _voice.text = text;
+          _voice.selection = TextSelection.collapsed(offset: text.length);
+          if (isFinal) _listening = false;
+        });
+        state.activeWorkout = state.activeWorkout.copyWith(voiceSimText: text);
+        if (!isFinal) return;
+        // Close the session before acting so a second final result from the
+        // same utterance cannot run the command again (one save, one timer).
+        _speechSession++;
+        unawaited(source.cancel());
+        if (text.isEmpty) {
+          setState(() => _voiceError = AfStrings.workoutMicEmpty);
+          return;
+        }
+        _runVoiceCommand(state);
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _listening = status == SpeechStartStatus.listening;
+      _voiceError = switch (status) {
+        SpeechStartStatus.listening => null,
+        SpeechStartStatus.permissionDenied => AfStrings.workoutMicDenied,
+        SpeechStartStatus.unavailable => AfStrings.workoutMicUnavailable,
+        SpeechStartStatus.failed => AfStrings.workoutMicFailed,
+      };
+    });
+  }
+
+  /// Explains what the microphone is for before Android shows its own prompt.
+  Future<bool> _explainMicrophone() async {
+    final bool? answer = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text(AfStrings.workoutMicExplainTitle),
+        content: const Text(AfStrings.workoutMicExplainBody),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AfStrings.workoutMicExplainCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AfStrings.workoutMicExplainContinue),
+          ),
+        ],
+      ),
+    );
+    return answer ?? false;
+  }
+
+  /// Confirms and then removes every set in one exercise/weight group.
+  Future<void> _confirmRemoveGroup(
+    AppState state,
+    _LoggedSetGroup group,
+  ) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text(AfStrings.workoutRemoveGroupTitle),
+        content: Text(
+          AfStrings.fill(
+            AfStrings.workoutRemoveGroupBody,
+            <String, Object?>{
+              'count': group.sets.length,
+              'exercise': group.exerciseName,
+            },
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AfStrings.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AfStrings.remove),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    state.removeLoggedSets(group.sets.map((LoggedSet set) => set.id));
+  }
+
+  /// Opens the selected exercise's guide. The dropdown carries an exercise id
+  /// when it came from the catalogue; otherwise the name is matched against
+  /// the loaded catalogue, so seeded programs work too.
+  void _openExerciseInfo(AppState state) {
+    final ProgramExercise? target = state.currentTarget;
+    if (target == null) return;
+    String? id = target.exerciseId;
+    if (id == null || id.isEmpty) {
+      final String name = target.name.toLowerCase();
+      for (final Exercise exercise in state.catalogue) {
+        if (exercise.name.toLowerCase() == name) {
+          id = exercise.id;
+          break;
+        }
+      }
+    }
+    if (id == null || id.isEmpty) {
+      state.showToast(AfStrings.discoverEmpty, kind: ToastKind.info);
+      return;
+    }
+    state.openExerciseDetail(id);
+    Navigator.of(context).pushNamed(AfScreen.discoverDetail);
+  }
+
+  /// Lets the lifter rename the current exercise for this workout only.
+  ///
+  /// Gym reality: the machine or dumbbell is taken, so the movement changes.
+  /// The program and the catalogue keep their own names — only this session
+  /// is renamed, and its already-logged sets move with it so History and the
+  /// copy-as-text output still read as one exercise.
+  Future<void> _renameExercise(AppState state) async {
+    if (state.activeWorkout.currentExercise.isEmpty) return;
+    final TextEditingController controller =
+        TextEditingController(text: state.activeWorkout.currentExercise);
+    String? error;
+    late StateSetter setDialogState;
+    final bool? saved = await AfDialog.show<bool>(
+      context,
+      title: AfStrings.workoutRenameTitle,
+      body: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          setDialogState = setState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AfTextField(
+                controller: controller,
+                hint: AfStrings.workoutRenameHint,
+                autofocus: true,
+                maxLength: AppState.maxExerciseNameLength,
+              ),
+              if (error != null) ...<Widget>[
+                const SizedBox(height: 6),
+                Text(
+                  error!,
+                  style: TextStyle(color: context.af.danger, fontSize: 12),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: <Widget>[
+        AfButton(
+          label: AfStrings.cancel,
+          variant: AfButtonVariant.secondary,
+          size: AfButtonSize.compact,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        AfButton(
+          label: AfStrings.workoutRenameSave,
+          size: AfButtonSize.compact,
+          onPressed: () {
+            final String? problem = state.renameActiveExercise(controller.text);
+            if (problem != null) {
+              setDialogState(() => error = problem);
+              return;
+            }
+            Navigator.of(context).pop(true);
+          },
+        ),
+      ],
+    );
+    // The field is still mounted while the dialog animates out.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+    if (saved == true && mounted) setState(() {});
   }
 
   @override
@@ -66,210 +330,230 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                // Navigation arrows first, spread across the top.
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const AfSectionHead(AfStrings.workoutCurrentExercise),
-                          const SizedBox(height: 4),
-                          if (workout.exercises.isEmpty)
-                            Text(
-                              workout.currentExercise.isEmpty
-                                  ? AfStrings.workoutNoneSelected
-                                  : workout.currentExercise,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            )
-                          else
-                            DropdownButtonFormField<String>(
-                              initialValue: workout.exercises.any(
-                                      (ProgramExercise e) =>
-                                          e.name == workout.currentExercise)
-                                  ? workout.currentExercise
-                                  : workout.exercises.first.name,
-                              isExpanded: true,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                              items: <DropdownMenuItem<String>>[
-                                for (final ProgramExercise exercise
-                                    in workout.exercises)
-                                  DropdownMenuItem<String>(
-                                    value: exercise.name,
-                                    child: Text(
-                                      exercise.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                              ],
-                              onChanged: (String? value) {
-                                if (value == null) return;
-                                state.changeActiveExercise(value);
-                                setState(() => _weightError = null);
-                              },
-                            ),
-                          const SizedBox(height: 4),
-                          if (workout.currentExercise.isNotEmpty &&
-                              target != null)
-                            Text.rich(
-                              TextSpan(
-                                children: <InlineSpan>[
-                                  TextSpan(
-                                    text: AfStrings.fill(
-                                      AfStrings.workoutTarget,
-                                      <String, Object?>{
-                                        'sets': target.sets,
-                                        'reps': target.reps,
-                                        'kg': _trim(target.weightKg),
-                                      },
-                                    ),
-                                    style: AfText.muted(t),
-                                  ),
-                                  const TextSpan(text: ' '),
-                                  TextSpan(
-                                    text: '· ',
-                                    style: AfText.muted(t),
-                                  ),
-                                  TextSpan(
-                                    text: AfStrings.fill(
-                                      AfStrings.workoutLogged,
-                                      <String, Object?>{
-                                        'done': logged,
-                                        'total': target.sets,
-                                      },
-                                    ),
-                                    style: AfText.muted(t),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Text(
-                              AfStrings.workoutNoExerciseHint,
-                              style: AfText.muted(t),
-                            ),
-                        ],
-                      ),
+                    _StepButton(
+                      label: '<',
+                      tooltip: AfStrings.previousExercise,
+                      enabled: workout.exercises.length > 1 &&
+                          workout.exercises.indexWhere(
+                                (ProgramExercise e) =>
+                                    e.name == workout.currentExercise,
+                              ) >
+                              0,
+                      onTap: () => state.stepActiveExercise(-1),
                     ),
-                    const SizedBox(width: 8),
-                    Row(
-                      children: <Widget>[
-                        _StepButton(
-                          label: '<',
-                          tooltip: AfStrings.previousExercise,
-                          enabled: workout.exercises.length > 1 &&
-                              workout.exercises.indexWhere(
-                                    (ProgramExercise e) =>
-                                        e.name == workout.currentExercise,
-                                  ) >
-                                  0,
-                          onTap: () => state.stepActiveExercise(-1),
-                        ),
-                        const SizedBox(width: 6),
-                        _StepButton(
-                          label: '>',
-                          tooltip: AfStrings.nextExercise,
-                          enabled: workout.exercises.length > 1 &&
-                              workout.exercises.indexWhere(
-                                    (ProgramExercise e) =>
-                                        e.name == workout.currentExercise,
-                                  ) <
-                                  workout.exercises.length - 1,
-                          onTap: () => state.stepActiveExercise(1),
-                        ),
-                      ],
+                    _StepButton(
+                      label: '>',
+                      tooltip: AfStrings.nextExercise,
+                      enabled: workout.exercises.length > 1 &&
+                          workout.exercises.indexWhere(
+                                (ProgramExercise e) =>
+                                    e.name == workout.currentExercise,
+                              ) <
+                              workout.exercises.length - 1,
+                      onTap: () => state.stepActiveExercise(1),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                if (workout.inputMethod == 'sensor')
-                  _ChannelHelper(
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            '⌚ ${AfStrings.workoutAutoCount} '
-                            '${state.sensorSimActive ? AfStrings.workoutCounting : AfStrings.workoutReady}',
-                            style: AfText.muted(t, size: 12),
+                const SizedBox(height: 10),
+                const Center(
+                  child: AfSectionHead(AfStrings.workoutCurrentExercise),
+                ),
+                const SizedBox(height: 6),
+                Center(
+                  child: workout.exercises.isEmpty
+                      ? Text(
+                          workout.currentExercise.isEmpty
+                              ? AfStrings.workoutNoneSelected
+                              : workout.currentExercise,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Flexible(
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 290),
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: workout.exercises.any(
+                                          (ProgramExercise e) =>
+                                              e.name == workout.currentExercise)
+                                      ? workout.currentExercise
+                                      : workout.exercises.first.name,
+                                  isExpanded: true,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                  items: <DropdownMenuItem<String>>[
+                                    for (final ProgramExercise exercise
+                                        in workout.exercises)
+                                      DropdownMenuItem<String>(
+                                        value: exercise.name,
+                                        child: Text(
+                                          exercise.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (String? value) {
+                                    if (value == null) return;
+                                    state.changeActiveExercise(value);
+                                    setState(() => _weightError = null);
+                                  },
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: AfStrings.workoutOpenExerciseInfo,
+                              onPressed: () => _openExerciseInfo(state),
+                              icon: const Icon(Icons.info_outline, size: 20),
+                            ),
+                            IconButton(
+                              tooltip: AfStrings.workoutRenameTooltip,
+                              onPressed: () => _renameExercise(state),
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: workout.currentExercise.isNotEmpty && target != null
+                      ? Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              TextSpan(
+                                text: AfStrings.fill(
+                                  AfStrings.workoutTarget,
+                                  <String, Object?>{
+                                    'sets': target.sets,
+                                    'reps': target.reps,
+                                    'kg': _trim(target.weightKg),
+                                  },
+                                ),
+                                style: AfText.muted(t),
+                              ),
+                              const TextSpan(text: ' '),
+                              TextSpan(
+                                text: '· ',
+                                style: AfText.muted(t),
+                              ),
+                              TextSpan(
+                                text: AfStrings.fill(
+                                  AfStrings.workoutLogged,
+                                  <String, Object?>{
+                                    'done': logged,
+                                    'total': target.sets,
+                                  },
+                                ),
+                                style: AfText.muted(t),
+                              ),
+                            ],
                           ),
+                          textAlign: TextAlign.center,
+                        )
+                      : Text(
+                          AfStrings.workoutNoExerciseHint,
+                          style: AfText.muted(t),
+                          textAlign: TextAlign.center,
                         ),
-                        AfButton(
-                          label: state.sensorSimActive
-                              ? AfStrings.workoutStopSensor
-                              : AfStrings.workoutStartAutoCount,
-                          variant: state.sensorSimActive
-                              ? AfButtonVariant.danger
-                              : AfButtonVariant.tint,
-                          size: AfButtonSize.compact,
-                          onPressed: state.toggleSensorSimulation,
-                        ),
-                      ],
-                    ),
-                  )
-                else if (workout.inputMethod == 'voice')
-                  _ChannelHelper(
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: AfTextField(
-                            controller: _voice,
-                            style: AfText.muted(t, size: 12),
-                            hint: AfStrings.workoutVoicePlaceholder,
-                            onChanged: (String value) => state.activeWorkout =
-                                state.activeWorkout.copyWith(
-                              voiceSimText: value,
+                ),
+                const SizedBox(height: 14),
+                // Voice logging is always available: it is the quickest way to
+                // log and needs no channel switch.
+                _ChannelHelper(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: AfTextField(
+                              controller: _voice,
+                              style: AfText.muted(t, size: 12),
+                              hint: AfStrings.workoutVoicePlaceholder,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _runVoiceCommand(state),
+                              onChanged: (String value) => state.activeWorkout =
+                                  state.activeWorkout.copyWith(
+                                voiceSimText: value,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          AfButton(
+                            label: AfStrings.workoutVoiceRun,
+                            variant: AfButtonVariant.tint,
+                            size: AfButtonSize.compact,
+                            onPressed: () => _runVoiceCommand(state),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _VoiceMicButton(
+                          listening: _listening,
+                          onPressed: () => _toggleSpeech(state),
                         ),
-                        const SizedBox(width: 8),
-                        AfButton(
-                          label: AfStrings.workoutParseAdd,
-                          variant: AfButtonVariant.tint,
-                          size: AfButtonSize.compact,
-                          onPressed: () {
-                            final String? error = state.logCurrentSet();
-                            if (error != null) {
-                              setState(() => _weightError = error);
-                              return;
-                            }
-                            setState(() => _weightError = null);
-                            Navigator.of(context).pushNamed(AfScreen.timer);
-                          },
-                        ),
-                      ],
-                    ),
-                  )
-                else if (workout.inputMethod == 'lockscreen')
-                  _ChannelHelper(
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            '${AfStrings.workoutLockscreen} '
-                            '${workout.weightInput} kg × ${workout.repsInput} reps',
-                            style: AfText.muted(t, size: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _listening
+                            ? AfStrings.workoutVoiceListening
+                            : AfStrings.workoutVoiceHint,
+                        style: AfText.muted(t, size: 11),
+                      ),
+                      if (workout.voiceHistory.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          AfStrings.workoutRecentCommands,
+                          style: AfText.muted(
+                            t,
+                            size: 11,
+                            weight: FontWeight.w600,
                           ),
                         ),
-                        AfButton(
-                          label: AfStrings.workoutAddSet,
-                          variant: AfButtonVariant.tint,
-                          size: AfButtonSize.compact,
-                          onPressed: () {
-                            final String? error = state.logCurrentSet();
-                            if (error != null) {
-                              setState(() => _weightError = error);
-                              return;
-                            }
-                            setState(() => _weightError = null);
-                            Navigator.of(context).pushNamed(AfScreen.timer);
-                          },
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            for (final String previous in workout.voiceHistory)
+                              AfButton(
+                                label: previous,
+                                variant: AfButtonVariant.secondary,
+                                size: AfButtonSize.compact,
+                                onPressed: () {
+                                  // Tapping fills the box so the user can
+                                  // adjust the line before sending it.
+                                  _voice.text = previous;
+                                  _voice.selection = TextSelection.collapsed(
+                                    offset: previous.length,
+                                  );
+                                  state.activeWorkout = state.activeWorkout
+                                      .copyWith(voiceSimText: previous);
+                                  setState(() => _voiceError = null);
+                                },
+                              ),
+                          ],
                         ),
                       ],
-                    ),
+                      if (_voiceError != null) ...<Widget>[
+                        const SizedBox(height: 8),
+                        AfErrorBanner(
+                          message: _voiceError!,
+                          padding: const EdgeInsets.all(10),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
                 const SizedBox(height: 4),
                 if (_weightError != null) ...<Widget>[
                   AfErrorBanner(
@@ -331,6 +615,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     Expanded(
                       child: AfWorkoutButton(
                         label: AfStrings.workoutMinusOneRep,
+                        emphasised: true,
                         onPressed: () => state.incrementRepCounter(-1),
                       ),
                     ),
@@ -338,6 +623,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     Expanded(
                       child: AfWorkoutButton(
                         label: AfStrings.workoutPlusOneRep,
+                        emphasised: true,
                         onPressed: () => state.incrementRepCounter(1),
                       ),
                     ),
@@ -346,6 +632,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 const SizedBox(height: 14),
                 AfWorkoutButton(
                   label: AfStrings.workoutAddSet,
+                  emphasised: true,
                   onPressed: () {
                     final String? error = state.logCurrentSet();
                     if (error != null) {
@@ -367,30 +654,30 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    AfSectionHead(
-                      AfStrings.fill(
-                          AfStrings.workoutLoggedSets, <String, Object?>{
-                        'count': workout.sets.length,
-                      }),
+                Center(
+                  child: AfSectionHead(
+                    AfStrings.fill(
+                        AfStrings.workoutLoggedSets, <String, Object?>{
+                      'count': workout.sets.length,
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Center(
+                  child: Text.rich(
+                    TextSpan(
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: 'Total Vol: ',
+                          style: AfText.muted(t, size: 12),
+                        ),
+                        TextSpan(
+                          text: '${state.activeVolume} kg',
+                          style: AfText.strong(t, size: 12),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    Text.rich(
-                      TextSpan(
-                        children: <InlineSpan>[
-                          TextSpan(
-                            text: 'Total Vol: ',
-                            style: AfText.muted(t),
-                          ),
-                          TextSpan(
-                            text: '${state.activeVolume} kg',
-                            style: AfText.strong(t, size: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (workout.sets.isEmpty)
@@ -403,11 +690,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     ),
                   )
                 else
-                  for (int i = 0; i < workout.sets.length; i++) ...<Widget>[
-                    _LoggedSetRow(
-                      index: i,
-                      set: workout.sets[i],
-                      onRemove: () => state.removeLoggedSet(workout.sets[i].id),
+                  for (final _LoggedSetGroup group
+                      in _groupLoggedSets(workout.sets)) ...<Widget>[
+                    _LoggedSetGroupRow(
+                      group: group,
+                      onRemoveSet: (String setId) =>
+                          state.removeLoggedSet(setId),
+                      onRemoveGroup: () => _confirmRemoveGroup(state, group),
                     ),
                     const SizedBox(height: 6),
                   ],
@@ -417,53 +706,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   decoration: BoxDecoration(
                     border: Border(top: BorderSide(color: t.borderLine)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: <InlineSpan>[
-                              TextSpan(
-                                text: AfStrings.fill(
-                                  AfStrings.workoutInputChannel,
-                                  <String, Object?>{
-                                    'method': workout.inputMethod,
-                                  },
-                                ).replaceFirst(
-                                  'Change in Settings',
-                                  '',
-                                ),
-                                style: AfText.muted(t, size: 11),
-                              ),
-                              TextSpan(
-                                text: '(',
-                                style: AfText.muted(t, size: 11),
-                              ),
-                              TextSpan(
-                                text: AfStrings.openInSettings,
-                                style: TextStyle(
-                                  color: t.accent,
-                                  fontSize: 11,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ')',
-                                style: AfText.muted(t, size: 11),
-                              ),
-                            ],
+                      const SizedBox(height: 10),
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: AfButton(
+                            label: AfStrings.workoutFinish,
+                            size: AfButtonSize.large,
+                            expand: true,
+                            onPressed: () {
+                              if (state.finishActiveWorkout() == null) return;
+                              Navigator.of(context).pushReplacementNamed(
+                                  AfScreen.workoutComplete);
+                            },
                           ),
                         ),
-                      ),
-                      AfButton(
-                        label: AfStrings.workoutFinish,
-                        variant: AfButtonVariant.tint,
-                        size: AfButtonSize.compact,
-                        onPressed: () {
-                          if (state.finishActiveWorkout() == null) return;
-                          Navigator.of(context)
-                              .pushReplacementNamed(AfScreen.workoutComplete);
-                        },
                       ),
                     ],
                   ),
@@ -487,6 +747,55 @@ class _ChannelHelper extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: AfSubtle(padding: const EdgeInsets.all(10), child: child),
+    );
+  }
+}
+
+/// The microphone button: a 48 dp pill that opens and closes the recognizer.
+class _VoiceMicButton extends StatelessWidget {
+  const _VoiceMicButton({required this.listening, required this.onPressed});
+
+  final bool listening;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final Color background = listening ? t.dangerTint : t.accentTint;
+    final Color foreground = listening ? t.danger : t.accentTintText;
+    final String tooltip = listening
+        ? AfStrings.workoutVoiceStopTooltip
+        : AfStrings.workoutVoiceSpeakTooltip;
+
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: background,
+          borderRadius: BorderRadius.circular(t.radiusPill),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(t.radiusPill),
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              child: Text(
+                listening
+                    ? AfStrings.workoutVoiceStop
+                    : AfStrings.workoutVoiceSpeak,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -521,95 +830,194 @@ class _StepButton extends StatelessWidget {
   }
 }
 
-class _LoggedSetRow extends StatelessWidget {
-  const _LoggedSetRow({
-    required this.index,
-    required this.set,
-    required this.onRemove,
+class _LoggedSetGroup {
+  _LoggedSetGroup({required this.exerciseName, required this.weightKg});
+
+  final String exerciseName;
+  final double weightKg;
+  final List<LoggedSet> sets = <LoggedSet>[];
+
+  /// `6 , 5 , 5` — the reps of every set in the order they were logged.
+  String get repsLabel => sets.map((LoggedSet set) => set.reps).join(' , ');
+}
+
+/// Groups the draft's sets by exercise and weight, keeping the order in which
+/// each group first appears. Two sets at different weights stay separate, so
+/// `[Db press (30 kg) : 6 , 5 , 5]` never mixes loads.
+List<_LoggedSetGroup> _groupLoggedSets(List<LoggedSet> sets) {
+  final List<_LoggedSetGroup> groups = <_LoggedSetGroup>[];
+  for (final LoggedSet set in sets) {
+    final double weight = double.parse(set.weightKg.toStringAsFixed(1));
+    _LoggedSetGroup? group;
+    for (final _LoggedSetGroup candidate in groups) {
+      if (candidate.exerciseName == set.exerciseName &&
+          candidate.weightKg == weight) {
+        group = candidate;
+        break;
+      }
+    }
+    if (group == null) {
+      group = _LoggedSetGroup(exerciseName: set.exerciseName, weightKg: weight);
+      groups.add(group);
+    }
+    group.sets.add(set);
+  }
+  return groups;
+}
+
+/// One `[Exercise (weight kg) : reps…]` line.
+///
+/// A tap unfolds the individual sets, each with its own ✕. The ✕ on the group
+/// removes the whole group after a confirmation.
+class _LoggedSetGroupRow extends StatefulWidget {
+  const _LoggedSetGroupRow({
+    required this.group,
+    required this.onRemoveSet,
+    required this.onRemoveGroup,
   });
 
-  final int index;
-  final LoggedSet set;
-  final VoidCallback onRemove;
+  final _LoggedSetGroup group;
+  final ValueChanged<String> onRemoveSet;
+  final VoidCallback onRemoveGroup;
+
+  @override
+  State<_LoggedSetGroupRow> createState() => _LoggedSetGroupRowState();
+}
+
+class _LoggedSetGroupRowState extends State<_LoggedSetGroupRow> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final AfTokens t = context.af;
+    final _LoggedSetGroup group = widget.group;
     return AfSubtle(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: t.accentTint,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '${index + 1}',
-              style: TextStyle(
-                color: t.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: set.exerciseName,
-                    style: AfText.strong(t, size: 12),
-                  ),
-                  if (set.exerciseSetNo > 0)
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: <Widget>[
+                Text(
+                  _expanded ? '▾' : '▸',
+                  style: AfText.muted(t, size: 12),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
                     TextSpan(
-                      text:
-                          ' (${AfStrings.fill(AfStrings.workoutSetNumber, <String, Object?>{
-                            'number': set.exerciseSetNo
-                          })})',
-                      style: AfText.muted(t, size: 11),
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: '[',
+                          style: AfText.muted(t, size: 12),
+                        ),
+                        TextSpan(
+                          text:
+                              '${group.exerciseName} (${_trim(group.weightKg)} kg)',
+                          style: AfText.strong(t, size: 12),
+                        ),
+                        TextSpan(
+                          text: ' : ${group.repsLabel}',
+                          style: AfText.muted(t, size: 12),
+                        ),
+                        TextSpan(
+                          text: ']',
+                          style: AfText.muted(t, size: 12),
+                        ),
+                      ],
                     ),
-                  TextSpan(
-                    text:
-                        '  ${AfStrings.fill(AfStrings.workoutSetSummary, <String, Object?>{
-                          'kg': _trim(set.weightKg),
-                          'reps': set.reps
-                        })}',
-                    style: AfText.muted(t, size: 12),
-                  ),
-                ],
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          AfBadge(
-            label: set.inputMethod,
-            fontSize: 10,
-            uppercase: true,
-          ),
-          const SizedBox(width: 4),
-          Tooltip(
-            message: AfStrings.removeSet,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Text(
-                  '✕',
-                  style: TextStyle(
-                    color: t.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: AfStrings.workoutRemoveGroup,
+                  child: GestureDetector(
+                    onTap: widget.onRemoveGroup,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Text(
+                        '✕',
+                        style: TextStyle(
+                          color: t.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          if (_expanded) ...<Widget>[
+            const SizedBox(height: 8),
+            for (int i = 0; i < group.sets.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: <Widget>[
+                    const SizedBox(width: 18),
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: t.accentTint,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        AfStrings.fill(
+                          AfStrings.workoutSetSummary,
+                          <String, Object?>{
+                            'kg': _trim(group.sets[i].weightKg),
+                            'reps': group.sets[i].reps,
+                          },
+                        ),
+                        style: AfText.muted(t, size: 12),
+                      ),
+                    ),
+                    AfBadge(
+                      label: group.sets[i].inputMethod,
+                      fontSize: 10,
+                      uppercase: true,
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: AfStrings.removeSet,
+                      child: GestureDetector(
+                        onTap: () => widget.onRemoveSet(group.sets[i].id),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Text(
+                            '✕',
+                            style: TextStyle(
+                              color: t.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );

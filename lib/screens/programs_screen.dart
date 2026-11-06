@@ -9,6 +9,12 @@ import '../widgets/af_widgets.dart';
 
 /// Port of `renderProgramsScreen()` (`index.html` lines 2002-2067) including
 /// the program editor and delete confirmation modals.
+///
+/// The list is `state.programs`; "Current" is whichever program has
+/// `active == true`. The editor works on a local draft and only writes through
+/// `updateProgram` / `createProgram` on save, so Cancel never changes data.
+/// Rows can be dragged by their handle — the order is persisted with the
+/// program and is the order the Active workout pre-fills.
 class ProgramsScreen extends StatelessWidget {
   const ProgramsScreen({super.key});
 
@@ -156,87 +162,43 @@ class _ProgramCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          AfSubtle(
-            padding: const EdgeInsets.all(12),
-            child: program.exercises.isEmpty
-                ? Text(
-                    AfStrings.programsNoExercises,
-                    style: AfText.muted(t),
-                  )
-                : Column(
-                    children: <Widget>[
-                      for (int i = 0; i < program.exercises.length; i++)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: i == program.exercises.length - 1
-                                    ? Colors.transparent
-                                    : t.borderLine,
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  '${i + 1}. ${program.exercises[i].name}',
-                                  style: TextStyle(
-                                    color: t.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                AfStrings.fill(
-                                  AfStrings.programsExerciseRow,
-                                  <String, Object?>{
-                                    'sets': program.exercises[i].sets,
-                                    'reps': program.exercises[i].reps,
-                                    'kg': _trim(program.exercises[i].weightKg),
-                                  },
-                                ),
-                                style: AfText.muted(t),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+          _ProgramExerciseList(program: program),
+          const SizedBox(height: 8),
+          AfButton(
+            label: AfStrings.programsStart,
+            size: AfButtonSize.medium,
+            expand: true,
+            onPressed: () {
+              state.startProgramWorkout(
+                program.id,
+                program.type == 'Micro' ? 'micro' : 'full',
+              );
+              Navigator.of(context).pushNamed(AfScreen.activeWorkout);
+            },
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
-              Expanded(
-                child: AfButton(
-                  label: AfStrings.programsStart,
-                  size: AfButtonSize.medium,
-                  onPressed: () {
-                    state.startProgramWorkout(
-                      program.id,
-                      program.type == 'Micro' ? 'micro' : 'full',
-                    );
-                    Navigator.of(context).pushNamed(AfScreen.activeWorkout);
-                  },
-                ),
+              AfButton(
+                label: AfStrings.programsEdit,
+                variant: AfButtonVariant.secondary,
+                size: AfButtonSize.compact,
+                onPressed: () =>
+                    _openProgramEditor(context, state, existing: program),
               ),
-              if (!program.active) ...<Widget>[
-                const SizedBox(width: 8),
+              if (!program.active)
                 AfButton(
                   label: AfStrings.programsSetCurrent,
                   variant: AfButtonVariant.secondary,
-                  size: AfButtonSize.medium,
+                  size: AfButtonSize.compact,
                   onPressed: () => state.setActiveProgram(program.id),
                 ),
-              ],
-              const SizedBox(width: 8),
               AfButton(
                 label: AfStrings.programsDelete,
                 variant: AfButtonVariant.danger,
-                size: AfButtonSize.medium,
+                size: AfButtonSize.compact,
                 onPressed: () => _confirmDelete(context, state, program),
               ),
             ],
@@ -313,25 +275,183 @@ class _ProgramCard extends StatelessWidget {
   }
 }
 
-/// The "Create Custom Program" modal (`index.html` lines 2242-2488).
+/// The exercise list of one program card.
+///
+/// The rows can be dragged by their handle; the drop saves the new order
+/// straight away (there is no separate "save order" step).
+class _ProgramExerciseList extends StatelessWidget {
+  const _ProgramExerciseList({required this.program});
+
+  final Program program;
+
+  @override
+  Widget build(BuildContext context) {
+    final AfTokens t = context.af;
+    final AppState state = AfAppScope.of(context);
+    final List<ProgramExercise> exercises = program.exercises;
+
+    if (exercises.isEmpty) {
+      return AfSubtle(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          AfStrings.programsNoExercises,
+          style: AfText.muted(t),
+        ),
+      );
+    }
+
+    return AfSubtle(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (exercises.length > 1) ...<Widget>[
+            Text(
+              AfStrings.programsReorderHint,
+              style: AfText.muted(t, size: 10),
+            ),
+            const SizedBox(height: 2),
+          ],
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: exercises.length,
+            proxyDecorator: (
+              Widget child,
+              int index,
+              Animation<double> animation,
+            ) {
+              return Material(
+                color: t.bgCard,
+                elevation: 3,
+                borderRadius: BorderRadius.circular(10),
+                child: child,
+              );
+            },
+            onReorderItem: (int oldIndex, int newIndex) =>
+                state.reorderProgramExercises(
+              programId: program.id,
+              oldIndex: oldIndex,
+              newIndex: newIndex,
+            ),
+            itemBuilder: (BuildContext context, int index) {
+              final ProgramExercise exercise = exercises[index];
+              final bool last = index == exercises.length - 1;
+              return Container(
+                key: ValueKey<String>('${program.id}-${exercise.name}'),
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: last ? Colors.transparent : t.borderLine,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            '${index + 1}. ${exercise.name}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: t.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              height: 1.5,
+                            ),
+                          ),
+                          // The targets sit under the name so a long exercise
+                          // name and its sets both fit at 360 dp next to the
+                          // drag handle.
+                          Text(
+                            AfStrings.fill(
+                              AfStrings.programsExerciseRow,
+                              <String, Object?>{
+                                'sets': exercise.sets,
+                                'reps': exercise.reps,
+                                'kg': _trim(exercise.weightKg),
+                              },
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AfText.muted(t, size: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (exercises.length > 1)
+                      ReorderableDragStartListener(
+                        index: index,
+                        child: Tooltip(
+                          message: AfStrings.programsReorderTooltip,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.drag_handle,
+                              size: 20,
+                              color: t.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The program editor, used to create a program and to edit an existing one
+/// (`index.html` lines 2242-2488).
+///
+/// The program itself only asks for a name: sets, reps and weight belong to
+/// each exercise row, because one global value cannot describe a real program.
 Future<void> _openProgramEditor(
   BuildContext context,
-  AppState state,
-) async {
-  final TextEditingController name = TextEditingController();
-  final TextEditingController sets = TextEditingController(text: '3');
-  final TextEditingController reps = TextEditingController(text: '10');
-  final TextEditingController weight = TextEditingController(text: '15');
+  AppState state, {
+  Program? existing,
+}) async {
+  final bool editing = existing != null;
+  final TextEditingController name =
+      TextEditingController(text: existing?.name ?? '');
   final TextEditingController search = TextEditingController();
 
-  String type = 'Custom';
+  final List<ProgramExercise> selected = <ProgramExercise>[
+    ...?existing?.exercises,
+  ];
+  // Every input set ever created, so a removed exercise still has its
+  // controllers disposed when the editor closes.
+  final List<_ExerciseInputs> createdInputs = <_ExerciseInputs>[];
+  _ExerciseInputs inputsFor(ProgramExercise exercise) {
+    final _ExerciseInputs entry = _ExerciseInputs(exercise);
+    createdInputs.add(entry);
+    return entry;
+  }
+
+  final Map<String, _ExerciseInputs> inputs = <String, _ExerciseInputs>{
+    for (final ProgramExercise exercise in selected)
+      exercise.name: inputsFor(exercise),
+  };
+
   String category = 'All';
   bool pickerOpen = false;
-  final List<ProgramExercise> selected = <ProgramExercise>[];
 
   await AfDialog.show<void>(
     context,
-    title: AfStrings.programsCreateTitle,
+    title:
+        editing ? AfStrings.programsEditTitle : AfStrings.programsCreateTitle,
     scrollable: true,
     body: StatefulBuilder(
       builder: (BuildContext context, StateSetter setModalState) {
@@ -346,6 +466,27 @@ Future<void> _openProgramEditor(
           return categoryMatch && searchMatch;
         }).toList();
 
+        Widget numberField(
+          String label,
+          TextEditingController controller, {
+          bool decimal = false,
+        }) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(label, style: AfText.muted(t, size: 11)),
+              const SizedBox(height: 3),
+              AfTextField(
+                controller: controller,
+                keyboardType: decimal
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.number,
+                style: AfText.strong(t, size: 13),
+              ),
+            ],
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -358,95 +499,7 @@ Future<void> _openProgramEditor(
               controller: name,
               hint: AfStrings.programsNamePlaceholder,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsTypeLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      DropdownButtonFormField<String>(
-                        initialValue: type,
-                        isExpanded: true,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(
-                            value: 'Custom',
-                            child: Text('Custom'),
-                          ),
-                          DropdownMenuItem<String>(
-                            value: 'Micro',
-                            child: Text('Micro'),
-                          ),
-                        ],
-                        onChanged: (String? value) {
-                          if (value == null) return;
-                          setModalState(() => type = value);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsSetsLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: sets,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsRepsLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: reps,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        AfStrings.programsWeightLabel,
-                        style: AfText.muted(t, weight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      AfTextField(
-                        controller: weight,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Row(
               children: <Widget>[
                 Text(
@@ -468,6 +521,144 @@ Future<void> _openProgramEditor(
                 ),
               ],
             ),
+            if (selected.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(
+                AfStrings.programsPerExercise,
+                style: AfText.muted(t, size: 11),
+              ),
+              const SizedBox(height: 8),
+              if (selected.length > 1) ...<Widget>[
+                Text(
+                  AfStrings.programsReorderHint,
+                  style: AfText.muted(t, size: 10),
+                ),
+                const SizedBox(height: 6),
+              ],
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: selected.length,
+                proxyDecorator: (
+                  Widget child,
+                  int index,
+                  Animation<double> animation,
+                ) {
+                  return Material(
+                    color: t.bgCard,
+                    elevation: 3,
+                    borderRadius: BorderRadius.circular(10),
+                    child: child,
+                  );
+                },
+                onReorderItem: (int oldIndex, int newIndex) {
+                  setModalState(() {
+                    selected.insert(
+                      newIndex,
+                      selected.removeAt(oldIndex),
+                    );
+                  });
+                },
+                itemBuilder: (BuildContext context, int index) {
+                  final ProgramExercise exercise = selected[index];
+                  return Padding(
+                    key: ValueKey<String>(exercise.name),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: AfSubtle(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  exercise.name,
+                                  style: AfText.strong(t, size: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              if (selected.length > 1)
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: Tooltip(
+                                    message: AfStrings.programsReorderTooltip,
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.drag_handle,
+                                        size: 20,
+                                        color: t.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              Tooltip(
+                                message: AfStrings.programsRemoveExercise,
+                                child: GestureDetector(
+                                  onTap: () => setModalState(() {
+                                    selected.removeWhere(
+                                      (ProgramExercise e) =>
+                                          e.name == exercise.name,
+                                    );
+                                    inputs.remove(exercise.name);
+                                  }),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '✕',
+                                      style: TextStyle(
+                                        color: t.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: <Widget>[
+                              Expanded(
+                                child: numberField(
+                                  AfStrings.programsSetsLabel,
+                                  inputs[exercise.name]!.sets,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: numberField(
+                                  AfStrings.programsRepsLabel,
+                                  inputs[exercise.name]!.reps,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: numberField(
+                                  AfStrings.programsWeightLabel,
+                                  inputs[exercise.name]!.weight,
+                                  decimal: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
             if (pickerOpen) ...<Widget>[
               const SizedBox(height: 8),
               AfTextField(
@@ -532,16 +723,17 @@ Future<void> _openProgramEditor(
                                   (ProgramExercise e) =>
                                       e.name == exercise.name,
                                 );
+                                inputs.remove(exercise.name);
                               } else {
-                                selected.add(
-                                  ProgramExercise(
-                                    name: exercise.name,
-                                    sets: exercise.defaultSets,
-                                    reps: exercise.defaultReps,
-                                    weightKg: exercise.defaultKg,
-                                    exerciseId: exercise.id,
-                                  ),
+                                final ProgramExercise added = ProgramExercise(
+                                  name: exercise.name,
+                                  sets: exercise.defaultSets,
+                                  reps: exercise.defaultReps,
+                                  weightKg: exercise.defaultKg,
+                                  exerciseId: exercise.id,
                                 );
+                                selected.add(added);
+                                inputs[exercise.name] = inputsFor(added);
                               }
                             });
                           },
@@ -563,7 +755,7 @@ Future<void> _openProgramEditor(
         onPressed: () => Navigator.of(context).pop(),
       ),
       AfButton(
-        label: AfStrings.programsSave,
+        label: editing ? AfStrings.programsSaveChanges : AfStrings.programsSave,
         size: AfButtonSize.compact,
         onPressed: () {
           if (name.text.trim().isEmpty) {
@@ -580,25 +772,75 @@ Future<void> _openProgramEditor(
             );
             return;
           }
-          state.createProgram(
-            name: name.text.trim(),
-            type: type,
-            sets: int.tryParse(sets.text) ?? 3,
-            reps: int.tryParse(reps.text) ?? 10,
-            weightKg: double.tryParse(weight.text) ?? 15,
-            exercises: selected,
-          );
+          final List<ProgramExercise> exercises = <ProgramExercise>[
+            for (final ProgramExercise exercise in selected)
+              inputs[exercise.name]!.apply(exercise),
+          ];
+          if (editing) {
+            state.updateProgram(
+              id: existing.id,
+              name: name.text.trim(),
+              exercises: exercises,
+            );
+          } else {
+            final Program created = state.createProgram(
+              name: name.text.trim(),
+              exercises: exercises,
+            );
+            state.showToast(
+              AfStrings.fill(AfStrings.programsCreatedToast, <String, Object?>{
+                'name': created.name,
+              }),
+              kind: ToastKind.success,
+            );
+          }
           Navigator.of(context).pop();
         },
       ),
     ],
   );
 
+  // The dialog keeps rebuilding its fields while it fades out, so the
+  // controllers are only released once the exit transition has finished.
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  for (final _ExerciseInputs input in createdInputs) {
+    input.dispose();
+  }
   name.dispose();
-  sets.dispose();
-  reps.dispose();
-  weight.dispose();
   search.dispose();
+}
+
+/// The three number boxes that belong to one selected exercise.
+class _ExerciseInputs {
+  _ExerciseInputs(ProgramExercise exercise)
+      : sets = TextEditingController(text: '${exercise.sets}'),
+        reps = TextEditingController(text: '${exercise.reps}'),
+        weight = TextEditingController(text: _trim(exercise.weightKg));
+
+  final TextEditingController sets;
+  final TextEditingController reps;
+  final TextEditingController weight;
+
+  /// Reads the boxes back into an exercise, keeping the stored value when a box
+  /// is empty or unreadable.
+  ProgramExercise apply(ProgramExercise exercise) {
+    final int? enteredSets = int.tryParse(sets.text.trim());
+    final int? enteredReps = int.tryParse(reps.text.trim());
+    final double? enteredWeight = double.tryParse(weight.text.trim());
+    return exercise.copyWith(
+      sets: enteredSets == null ? exercise.sets : enteredSets.clamp(1, 20),
+      reps: enteredReps == null ? exercise.reps : enteredReps.clamp(1, 999),
+      weightKg: enteredWeight == null
+          ? exercise.weightKg
+          : enteredWeight.clamp(0, 999.9),
+    );
+  }
+
+  void dispose() {
+    sets.dispose();
+    reps.dispose();
+    weight.dispose();
+  }
 }
 
 String _trim(double value) {
