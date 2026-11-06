@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "84475966849",
+    "project_id": "atomicfit-37131",
+    "storage_bucket": "atomicfit-37131.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:84475966849:android:b56d093f155b26f0786480",
+        "android_client_info": {
+          "package_name": "com.example.atomfit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABSB6z_5IFJpmzlrq_lAH7cUiMDZl0vE0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

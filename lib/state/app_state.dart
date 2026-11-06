@@ -10,6 +10,7 @@ import '../data/seed_data.dart';
 import '../data/store.dart';
 import '../models/app_account.dart';
 import '../models/app_models.dart';
+import '../services/auth_service.dart';
 import '../services/personal_details_validation.dart';
 import '../services/notifications.dart';
 import '../services/rest_alerts.dart';
@@ -81,6 +82,10 @@ class AppState extends ChangeNotifier {
   final ExerciseRepository? _exercises;
 
   final PasswordHasher _hasher = const PasswordHasher();
+  
+  /// The online backend (Firebase). When it is `null` the app uses the old
+  /// local-only accounts, which is what the unit tests do.
+  AuthService? auth;
   final DateTime _now;
 
   // ------------------------------------------------------------- persisted
@@ -503,7 +508,132 @@ class AppState extends ChangeNotifier {
   }
 
   /// Signs the current user out.
+    // ------------------------------------------------ online accounts (Firebase)
+
+  /// Creates an account with Firebase, or locally when [auth] is `null`.
+  ///
+  /// Returns an error message, or `null` on success.
+  Future<String?> registerOnline({
+    required String email,
+    required String password,
+  }) async {
+    final AuthService? service = auth;
+    if (service == null) {
+      return registerAccount(email: email, password: password);
+    }
+
+    final String cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+      return 'Please enter a valid email address';
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+
+    final AuthResult result = await service.register(cleanEmail, password);
+    if (!result.isOk) return result.error;
+
+    // Firebase keeps the password. The app only keeps the profile.
+    final String uid = result.uid!;
+    final String now = DateTime.now().toUtc().toIso8601String();
+    final AppAccount account = AppAccount(
+      id: uid,
+      userId: uid,
+      email: cleanEmail,
+      username: '',
+      passwordHash: '',
+      passwordSalt: '',
+      gender: 'Prefer not to say',
+      dobDay: '',
+      dobMonth: '',
+      dobYear: '',
+      weightKg: '',
+      heightCm: '',
+      personalDetailsComplete: false,
+      createdAt: DateFormat('MMMM yyyy').format(DateTime.now()),
+      createdAtUtc: now,
+      updatedAtUtc: now,
+    );
+    accounts = <AppAccount>[
+      ...accounts.where((AppAccount a) => a.id != uid),
+      account,
+    ];
+    user = _profileFor(account);
+    isLoggedIn = true;
+    personalDetailsComplete = false;
+    history = <WorkoutSession>[];
+    unawaited(persist());
+    unawaited(_saveToCloud(account));
+    notifyListeners();
+    return null;
+  }
+
+  /// Signs in with Firebase, or locally when [auth] is `null`.
+  ///
+  /// A username without an "@" (such as the demo user Joe123) still uses the
+  /// local accounts. Returns an error message, or `null` on success.
+  Future<String?> loginOnline({
+    required String identifier,
+    required String password,
+  }) async {
+    final AuthService? service = auth;
+    if (service == null || !identifier.contains('@')) {
+      return login(identifier: identifier, password: password);
+    }
+    if (password.isEmpty) return 'Incorrect email or password';
+
+    final String cleanEmail = identifier.trim().toLowerCase();
+    final AuthResult result = await service.signIn(cleanEmail, password);
+    if (!result.isOk) return result.error;
+
+    final String uid = result.uid!;
+    AppAccount? account = _accountFor(uid);
+    if (account == null) {
+      // First time on this phone: fetch the profile from Firestore.
+      Map<String, dynamic>? cloud;
+      try {
+        cloud = await service.loadProfile(uid);
+      } catch (_) {
+        cloud = null;
+      }
+      account = AppAccount.fromJson(<String, dynamic>{
+        ...?cloud,
+        'id': uid,
+        'userId': uid,
+        'email': cleanEmail,
+      });
+      accounts = <AppAccount>[...accounts, account];
+    }
+
+    isLoggedIn = true;
+    personalDetailsComplete = account.personalDetailsComplete;
+    user = _profileFor(account);
+    unawaited(persist());
+    notifyListeners();
+    return null;
+  }
+
+  /// Sends a password-reset e-mail. Returns an error message, or `null`.
+  Future<String?> sendPasswordReset(String email) async {
+    final AuthService? service = auth;
+    if (service == null) return null;
+    return service.sendPasswordReset(email.trim());
+  }
+
+  /// Copies an account's profile (never a password) to Firestore.
+  Future<void> _saveToCloud(AppAccount account) async {
+    final AuthService? service = auth;
+    if (service == null || account.userId.startsWith('u_')) return;
+    try {
+      await service.saveProfile(account.userId, account.toJson());
+    } catch (error) {
+      debugPrint('AtomFit: cloud profile save failed ($error)');
+    }
+  }
+
+  /// Signs the current user out.
   void logout() {
+    unawaited(auth?.signOut());
     isLoggedIn = false;
     unawaited(persist());
     notifyListeners();
@@ -568,6 +698,8 @@ class AppState extends ChangeNotifier {
 
     unawaited(persist());
     notifyListeners();
+    final AppAccount? savedAccount = _accountFor(user.id);
+    if (savedAccount != null) unawaited(_saveToCloud(savedAccount));
     return check;
   }
 
@@ -2035,6 +2167,8 @@ class AppState extends ChangeNotifier {
     unawaited(persist());
     notifyListeners();
     showToast('Profile updated!');
+    final AppAccount? savedAccount = _accountFor(user.id);
+    if (savedAccount != null) unawaited(_saveToCloud(savedAccount));
   }
 
   // ------------------------------------------------------------------ misc

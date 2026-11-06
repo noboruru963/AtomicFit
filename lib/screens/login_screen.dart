@@ -22,6 +22,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
+  bool _busy = false;
   String? _error;
 
   @override
@@ -31,7 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+    Future<void> _submit() async {
+    if (_busy) return;
     final AppState state = AfAppScope.of(context);
     final String identifier = _email.text.trim();
     final String password = _password.text;
@@ -41,16 +43,21 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final String? error = state.login(
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final String? error = await state.loginOnline(
       identifier: identifier,
       password: password,
     );
+    if (!mounted) return;
+    setState(() => _busy = false);
     if (error != null) {
       setState(() => _error = error);
       return;
     }
 
-    setState(() => _error = null);
     state.showToast(
       AfStrings.fill(AfStrings.loginWelcomeToast, <String, Object?>{
         'name': state.user.username.isEmpty ? identifier : state.user.username,
@@ -80,9 +87,21 @@ class _LoginScreenState extends State<LoginScreen> {
         AfButton(
           label: AfStrings.forgotSend,
           size: AfButtonSize.compact,
-          onPressed: () {
+          onPressed: () async {
+            final String email = _email.text.trim();
             Navigator.of(context).pop();
-            state.showToast(AfStrings.forgotSentToast, kind: ToastKind.info);
+            if (!email.contains('@')) {
+              state.showToast(
+                'Type your email in the email box first',
+                kind: ToastKind.danger,
+              );
+              return;
+            }
+            final String? error = await state.sendPasswordReset(email);
+            state.showToast(
+              error ?? AfStrings.forgotSentToast,
+              kind: error == null ? ToastKind.info : ToastKind.danger,
+            );
           },
         ),
       ],
@@ -188,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 AfButton(
-                  label: AfStrings.loginButton,
+                  label: _busy ? 'Please wait...' : AfStrings.loginButton,
                   expand: true,
                   onPressed: _submit,
                 ),

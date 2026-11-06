@@ -33,6 +33,8 @@ import 'services/speech_to_text_source.dart';
 import 'state/app_state.dart';
 import 'strings.dart';
 import 'theme/app_theme.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +57,7 @@ AppLifecycleListener? _lifecycle;
 /// device usually means the wiring here is wrong, not the screen.
 Future<void> _boot() async {
   try {
+    await Firebase.initializeApp();
     // The local database: accounts, exercise catalogue, programs, sessions.
     final AppDatabase database = AppDatabase();
     final SqliteExerciseRepository exercises =
@@ -80,6 +83,7 @@ Future<void> _boot() async {
       store: store,
       exercises: exercises,
     );
+    state.auth = FirebaseAuthService();
     await state.load();
     // OS notifications: the live rest countdown and the planned-workout
     // reminders. Both are optional; the app works without them.

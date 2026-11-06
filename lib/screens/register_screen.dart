@@ -24,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _confirm = TextEditingController();
 
   bool _terms = false;
+  bool _busy = false;
   String? _error;
 
   @override
@@ -34,7 +35,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _submit() {
+    Future<void> _submit() async {
+    if (_busy) return;
     final AppState state = AfAppScope.of(context);
     final String email = _email.text.trim();
     final String password = _password.text;
@@ -56,16 +58,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final String? error = state.registerAccount(
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final String? error = await state.registerOnline(
       email: email,
       password: password,
     );
+    if (!mounted) return;
+    setState(() => _busy = false);
     if (error != null) {
       setState(() => _error = error);
       return;
     }
 
-    setState(() => _error = null);
     Navigator.of(context).pushReplacementNamed(AfScreen.personalDetails);
   }
 
@@ -151,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 AfButton(
-                  label: AfStrings.registerSubmit,
+                  label: _busy ? 'Please wait...' : AfStrings.registerSubmit,
                   expand: true,
                   onPressed: _submit,
                 ),
