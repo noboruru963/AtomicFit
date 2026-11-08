@@ -13,6 +13,16 @@ database.
 Developed by Jonathan Gouw Alexandrio, Luiesrelio, and Alexander Marchiano, 
 for final projects of Software Requirements Engineering at the University of Jakarta International (UNIJI)
 
+## Download & install
+
+Grab the newest build from the **[Releases page](https://github.com/noboruru963/AtomicFit/releases/latest)** — no need to clone the repo or build anything.
+
+1. Open the release page on your Android phone and download `AtomicFit-<version>.apk`.
+2. When Android asks, allow installing from that source (Settings → Apps → Special access → Install unknown apps).
+3. Open the downloaded file and install.
+
+The release APK targets 64-bit ARM phones and runs on Android 7.0 or newer. Everything is stored locally on the device — there is no account server and no network call.
+
 ## Architecture
 
 ```
