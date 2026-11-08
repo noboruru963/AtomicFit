@@ -82,7 +82,7 @@ class AppState extends ChangeNotifier {
   final ExerciseRepository? _exercises;
 
   final PasswordHasher _hasher = const PasswordHasher();
-  
+
   /// The online backend (Firebase). When it is `null` the app uses the old
   /// local-only accounts, which is what the unit tests do.
   AuthService? auth;
@@ -508,7 +508,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Signs the current user out.
-    // ------------------------------------------------ online accounts (Firebase)
+  // ------------------------------------------------ online accounts (Firebase)
 
   /// Creates an account with Firebase, or locally when [auth] is `null`.
   ///

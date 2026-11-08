@@ -30,7 +30,7 @@ class FirebaseAuthService implements AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-   @override
+  @override
   Future<AuthResult> register(String email, String password) async {
     try {
       final UserCredential cred = await _auth.createUserWithEmailAndPassword(

@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// AtomicFit — Firestore security rules.
+//
+// The only data the app keeps online is one profile document per account,
+// keyed by the Firebase Auth uid:
+//
+//   users/{uid} = { id, userId, email, username, gender, dobDay, dobMonth,
+//                   dobYear, weightKg, heightCm, personalDetailsComplete,
+//                   createdAt, createdAtUtc, updatedAtUtc, deletedAtUtc }
+//
+// Everything else (workouts, sets, programs, notes) stays on the phone.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+// Test with:    the Rules Playground in the Firebase console.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      // Signed in, and only ever their own document.
+      allow read, write: if isOwner(uid) && ownsDocument(uid);
+
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // A write must carry the same uid in the payload, so a document can
+      // never be moved to another account.
+      function ownsDocument(userId) {
+        return request.method == 'delete'
+            || request.resource.data.userId == userId;
+      }
+    }
+
+    // Nothing else is reachable from the client.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
