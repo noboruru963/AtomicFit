@@ -82,6 +82,23 @@ class AfStrings {
   static const String registerTermsMissing = 'Please accept the terms';
   static const String registerCreatedToast = 'Account created for {name}!';
 
+  // ------------------------------------------------------- email confirmation
+  static const String verifyEyebrow = 'One more step';
+  static const String verifyTitle = 'Confirm your email';
+  static const String verifyBody =
+      'We sent a confirmation link to {email}. Open it on this phone, then '
+      'come back here.';
+  static const String verifyHint =
+      'Nothing in your inbox? Check the spam folder, or send the email again.';
+  static const String verifyConfirm = "I've verified";
+  static const String verifyResend = 'Resend email';
+  static const String verifyResent = 'Confirmation email sent again';
+  static const String verifyNotYet =
+      'Not confirmed yet. Open the link in your email, then try again.';
+  static const String verifyFailed = 'Could not check the address. Try again.';
+  static const String verifyBack = 'Back to login';
+  static const String pleaseWait = 'Please wait...';
+
   // -------------------------------------------------------------------- home
   static const String homeWelcome = 'Welcome back, {name}';
   static const String homeCurrentProgram = 'Current Program:';

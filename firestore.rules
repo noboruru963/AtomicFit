@@ -19,7 +19,9 @@ service cloud.firestore {
 
     match /users/{uid} {
       // Signed in, and only ever their own document.
-      allow read, write: if isOwner(uid) && ownsDocument(uid);
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) && ownsDocument(uid);
+      allow delete: if isOwner(uid);
 
       function isOwner(userId) {
         return request.auth != null && request.auth.uid == userId;
@@ -28,8 +30,7 @@ service cloud.firestore {
       // A write must carry the same uid in the payload, so a document can
       // never be moved to another account.
       function ownsDocument(userId) {
-        return request.method == 'delete'
-            || request.resource.data.userId == userId;
+        return request.resource.data.userId == userId;
       }
     }
 
