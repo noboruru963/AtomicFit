@@ -47,6 +47,55 @@ class VoiceCommandResult {
   final String? error;
 }
 
+/// How [AppState.loginOnline] or [AppState.registerOnline] ended.
+enum SignInStatus {
+  /// Signed in and the account is open.
+  ok,
+
+  /// The account exists but its e-mail address still has to be confirmed.
+  unverified,
+
+  /// Nothing changed; [SignInOutcome.message] says why.
+  error,
+}
+
+/// The result of an online sign-in or sign-up.
+class SignInOutcome {
+  const SignInOutcome.ok()
+      : status = SignInStatus.ok,
+        message = null,
+        email = null;
+  const SignInOutcome.unverified(this.email)
+      : status = SignInStatus.unverified,
+        message = null;
+  const SignInOutcome.error(this.message)
+      : status = SignInStatus.error,
+        email = null;
+
+  final SignInStatus status;
+
+  /// Validation message for [SignInStatus.error], otherwise `null`.
+  final String? message;
+
+  /// The address waiting for confirmation, for [SignInStatus.unverified].
+  final String? email;
+
+  bool get isOk => status == SignInStatus.ok;
+  bool get needsVerification => status == SignInStatus.unverified;
+}
+
+/// The outcome of [AppState.confirmEmailVerified].
+enum VerificationCheck {
+  /// The address is confirmed and the account is open.
+  verified,
+
+  /// Firebase still reports the address as unconfirmed.
+  notYet,
+
+  /// The session is gone or the check failed.
+  failed,
+}
+
 /// The demo line older drafts kept in the voice box. It is dropped on restore
 /// so a resumed workout starts with an empty input.
 const String _legacyVoiceText = 'add 10 reps';
@@ -120,6 +169,10 @@ class AppState extends ChangeNotifier {
 
   /// Whether the signed-in account finished the personal-details step.
   bool personalDetailsComplete = true;
+
+  /// The address shown by the confirmation screen while an online account
+  /// waits for its e-mail to be verified. Empty when nothing is pending.
+  String pendingVerificationEmail = '';
 
   /// The exercise the Discover detail screen is showing.
   String? selectedExerciseId;
@@ -512,84 +565,87 @@ class AppState extends ChangeNotifier {
 
   /// Creates an account with Firebase, or locally when [auth] is `null`.
   ///
-  /// Returns an error message, or `null` on success.
-  Future<String?> registerOnline({
+  /// A Firebase account is not opened here: it has to confirm its e-mail
+  /// address first, and the caller routes to the confirmation screen.
+  Future<SignInOutcome> registerOnline({
     required String email,
     required String password,
   }) async {
     final AuthService? service = auth;
     if (service == null) {
-      return registerAccount(email: email, password: password);
+      final String? error = registerAccount(email: email, password: password);
+      return error == null
+          ? const SignInOutcome.ok()
+          : SignInOutcome.error(error);
     }
 
     final String cleanEmail = email.trim().toLowerCase();
     if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
-      return 'Please enter a valid email address';
+      return const SignInOutcome.error(AfStrings.registerInvalidEmail);
     }
     if (password.length < 6) {
-      return 'Password must be at least 6 characters';
+      return const SignInOutcome.error(
+          'Password must be at least 6 characters');
     }
 
     final AuthResult result = await service.register(cleanEmail, password);
-    if (!result.isOk) return result.error;
+    if (result.needsVerification) {
+      pendingVerificationEmail = cleanEmail;
+      notifyListeners();
+      return SignInOutcome.unverified(cleanEmail);
+    }
+    if (!result.isOk) {
+      return SignInOutcome.error(result.error ?? 'Something went wrong');
+    }
 
-    // Firebase keeps the password. The app only keeps the profile.
-    final String uid = result.uid!;
-    final String now = DateTime.now().toUtc().toIso8601String();
-    final AppAccount account = AppAccount(
-      id: uid,
-      userId: uid,
-      email: cleanEmail,
-      username: '',
-      passwordHash: '',
-      passwordSalt: '',
-      gender: 'Prefer not to say',
-      dobDay: '',
-      dobMonth: '',
-      dobYear: '',
-      weightKg: '',
-      heightCm: '',
-      personalDetailsComplete: false,
-      createdAt: DateFormat('MMMM yyyy').format(DateTime.now()),
-      createdAtUtc: now,
-      updatedAtUtc: now,
-    );
-    accounts = <AppAccount>[
-      ...accounts.where((AppAccount a) => a.id != uid),
-      account,
-    ];
-    user = _profileFor(account);
-    isLoggedIn = true;
-    personalDetailsComplete = false;
-    history = <WorkoutSession>[];
-    unawaited(persist());
-    unawaited(_saveToCloud(account));
-    notifyListeners();
-    return null;
+    await _openOnlineAccount(result.uid!, cleanEmail);
+    return const SignInOutcome.ok();
   }
 
   /// Signs in with Firebase, or locally when [auth] is `null`.
   ///
   /// A username without an "@" (such as the demo user Joe123) still uses the
-  /// local accounts. Returns an error message, or `null` on success.
-  Future<String?> loginOnline({
+  /// local accounts. A Firebase account is only opened once its e-mail
+  /// address is confirmed.
+  Future<SignInOutcome> loginOnline({
     required String identifier,
     required String password,
   }) async {
     final AuthService? service = auth;
     if (service == null || !identifier.contains('@')) {
-      return login(identifier: identifier, password: password);
+      final String? error = login(identifier: identifier, password: password);
+      return error == null
+          ? const SignInOutcome.ok()
+          : SignInOutcome.error(error);
     }
-    if (password.isEmpty) return 'Incorrect email or password';
+    if (password.isEmpty) {
+      return const SignInOutcome.error(AfStrings.loginError);
+    }
 
     final String cleanEmail = identifier.trim().toLowerCase();
     final AuthResult result = await service.signIn(cleanEmail, password);
-    if (!result.isOk) return result.error;
+    if (result.needsVerification) {
+      pendingVerificationEmail = cleanEmail;
+      notifyListeners();
+      return SignInOutcome.unverified(cleanEmail);
+    }
+    if (!result.isOk) {
+      return SignInOutcome.error(result.error ?? AfStrings.loginError);
+    }
 
-    final String uid = result.uid!;
+    await _openOnlineAccount(result.uid!, cleanEmail);
+    return const SignInOutcome.ok();
+  }
+
+  /// Opens a Firebase account that is signed in and verified.
+  ///
+  /// The profile comes from the local database when this phone has seen the
+  /// account before, otherwise from Firestore.
+  Future<void> _openOnlineAccount(String uid, String email) async {
+    final AuthService? service = auth;
     AppAccount? account = _accountFor(uid);
-    if (account == null) {
-      // First time on this phone: fetch the profile from Firestore.
+    final bool isNew = account == null;
+    if (account == null && service != null) {
       Map<String, dynamic>? cloud;
       try {
         cloud = await service.loadProfile(uid);
@@ -600,17 +656,52 @@ class AppState extends ChangeNotifier {
         ...?cloud,
         'id': uid,
         'userId': uid,
-        'email': cleanEmail,
+        'email': email,
       });
       accounts = <AppAccount>[...accounts, account];
     }
+    if (account == null) return;
 
+    pendingVerificationEmail = '';
     isLoggedIn = true;
     personalDetailsComplete = account.personalDetailsComplete;
     user = _profileFor(account);
+    // A brand-new account starts with an empty history on this phone.
+    if (isNew) history = <WorkoutSession>[];
     unawaited(persist());
     notifyListeners();
-    return null;
+  }
+
+  /// Re-checks the confirmation and opens the account once it is verified.
+  ///
+  /// The confirmation screen calls this after "I've verified".
+  Future<VerificationCheck> confirmEmailVerified() async {
+    final AuthService? service = auth;
+    if (service == null) return VerificationCheck.failed;
+
+    final AuthResult result = await service.checkVerification();
+    if (result.needsVerification) return VerificationCheck.notYet;
+    if (!result.isOk) return VerificationCheck.failed;
+
+    final String email = pendingVerificationEmail;
+    await _openOnlineAccount(result.uid!, email);
+    return isLoggedIn ? VerificationCheck.verified : VerificationCheck.failed;
+  }
+
+  /// Sends the confirmation e-mail again. Returns an error message or `null`.
+  Future<String?> resendVerification() async {
+    final AuthService? service = auth;
+    if (service == null) return 'Please sign in again';
+    return service.resendVerification();
+  }
+
+  /// Leaves the confirmation screen without opening the account.
+  void cancelVerification() {
+    unawaited(auth?.signOut());
+    pendingVerificationEmail = '';
+    isLoggedIn = false;
+    unawaited(persist());
+    notifyListeners();
   }
 
   /// Sends a password-reset e-mail. Returns an error message, or `null`.
@@ -635,6 +726,7 @@ class AppState extends ChangeNotifier {
   void logout() {
     unawaited(auth?.signOut());
     isLoggedIn = false;
+    pendingVerificationEmail = '';
     unawaited(persist());
     notifyListeners();
     showToast('Logged out', kind: ToastKind.info);

@@ -40,6 +40,7 @@ class AfScreen {
 
   static const String login = 'login';
   static const String register = 'register';
+  static const String verifyEmail = 'verify-email';
   static const String personalDetails = 'personal-details';
   static const String home = 'home';
   static const String programs = 'programs';
@@ -100,12 +101,14 @@ class AfScreen {
       isLoggedIn &&
       screenId != login &&
       screenId != register &&
+      screenId != verifyEmail &&
       screenId != personalDetails;
 
   static bool showsBottomNav(String screenId, {bool isLoggedIn = true}) =>
       isLoggedIn &&
       screenId != login &&
       screenId != register &&
+      screenId != verifyEmail &&
       screenId != personalDetails &&
       screenId != timer;
 }

@@ -47,14 +47,20 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
       _error = null;
     });
-    final String? error = await state.loginOnline(
+    final SignInOutcome outcome = await state.loginOnline(
       identifier: identifier,
       password: password,
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (error != null) {
-      setState(() => _error = error);
+
+    // The account exists but its address is not confirmed yet.
+    if (outcome.needsVerification) {
+      Navigator.of(context).pushReplacementNamed(AfScreen.verifyEmail);
+      return;
+    }
+    if (!outcome.isOk) {
+      setState(() => _error = outcome.message ?? AfStrings.loginError);
       return;
     }
 

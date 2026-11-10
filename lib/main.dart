@@ -26,6 +26,7 @@ import 'screens/quiz_question_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/rest_timer_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/verify_email_screen.dart';
 import 'screens/workout_complete_screen.dart';
 import 'services/notifications.dart';
 import 'services/rest_alerts.dart';
@@ -164,6 +165,8 @@ class AtomFitApp extends StatelessWidget {
               AfScreen.login: (BuildContext context) => const LoginScreen(),
               AfScreen.register: (BuildContext context) =>
                   const RegisterScreen(),
+              AfScreen.verifyEmail: (BuildContext context) =>
+                  const VerifyEmailScreen(),
               AfScreen.personalDetails: (BuildContext context) =>
                   const PersonalDetailsScreen(),
               AfScreen.home: (BuildContext context) => const HomeScreen(),

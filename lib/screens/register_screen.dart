@@ -62,14 +62,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _busy = true;
       _error = null;
     });
-    final String? error = await state.registerOnline(
+    final SignInOutcome outcome = await state.registerOnline(
       email: email,
       password: password,
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (error != null) {
-      setState(() => _error = error);
+
+    // Firebase accounts start with a confirmation e-mail.
+    if (outcome.needsVerification) {
+      Navigator.of(context).pushReplacementNamed(AfScreen.verifyEmail);
+      return;
+    }
+    if (!outcome.isOk) {
+      setState(
+          () => _error = outcome.message ?? AfStrings.registerInvalidEmail);
       return;
     }
 
