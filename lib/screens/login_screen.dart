@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-    Future<void> _submit() async {
+  Future<void> _submit() async {
     if (_busy) return;
     final AppState state = AfAppScope.of(context);
     final String identifier = _email.text.trim();

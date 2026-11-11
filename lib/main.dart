@@ -57,7 +57,17 @@ AppLifecycleListener? _lifecycle;
 /// device usually means the wiring here is wrong, not the screen.
 Future<void> _boot() async {
   try {
-    await Firebase.initializeApp();
+    // Firebase is optional. If it cannot start (no Google Play services, no
+    // config on this platform, a broken install), the app keeps running with
+    // the local accounts instead of failing to open.
+    try {
+      await Firebase.initializeApp();
+    } catch (error, stackTrace) {
+      debugPrint(
+        'AtomFit: Firebase unavailable, local accounts only ($error)\n'
+        '$stackTrace',
+      );
+    }
     // The local database: accounts, exercise catalogue, programs, sessions.
     final AppDatabase database = AppDatabase();
     final SqliteExerciseRepository exercises =
@@ -83,7 +93,7 @@ Future<void> _boot() async {
       store: store,
       exercises: exercises,
     );
-    state.auth = FirebaseAuthService();
+    state.auth = Firebase.apps.isEmpty ? null : FirebaseAuthService();
     await state.load();
     // OS notifications: the live rest countdown and the planned-workout
     // reminders. Both are optional; the app works without them.

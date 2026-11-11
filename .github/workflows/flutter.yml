@@ -4,8 +4,9 @@ name: Flutter checks
 # static analysis and the full test suite. The APK itself is built locally —
 # Gradle on a hosted runner is slow and adds nothing for a prototype demo.
 on:
+  # Any pull request, whatever its base branch: a feature branch that is still
+  # being reviewed (such as firebase-auth) deserves the same gates.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 

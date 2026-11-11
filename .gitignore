@@ -27,3 +27,9 @@ Thumbs.db
 .env.*.local
 
 windows/
+
+# Generated Flutter files — machine specific (they contain absolute paths)
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
